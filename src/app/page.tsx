@@ -5,7 +5,7 @@ import {
   getAssignments, getSubmissions, getDailyTrackings, deleteAssignment,
   updateSubmissionScore, updateTrackingScore, deleteSubmission, deleteTracking, clearAllData,
   Assignment, Submission, DailyTracking, STUDENT_NAMES, STUDENT_COLORS, STUDENT_AVATARS,
-  seedIfEmpty, getGamificationProfiles, BADGE_DEFS, GamificationProfile
+  seedIfEmpty, getGamificationProfiles, BADGE_DEFS, GamificationProfile, importAssignment
 } from '@/lib/local-store';
 import { 
   Users, BookOpen, Clock, Target, Edit2, Save, X, XCircle,
@@ -203,10 +203,32 @@ export default function TeacherDashboard() {
   const [selectedStudentForEdit, setSelectedStudentForEdit] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  const refreshData = () => {
+  const refreshData = async () => {
     setAssignments(getAssignments());
     setSubmissions(getSubmissions());
     setTrackings(getDailyTrackings());
+
+    try {
+      const res = await fetch('/api/assignments');
+      if (res.ok) {
+        const cloudAssignments: Assignment[] = await res.json();
+        if (Array.isArray(cloudAssignments) && cloudAssignments.length > 0) {
+          let hasNew = false;
+          const current = getAssignments();
+          for (const a of cloudAssignments) {
+            if (!current.find(curr => curr.id === a.id)) {
+              importAssignment(a);
+              hasNew = true;
+            }
+          }
+          if (hasNew) {
+            setAssignments(getAssignments());
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Lỗi khi đồng bộ bài tập:', e);
+    }
   };
 
   useEffect(() => {

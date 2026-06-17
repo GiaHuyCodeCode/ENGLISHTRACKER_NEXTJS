@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  getAssignments, getSubmissions, seedIfEmpty,
+  getAssignments, getSubmissions, seedIfEmpty, importAssignment,
   Assignment, Submission, STUDENT_NAMES, STUDENT_COLORS, STUDENT_AVATARS,
 } from '@/lib/local-store';
 import {
@@ -68,11 +68,36 @@ export default function StudentAssignmentsPage() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    seedIfEmpty();
-    const saved = localStorage.getItem('et_current_student');
-    if (saved && STUDENT_NAMES.includes(saved)) setStudentName(saved);
-    setAssignments(getAssignments());
-    setMounted(true);
+    const initData = async () => {
+      seedIfEmpty();
+      const saved = localStorage.getItem('et_current_student');
+      if (saved && STUDENT_NAMES.includes(saved)) setStudentName(saved);
+      setAssignments(getAssignments());
+      setMounted(true);
+
+      try {
+        const res = await fetch('/api/assignments');
+        if (res.ok) {
+          const cloudAssignments: Assignment[] = await res.json();
+          if (Array.isArray(cloudAssignments) && cloudAssignments.length > 0) {
+            let hasNew = false;
+            const current = getAssignments();
+            for (const a of cloudAssignments) {
+              if (!current.find(curr => curr.id === a.id)) {
+                importAssignment(a);
+                hasNew = true;
+              }
+            }
+            if (hasNew) {
+              setAssignments(getAssignments());
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Lỗi khi đồng bộ bài tập:', e);
+      }
+    };
+    initData();
   }, []);
 
   useEffect(() => {

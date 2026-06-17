@@ -29,3 +29,31 @@ export async function syncSubmissionToSheet(submission: any): Promise<void> {
     console.error('❌ Lỗi khi gửi dữ liệu lên Google Sheets:', error);
   }
 }
+
+/**
+ * Gửi đề bài mới lên Google Sheets thông qua Google Apps Script Web App.
+ */
+export async function syncAssignmentToSheet(assignment: any): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_GAS_WEB_APP_URL;
+
+  if (!url) {
+    console.warn('⚠️ Google Sheets Sync: Missing NEXT_PUBLIC_GAS_WEB_APP_URL.');
+    return;
+  }
+
+  try {
+    const payload = { ...assignment, action: 'add_assignment' };
+    const response = await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    console.log('✅ Đã đẩy bài tập lên Google Sheets thành công (nền).', assignment.title);
+  } catch (error) {
+    console.error('❌ Lỗi khi đẩy bài tập lên Google Sheets:', error);
+  }
+}

@@ -1,4 +1,4 @@
-import { syncSubmissionToSheet } from './google-sheets';
+import { syncSubmissionToSheet, syncAssignmentToSheet } from './google-sheets';
 
 
 // ─── Fuzzy Match (Levenshtein, threshold 80%) ────────────────────────────────
@@ -232,6 +232,10 @@ export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'>): Assi
   const all = getAssignments();
   const a: Assignment = { ...data, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
   write(KEYS.assignments, [...all, a]);
+  
+  // Đồng bộ lên Google Sheets (Chạy ngầm)
+  syncAssignmentToSheet(a);
+  
   return a;
 }
 
