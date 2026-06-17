@@ -315,7 +315,7 @@ export function clearAllData(): void {
   localStorage.removeItem(KEYS.assignments);
   localStorage.removeItem(KEYS.submissions);
   localStorage.removeItem(KEYS.dailyTracking);
-  localStorage.removeItem(KEYS.seeded);
+  // Không xóa KEYS.seeded để tránh việc tự động tạo lại dữ liệu mẫu khi reload
   localStorage.removeItem('et_gamification');
 }
 
