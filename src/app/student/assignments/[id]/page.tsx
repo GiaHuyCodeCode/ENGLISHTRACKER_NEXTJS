@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  getAssignment, getStudentSubmission, submitVocab, submitQuiz, submitRewrite,
-  Assignment, Submission, STUDENT_NAMES, STUDENT_COLORS, STUDENT_AVATARS, seedIfEmpty,
+  getAssignment, getStudentSubmission, getSubmissions, submitVocab, submitQuiz, submitRewrite,
+  Assignment, Submission, getStudentNames, getStudentColors, getStudentAvatar, seedIfEmpty,
 } from '@/lib/local-store';
 import { VocabContextExercise } from '@/components/exercises/VocabContextExercise';
 import { MultipleChoiceExercise } from '@/components/exercises/MultipleChoiceExercise';
@@ -26,8 +26,8 @@ function StudentModal({ onConfirm }: { onConfirm: (name: string) => void }) {
           <p className="text-sm text-muted-foreground">Chọn tên để lưu kết quả</p>
         </div>
         <div className="grid grid-cols-2 gap-2.5">
-          {STUDENT_NAMES.map(name => {
-            const c = STUDENT_COLORS[name];
+          {getStudentNames().map(name => {
+            const c = getStudentColors(name);
             return (
               <button
                 key={name}
@@ -39,7 +39,7 @@ function StudentModal({ onConfirm }: { onConfirm: (name: string) => void }) {
                 }`}
               >
                 <span className={`w-8 h-8 rounded-lg ${c.bg} ${c.text} flex items-center justify-center text-xs font-bold flex-shrink-0`}>
-                  {STUDENT_AVATARS[name]}
+                  {getStudentAvatar(name)}
                 </span>
                 <span className="leading-tight">{name}</span>
               </button>
@@ -71,6 +71,7 @@ export default function ExercisePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [pendingAnswers, setPendingAnswers] = useState<unknown>(null);
+  const [pendingOverrides, setPendingOverrides] = useState<string[] | undefined>(undefined);
   const [currentStudent, setCurrentStudent] = useState<string | null>(null);
 
   useEffect(() => {
@@ -80,16 +81,17 @@ export default function ExercisePage() {
     setAssignment(a);
 
     const saved = localStorage.getItem('et_current_student');
-    if (saved && STUDENT_NAMES.includes(saved)) {
+    if (saved && getStudentNames().includes(saved)) {
       setCurrentStudent(saved);
       const existing = getStudentSubmission(id, saved);
       if (existing) setExistingResult(existing);
     }
   }, [id, router]);
 
-  const handleVocabSubmit = (answers: { word: string; studentAnswer: string }[]) => {
+  const handleVocabSubmit = (answers: { word: string; studentAnswer: string }[], overriddenWords?: string[]) => {
     setPendingAnswers(answers);
-    if (currentStudent) doSubmitVocab(currentStudent, answers);
+    setPendingOverrides(overriddenWords);
+    if (currentStudent) doSubmitVocab(currentStudent, answers, overriddenWords);
     else setShowModal(true);
   };
 
@@ -105,7 +107,7 @@ export default function ExercisePage() {
     else setShowModal(true);
   };
 
-  const doSubmitVocab = (name: string, answers: unknown) => {
+  const doSubmitVocab = (name: string, answers: unknown, overriddenWords?: string[]) => {
     setIsSubmitting(true);
     setShowModal(false);
     localStorage.setItem('et_current_student', name);
@@ -115,6 +117,7 @@ export default function ExercisePage() {
         assignmentId: id,
         studentName: name,
         answers: answers as { word: string; studentAnswer: string }[],
+        overriddenWords,
       });
       setResult(sub);
     } finally {
@@ -157,7 +160,7 @@ export default function ExercisePage() {
   };
 
   const handleModalConfirm = (name: string) => {
-    if (assignment?.type === 'vocab_context') doSubmitVocab(name, pendingAnswers);
+    if (assignment?.type === 'vocab_context') doSubmitVocab(name, pendingAnswers, pendingOverrides);
     else if (assignment?.type === 'multiple_choice') doSubmitQuiz(name, pendingAnswers);
     else doSubmitRewrite(name, pendingAnswers);
   };
@@ -252,6 +255,9 @@ export default function ExercisePage() {
               isSubmitting={isSubmitting}
               result={displayResult?.quizAnswers}
               score={displayResult?.score}
+              allowHints={assignment.allowHints}
+              feedback={displayResult?.feedback}
+              allSubmissions={getSubmissions().filter(s => s.assignmentId === id)}
             />
           )}
 

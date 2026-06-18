@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { STUDENT_NAMES, STUDENT_COLORS, STUDENT_AVATARS, loginUser } from '@/lib/local-store';
+import { getStudentNames, getStudentColors, getStudentAvatar, loginUser } from '@/lib/local-store';
 import { ShieldCheck, User, LogIn, GraduationCap } from 'lucide-react';
 
 export default function LoginPage() {
@@ -84,8 +84,8 @@ export default function LoginPage() {
             <div className="fade-in stagger-1 space-y-4">
               <p className="text-sm text-center text-muted-foreground mb-4">Chọn tên của bạn</p>
               <div className="grid grid-cols-2 gap-3">
-                {STUDENT_NAMES.map(name => {
-                  const c = STUDENT_COLORS[name];
+                {getStudentNames().map(name => {
+                  const c = getStudentColors(name);
                   return (
                     <button
                       key={name}
@@ -93,7 +93,7 @@ export default function LoginPage() {
                       className={`flex flex-col items-center gap-2 p-4 rounded-2xl border border-white/5 bg-secondary/30 hover:bg-secondary/60 hover:border-${c.text.split('-')[1]}-500/50 transition-all group`}
                     >
                       <div className={`w-12 h-12 ${c.bg} ${c.text} border ${c.border} rounded-xl flex items-center justify-center text-lg font-bold group-hover:scale-110 transition-transform`}>
-                        {STUDENT_AVATARS[name]}
+                        {getStudentAvatar(name)}
                       </div>
                       <span className="font-semibold text-sm">{name}</span>
                     </button>

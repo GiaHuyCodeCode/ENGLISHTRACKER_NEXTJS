@@ -1,13 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { VocabKeyword, VocabAnswerResult } from '@/lib/local-store';
-import { CheckCircle2, XCircle, Lightbulb, Send } from 'lucide-react';
+import { VocabKeyword, VocabAnswerResult, isFuzzyMatch } from '@/lib/local-store';
+import { CheckCircle2, XCircle, Lightbulb, Send, Eye, Check } from 'lucide-react';
 
 interface Props {
   passage: string;
   keywords: VocabKeyword[];
-  onSubmit: (answers: { word: string; studentAnswer: string }[]) => void;
+  onSubmit: (answers: { word: string; studentAnswer: string }[], overriddenWords?: string[]) => void;
   isSubmitting?: boolean;
   result?: VocabAnswerResult[];
   score?: number;
@@ -17,19 +17,45 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
   const [answers, setAnswers] = useState<Record<string, string>>(
     Object.fromEntries(keywords.map(k => [k.word, ''])),
   );
+  const [step, setStep] = useState<'filling' | 'reviewing' | 'finished'>(result ? 'finished' : 'filling');
+  const [overrides, setOverrides] = useState<Set<string>>(new Set());
 
-  const isSubmitted = !!result;
+  const isSubmitted = step === 'finished';
   const parts = passage.split(/(\[[^\]]+\])/g);
 
   const getResult = (word: string) =>
     result?.find(r => r.word.toLowerCase() === word.toLowerCase());
 
+  const handleCheck = () => {
+    setStep('reviewing');
+  };
+
+  const handleOverride = (word: string) => {
+    setOverrides(prev => {
+      const next = new Set(prev);
+      if (next.has(word)) next.delete(word);
+      else next.add(word);
+      return next;
+    });
+  };
+
   const handleSubmit = () => {
-    onSubmit(keywords.map(k => ({ word: k.word, studentAnswer: answers[k.word] || '' })));
+    onSubmit(
+      keywords.map(k => ({ word: k.word, studentAnswer: answers[k.word] || '' })),
+      Array.from(overrides)
+    );
+    setStep('finished');
   };
 
   const filledCount = Object.values(answers).filter(v => v.trim()).length;
-  const correctCount = result?.filter(r => r.isCorrect).length ?? 0;
+  // Calculate preview correct count during reviewing
+  const previewCorrectCount = keywords.filter(k => 
+    overrides.has(k.word) || isFuzzyMatch(answers[k.word] || '', k.answer)
+  ).length;
+  const previewScore = keywords.length > 0 ? Math.round((previewCorrectCount / keywords.length) * 100) : 0;
+
+  const correctCount = isSubmitted ? (result?.filter(r => r.isCorrect).length ?? 0) : previewCorrectCount;
+  const displayScore = isSubmitted ? score : previewScore;
 
   return (
     <div className="space-y-6">
@@ -50,6 +76,7 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
 
             const word = match[1];
             const wordResult = getResult(word);
+            const matchKeyword = keywords.find(k => k.word.toLowerCase() === word.toLowerCase());
 
             return (
               <span key={i} className="inline-flex items-center gap-1.5 mx-1 my-1">
@@ -59,29 +86,41 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
                 </span>
 
                 {/* Input or result */}
-                {!isSubmitted ? (
+                {step === 'filling' ? (
                   <input
                     type="text"
                     value={answers[word] || ''}
                     onChange={e => setAnswers(prev => ({ ...prev, [word]: e.target.value }))}
-                    onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                    onKeyDown={e => e.key === 'Enter' && handleCheck()}
                     placeholder="nghĩa..."
                     className="input-inline w-24"
                     autoComplete="off"
                   />
                 ) : (
                   <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border ${
-                    wordResult?.isCorrect
+                    (isSubmitted ? wordResult?.isCorrect : (overrides.has(word) || isFuzzyMatch(answers[word] || '', matchKeyword?.answer || '')))
                       ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                       : 'bg-red-500/15 text-red-400 border-red-500/30'
                   }`}>
-                    {wordResult?.isCorrect
+                    {(isSubmitted ? wordResult?.isCorrect : (overrides.has(word) || isFuzzyMatch(answers[word] || '', matchKeyword?.answer || '')))
                       ? <CheckCircle2 className="h-3 w-3" />
                       : <XCircle className="h-3 w-3" />}
-                    <span>{wordResult?.studentAnswer || '(trống)'}</span>
-                    {!wordResult?.isCorrect && (
-                      <span className="text-muted-foreground ml-1">
-                        → <strong className="text-emerald-400">{wordResult?.correctAnswer}</strong>
+                    
+                    <span>{isSubmitted ? (wordResult?.studentAnswer || '(trống)') : (answers[word] || '(trống)')}</span>
+                    
+                    {!(isSubmitted ? wordResult?.isCorrect : (overrides.has(word) || isFuzzyMatch(answers[word] || '', matchKeyword?.answer || ''))) && (
+                      <span className="text-muted-foreground ml-1 flex items-center gap-1">
+                        → <strong className="text-emerald-400">{isSubmitted ? wordResult?.correctAnswer : matchKeyword?.answer}</strong>
+                        
+                        {!isSubmitted && (
+                          <button
+                            onClick={() => handleOverride(word)}
+                            className="ml-2 p-1 rounded-md bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+                            title="Chấp nhận đáp án này (Nghĩa tương tự)"
+                          >
+                            <Check className="h-3 w-3" />
+                          </button>
+                        )}
                       </span>
                     )}
                   </span>
@@ -93,33 +132,49 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
       </div>
 
       {/* Score */}
-      {isSubmitted && score !== undefined && (
+      {(step === 'reviewing' || isSubmitted) && displayScore !== undefined && (
         <div className={`rounded-2xl p-6 text-center border-2 score-pop ${
-          score >= 80 ? 'border-emerald-500/40 bg-emerald-500/8 glow-success' :
-          score >= 50 ? 'border-amber-500/40 bg-amber-500/8' :
+          displayScore >= 80 ? 'border-emerald-500/40 bg-emerald-500/8 glow-success' :
+          displayScore >= 50 ? 'border-amber-500/40 bg-amber-500/8' :
           'border-red-500/40 bg-red-500/8 glow-error'
         }`}>
           <div className={`text-6xl font-bold font-heading ${
-            score >= 80 ? 'text-emerald-400' : score >= 50 ? 'text-amber-400' : 'text-red-400'
+            displayScore >= 80 ? 'text-emerald-400' : displayScore >= 50 ? 'text-amber-400' : 'text-red-400'
           }`}>
-            {score}
+            {displayScore}
             <span className="text-2xl text-muted-foreground">/100</span>
           </div>
           <p className="text-sm text-muted-foreground mt-2">
-            ✅ {correctCount}/{result?.length} từ đúng
-            {score >= 80 && ' — Xuất sắc! 🎉'}
-            {score >= 50 && score < 80 && ' — Khá tốt! 💪'}
-            {score < 50 && ' — Cần cố gắng thêm! 📚'}
+            ✅ {correctCount}/{keywords.length} từ đúng
+            {displayScore >= 80 && ' — Xuất sắc! 🎉'}
+            {displayScore >= 50 && displayScore < 80 && ' — Khá tốt! 💪'}
+            {displayScore < 50 && ' — Cần cố gắng thêm! 📚'}
           </p>
         </div>
       )}
 
-      {/* Submit */}
-      {!isSubmitted && (
+      {/* Submit / Check */}
+      {step === 'filling' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Đã điền: {filledCount}/{keywords.length} từ</span>
-            {filledCount < keywords.length && <span>Bạn có thể nộp khi chưa điền hết</span>}
+            {filledCount < keywords.length && <span>Bạn có thể kiểm tra khi chưa điền hết</span>}
+          </div>
+          <button
+            onClick={handleCheck}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-violet-500 text-white font-semibold text-sm hover:bg-violet-600 transition-all glow-primary"
+          >
+            <Eye className="h-4 w-4" />
+            Kiểm tra đáp án
+          </button>
+        </div>
+      )}
+
+      {step === 'reviewing' && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-secondary/50 text-sm text-muted-foreground">
+            <Lightbulb className="h-4 w-4 text-amber-400" />
+            Nếu bạn thấy nghĩa của mình tương tự, hãy bấm icon ✔️ màu xanh bên cạnh đáp án sai để đánh dấu là đúng nhé.
           </div>
           <button
             onClick={handleSubmit}
@@ -127,7 +182,7 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 transition-all glow-primary"
           >
             <Send className="h-4 w-4" />
-            {isSubmitting ? 'Đang chấm...' : 'Nộp Bài'}
+            {isSubmitting ? 'Đang cập nhật...' : 'Hoàn tất & Nộp bài'}
           </button>
         </div>
       )}

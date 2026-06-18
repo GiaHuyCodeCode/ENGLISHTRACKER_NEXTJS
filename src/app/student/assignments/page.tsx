@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  getAssignments, getSubmissions, seedIfEmpty, importAssignment,
-  Assignment, Submission, STUDENT_NAMES, STUDENT_COLORS, STUDENT_AVATARS,
+  getAssignments, getSubmissions, seedIfEmpty, syncAllFromCloud,
+  Assignment, Submission, getStudentNames, getStudentColors, getStudentAvatar,
 } from '@/lib/local-store';
 import {
   BookOpen, ListChecks, ChevronRight, CheckCircle2,
-  Clock, Trophy, User, LogOut, PenTool
+  Clock, Trophy, User, LogOut, PenTool, Loader2, RefreshCw
 } from 'lucide-react';
 
 function ScorePill({ score }: { score: number }) {
@@ -34,9 +34,9 @@ function StudentPicker({ onSelect }: { onSelect: (name: string) => void }) {
           <p className="text-muted-foreground text-sm">Bạn là ai? Chọn tên để vào học.</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          {STUDENT_NAMES.map(name => {
-            const colors = STUDENT_COLORS[name];
-            const initials = STUDENT_AVATARS[name];
+          {getStudentNames().map(name => {
+            const colors = getStudentColors(name);
+            const initials = getStudentAvatar(name);
             return (
               <button
                 key={name}
@@ -62,42 +62,47 @@ function StudentPicker({ onSelect }: { onSelect: (name: string) => void }) {
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function StudentAssignmentsPage() {
-  const [studentName, setStudentName] = useState<string | null>(null);
+  const [studentName, setStudentName] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('et_current_student');
+      if (saved && getStudentNames().includes(saved)) return saved;
+    }
+    return null;
+  });
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [mounted, setMounted] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  useEffect(() => {
-    const initData = async () => {
-      seedIfEmpty();
-      const saved = localStorage.getItem('et_current_student');
-      if (saved && STUDENT_NAMES.includes(saved)) setStudentName(saved);
-      setAssignments(getAssignments());
-      setMounted(true);
+  const refreshData = async () => {
+    // 1. Lấy dữ liệu local
+    setAssignments(getAssignments());
+    setMounted(true);
 
-      try {
-        const res = await fetch('/api/assignments');
-        if (res.ok) {
-          const cloudAssignments: Assignment[] = await res.json();
-          if (Array.isArray(cloudAssignments) && cloudAssignments.length > 0) {
-            let hasNew = false;
-            const current = getAssignments();
-            for (const a of cloudAssignments) {
-              if (!current.find(curr => curr.id === a.id)) {
-                importAssignment(a);
-                hasNew = true;
-              }
-            }
-            if (hasNew) {
-              setAssignments(getAssignments());
-            }
+    // 2. Fetch từ server
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/assignments');
+      if (res.ok) {
+        const cloudData = await res.json();
+        const hasChanges = syncAllFromCloud(cloudData);
+        if (hasChanges) {
+          setAssignments(getAssignments());
+          if (studentName) {
+            setSubmissions(getSubmissions().filter(s => s.studentName === studentName));
           }
         }
-      } catch (e) {
-        console.error('Lỗi khi đồng bộ bài tập:', e);
       }
-    };
-    initData();
+    } catch (e) {
+      console.error('Lỗi khi đồng bộ bài tập:', e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    seedIfEmpty();
+    refreshData();
   }, []);
 
   useEffect(() => {
@@ -109,8 +114,8 @@ export default function StudentAssignmentsPage() {
   if (!mounted) return null;
   if (!studentName) return <StudentPicker onSelect={setStudentName} />;
 
-  const colors = STUDENT_COLORS[studentName];
-  const initials = STUDENT_AVATARS[studentName];
+  const colors = getStudentColors(studentName);
+  const initials = getStudentAvatar(studentName);
   const myAvgScore = submissions.length
     ? Math.round(submissions.reduce((s, x) => s + x.score, 0) / submissions.length)
     : null;
@@ -129,19 +134,28 @@ export default function StudentAssignmentsPage() {
             {initials}
           </div>
           <div>
-            <h1 className="text-2xl font-bold font-heading gradient-text">Xin chào, {studentName}!</h1>
+            <h1 className="text-2xl font-bold font-heading gradient-text flex items-center gap-2">
+              Xin chào, {studentName}!
+              {isSyncing && <Loader2 className="h-5 w-5 text-primary animate-spin" />}
+            </h1>
             <p className="text-muted-foreground text-sm mt-0.5">
               {todo.length > 0 ? `${todo.length} bài tập đang chờ bạn` : 'Bạn đã hoàn thành tất cả! 🎉'}
             </p>
           </div>
         </div>
-        <button
-          onClick={() => { setStudentName(null); localStorage.removeItem('et_current_student'); }}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-xl hover:bg-slate-800/50"
-        >
-          <LogOut className="h-4 w-4" />
-          Đổi học viên
-        </button>
+        
+        <div className="flex items-center gap-2">
+          <button onClick={() => { setIsSyncing(true); refreshData(); }} disabled={isSyncing} className="p-2 rounded-xl glass hover-lift border border-border text-muted-foreground hover:text-primary transition-all disabled:opacity-50">
+            <RefreshCw className={`h-5 w-5 ${isSyncing ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => { setStudentName(null); localStorage.removeItem('et_current_student'); }}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-xl hover:bg-slate-800/50"
+          >
+            <LogOut className="h-4 w-4" />
+            Đổi học viên
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -230,7 +244,7 @@ export default function StudentAssignmentsPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{a.title}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {new Date(sub.submittedAt).toLocaleDateString('vi-VN')}
+                        {new Date(sub.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                       </p>
                     </div>
                     <ScorePill score={sub.score} />

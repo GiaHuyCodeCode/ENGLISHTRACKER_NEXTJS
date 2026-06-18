@@ -1,5 +1,4 @@
-import { syncSubmissionToSheet, syncAssignmentToSheet } from './google-sheets';
-
+import { syncSubmissionToSheet, syncAssignmentToSheet, syncActionToSheet } from './google-sheets';
 
 // ─── Fuzzy Match (Levenshtein, threshold 80%) ────────────────────────────────
 
@@ -30,6 +29,7 @@ export function isFuzzyMatch(student: string, correct: string, threshold = 0.8):
 export interface VocabKeyword { word: string; answer: string; }
 export interface QuizQuestion {
   id: number; question: string; options: string[]; answer: string; explanation: string;
+  knowledgeArea?: string; hint?: string;
 }
 export interface Assignment {
   id: string;
@@ -39,6 +39,7 @@ export interface Assignment {
   keywords?: VocabKeyword[];
   questions?: QuizQuestion[];
   imageUrl?: string;
+  allowHints?: boolean;
   createdAt: string;
 }
 
@@ -47,7 +48,7 @@ export interface VocabAnswerResult {
 }
 export interface QuizAnswerResult {
   questionId: number; studentAnswer: string; isCorrect: boolean;
-  correctAnswer: string; explanation: string;
+  correctAnswer: string; explanation: string; knowledgeArea?: string;
 }
 export interface RewriteAnswerResult {
   studentText: string;
@@ -64,6 +65,7 @@ export interface Submission {
   vocabAnswers?: VocabAnswerResult[];
   quizAnswers?: QuizAnswerResult[];
   rewriteAnswers?: RewriteAnswerResult;
+  feedback?: string;
   submittedAt: string;
 }
 
@@ -108,6 +110,9 @@ export function getCurrentUser(): UserSession | null {
 export function loginUser(username: string, role: UserRole) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(KEYS.session, JSON.stringify({ username, role }));
+  if (role === 'student') {
+    localStorage.setItem('et_current_student', username);
+  }
 }
 
 export function logoutUser() {
@@ -116,21 +121,70 @@ export function logoutUser() {
   localStorage.removeItem('et_current_student');
 }
 
-export const STUDENT_NAMES = ['Minh Uyên', 'Khả Nhi', 'Ngọc Huy', 'Dương Lâm'];
+export interface Student {
+  id: string;
+  name: string;
+  color: string; // Hex color
+  avatar: string;
+  createdAt: string;
+}
 
-export const STUDENT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  'Minh Uyên': { bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/30' },
-  'Khả Nhi':   { bg: 'bg-teal-500/15',   text: 'text-teal-400',   border: 'border-teal-500/30' },
-  'Ngọc Huy':  { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30' },
-  'Dương Lâm': { bg: 'bg-amber-500/15',  text: 'text-amber-400',  border: 'border-amber-500/30' },
-};
+export function getStudents(): Student[] {
+  return read<Student[]>('et_students', [
+    { id: '1', name: 'Minh Uyên', color: '#EF4444', avatar: 'MU', createdAt: new Date().toISOString() },
+    { id: '2', name: 'Khả Nhi', color: '#3B82F6', avatar: 'KN', createdAt: new Date().toISOString() },
+    { id: '3', name: 'Ngọc Huy', color: '#10B981', avatar: 'NH', createdAt: new Date().toISOString() },
+    { id: '4', name: 'Dương Lâm', color: '#F59E0B', avatar: 'DL', createdAt: new Date().toISOString() }
+  ]);
+}
 
-export const STUDENT_AVATARS: Record<string, string> = {
-  'Minh Uyên': 'MU',
-  'Khả Nhi':   'KN',
-  'Ngọc Huy':  'NH',
-  'Dương Lâm': 'DL',
-};
+export function getStudentNames(): string[] {
+  return getStudents().map(s => s.name);
+}
+
+export function createStudent(name: string, color: string) {
+  const students = getStudents();
+  if (students.some(s => s.name.toLowerCase() === name.toLowerCase())) {
+    throw new Error('Học viên đã tồn tại!');
+  }
+  
+  const avatar = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'ST';
+  const newStudent: Student = {
+    id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(7),
+    name,
+    color,
+    avatar,
+    createdAt: new Date().toISOString()
+  };
+  
+  write('et_students', [...students, newStudent]);
+  syncActionToSheet({ action: 'add_student', student: newStudent });
+  return newStudent;
+}
+
+// Hàm hỗ trợ lấy màu sắc an toàn cho Tailwind (map từ hex sang tailwind color)
+export function getStudentColors(name: string): { bg: string; text: string; border: string; hex: string } {
+  const student = getStudents().find(s => s.name === name);
+  const hex = student?.color || '#8B5CF6'; // Default Violet
+  
+  // Ánh xạ đơn giản màu Hex sang Tailwind class
+  if (hex.toUpperCase().includes('EF4444')) return { bg: 'bg-red-500/15', text: 'text-red-400', border: 'border-red-500/30', hex };
+  if (hex.toUpperCase().includes('3B82F6')) return { bg: 'bg-blue-500/15', text: 'text-blue-400', border: 'border-blue-500/30', hex };
+  if (hex.toUpperCase().includes('10B981')) return { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', hex };
+  if (hex.toUpperCase().includes('F59E0B')) return { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-amber-500/30', hex };
+  if (hex.toUpperCase().includes('8B5CF6')) return { bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/30', hex };
+  if (hex.toUpperCase().includes('EC4899')) return { bg: 'bg-pink-500/15', text: 'text-pink-400', border: 'border-pink-500/30', hex };
+  
+  // Fallback
+  return { bg: 'bg-indigo-500/15', text: 'text-indigo-400', border: 'border-indigo-500/30', hex };
+}
+
+export function getStudentAvatar(name: string): string {
+  const student = getStudents().find(s => s.name === name);
+  if (student) return student.avatar;
+  // Fallback auto gen avatar
+  return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'ST';
+}
 
 // ─── Gamification ──────────────────────────────────────────────────────────────
 
@@ -141,72 +195,131 @@ export interface GamificationProfile {
   badges: string[];
 }
 
-export const BADGE_DEFS: Record<string, { title: string; icon: string; color: string; desc: string }> = {
-  'cham-chi': { title: 'Chăm Chỉ', icon: '🔥', color: 'text-orange-500 bg-orange-500/10 border-orange-500/20', desc: 'Học liên tiếp 3 ngày' },
-  'vua-tu-vung': { title: 'Vua Từ Vựng', icon: '👑', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20', desc: 'Đạt điểm tuyệt đối Từ vựng 3 lần' },
-  'cu-dem': { title: 'Cú Đêm', icon: '🦉', color: 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20', desc: 'Nộp bài sau 10h tối' }
-};
-
-export function getGamificationProfiles(): GamificationProfile[] {
-  return read<GamificationProfile[]>('et_gamification', STUDENT_NAMES.map(name => ({
-    studentName: name,
-    streakCount: 0,
-    lastActiveDate: null,
-    badges: []
-  })));
+export interface BadgeDef {
+  id: string;
+  title: string;
+  icon: string;
+  color: string;
+  conditionType: string;
+  conditionTarget: string;
+  conditionValue: string | number;
+  description: string;
 }
 
-export function updateGamification(studentName: string, type: 'submission' | 'tracking', data: any) {
-  const profiles = getGamificationProfiles();
-  const profile = profiles.find(p => p.studentName === studentName);
-  if (!profile) return;
+export function getBadges(): BadgeDef[] {
+  return read<BadgeDef[]>('et_badges', []);
+}
 
-  const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
-  const submitHour = now.getHours();
+export function getGamificationProfiles(): GamificationProfile[] {
+  const students = getStudentNames();
+  const trackings = getDailyTrackings();
+  const submissions = getSubmissions();
+  const badgesDefs = getBadges();
 
-  // 1. Check Streak
-  if (profile.lastActiveDate !== todayStr) {
-    if (profile.lastActiveDate) {
-      const lastDate = new Date(profile.lastActiveDate);
-      const diffTime = Math.abs(now.getTime() - lastDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-      if (diffDays === 1) {
-        profile.streakCount += 1;
-      } else if (diffDays > 1) {
-        profile.streakCount = 1;
+  return students.map(studentName => {
+    // Collect all activities for student
+    const activities: { date: string, hour: number, score: number, category: string, type: 'submission' | 'tracking' }[] = [];
+    
+    trackings.forEach(t => {
+      if (t.studentName === studentName) {
+        const d = new Date(t.submittedAt);
+        activities.push({ date: d.toISOString().split('T')[0], hour: d.getHours(), score: t.score, category: t.category, type: 'tracking' });
       }
-    } else {
-      profile.streakCount = 1;
+    });
+
+    submissions.forEach(s => {
+      if (s.studentName === studentName) {
+        const d = new Date(s.submittedAt);
+        activities.push({ date: d.toISOString().split('T')[0], hour: d.getHours(), score: s.score, category: s.assignmentType, type: 'submission' });
+      }
+    });
+
+    // Calculate Streak
+    // Sort descending by date
+    const uniqueDates = Array.from(new Set(activities.map(a => a.date))).sort((a, b) => b.localeCompare(a));
+    let streakCount = 0;
+    
+    if (uniqueDates.length > 0) {
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      const todayStr = today.toISOString().split('T')[0];
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+      if (uniqueDates[0] === todayStr || uniqueDates[0] === yesterdayStr) {
+        streakCount = 1;
+        let currentDate = new Date(uniqueDates[0]);
+        for (let i = 1; i < uniqueDates.length; i++) {
+          const expectedDate = new Date(currentDate);
+          expectedDate.setDate(expectedDate.getDate() - 1);
+          if (uniqueDates[i] === expectedDate.toISOString().split('T')[0]) {
+            streakCount++;
+            currentDate = expectedDate;
+          } else {
+            break;
+          }
+        }
+      }
     }
-    profile.lastActiveDate = todayStr;
-  }
 
-  // 2. Check Badges
-  const newBadges = new Set(profile.badges);
-  
-  // Chăm chỉ
-  if (profile.streakCount >= 3) newBadges.add('cham-chi');
-  
-  // Cú đêm
-  if (submitHour >= 22 || submitHour <= 4) newBadges.add('cu-dem');
-  
-  // Vua từ vựng (we need to check historical data, but for simplicity we assume the logic checks if current submission is Vocab with 100)
-  // To do it properly, we count 100 scores
-  const trackings = read<DailyTracking[]>('et_daily_tracking', []);
-  const subs = read<Submission[]>('et_submissions', []);
-  
-  const vocab100Count = 
-    trackings.filter(t => t.studentName === studentName && t.category === 'Vocabulary' && t.score === 100).length +
-    subs.filter(s => s.studentName === studentName && s.assignmentType === 'vocab_context' && s.score === 100).length;
+    // Evaluate Badges
+    const earnedBadges: string[] = [];
+    
+    const totalScore = activities.reduce((sum, a) => sum + a.score, 0);
+    const submitCount = activities.length;
+    
+    badgesDefs.forEach(badge => {
+      let isEarned = false;
+      const target = badge.conditionTarget?.toLowerCase() || '';
+      const value = Number(badge.conditionValue) || 0;
 
-  if (vocab100Count >= 3) newBadges.add('vua-tu-vung');
+      switch (badge.conditionType) {
+        case 'STREAK':
+          if (streakCount >= value) isEarned = true;
+          break;
+        case 'TOTAL_SCORE':
+          if (totalScore >= value) isEarned = true;
+          break;
+        case 'SUBMIT_COUNT':
+          if (submitCount >= value) isEarned = true;
+          break;
+        case 'NIGHT_OWL':
+          if (activities.some(a => a.hour >= 22 || a.hour <= 4)) isEarned = true;
+          break;
+        case 'EARLY_BIRD':
+          if (activities.some(a => a.hour >= 4 && a.hour <= 7)) isEarned = true;
+          break;
+        case 'PERFECT_SCORE':
+          // Target could be 'vocabulary', 'grammar', 'reading', 'listening', 'writing', or empty for any
+          const perfectCount = activities.filter(a => {
+            if (a.score < 100) return false;
+            if (!target) return true; // Any perfect score
+            
+            // Map category to target
+            const cat = a.category.toLowerCase();
+            if (target === 'vocabulary' && (cat === 'vocabulary' || cat === 'vocab_context')) return true;
+            if (target === 'grammar' && (cat === 'grammar' || cat === 'multiple_choice')) return true;
+            if (target === 'writing' && (cat === 'writing' || cat === 'rewrite_vocab')) return true;
+            if (cat === target) return true;
+            
+            return false;
+          }).length;
+          
+          if (perfectCount >= value) isEarned = true;
+          break;
+      }
 
-  profile.badges = Array.from(newBadges);
+      if (isEarned) earnedBadges.push(badge.id);
+    });
 
-  write('et_gamification', profiles);
-
-  return profile;
+    return {
+      studentName,
+      streakCount,
+      lastActiveDate: uniqueDates[0] || null,
+      badges: earnedBadges
+    };
+  });
 }
 
 // ─── CRUD – Assignments ───────────────────────────────────────────────────────
@@ -223,6 +336,8 @@ function write<T>(key: string, value: T): void {
 export function getAssignments(): Assignment[] {
   return read<Assignment[]>(KEYS.assignments, []);
 }
+
+
 
 export function getAssignment(id: string): Assignment | undefined {
   return getAssignments().find(a => a.id === id);
@@ -247,9 +362,69 @@ export function importAssignment(assignment: Assignment): void {
   }
 }
 
+export function syncAllFromCloud(cloudData: any): boolean {
+  if (typeof window === 'undefined') return false;
+  let hasChanges = false;
+
+  // 0. Students (Overwrite completely since it's managed in Sheets)
+  if (Array.isArray(cloudData.students) && cloudData.students.length > 0) {
+    write('et_students', cloudData.students);
+    hasChanges = true;
+  }
+
+  // 1. Assignments
+  if (Array.isArray(cloudData.assignments) && cloudData.assignments.length > 0) {
+    const current = getAssignments();
+    const newItems = cloudData.assignments.filter((a: any) => !current.find(curr => curr.id === a.id));
+    if (newItems.length > 0) {
+      write(KEYS.assignments, [...current, ...newItems]);
+      hasChanges = true;
+    }
+  }
+
+  // 2. Submissions
+  if (Array.isArray(cloudData.submissions) && cloudData.submissions.length > 0) {
+    const current = getSubmissions();
+    const newItems = cloudData.submissions.filter((s: any) => !current.find(curr => curr.id === s.id));
+    if (newItems.length > 0) {
+      write(KEYS.submissions, [...current, ...newItems]);
+      hasChanges = true;
+    }
+  }
+
+  // 3. Daily Tracking
+  if (Array.isArray(cloudData.dailyTracking) && cloudData.dailyTracking.length > 0) {
+    const current = getDailyTrackings();
+    const newItems = cloudData.dailyTracking.filter((t: any) => !current.find(curr => curr.id === t.id));
+    if (newItems.length > 0) {
+      write(KEYS.dailyTracking, [...current, ...newItems]);
+      hasChanges = true;
+    }
+  }
+
+  // 4. Badges (Overwrite completely)
+  if (Array.isArray(cloudData.badges) && cloudData.badges.length > 0) {
+    write('et_badges', cloudData.badges);
+    hasChanges = true;
+  }
+
+  return hasChanges;
+}
+
+export function updateAssignment(id: string, partial: Partial<Assignment>) {
+  const current = getAssignments();
+  const index = current.findIndex(a => a.id === id);
+  if (index !== -1) {
+    current[index] = { ...current[index], ...partial };
+    write(KEYS.assignments, current);
+    syncAssignmentToSheet(current[index], 'update_assignment');
+  }
+}
+
 export function deleteAssignment(id: string): void {
   write(KEYS.assignments, getAssignments().filter(a => a.id !== id));
   write(KEYS.submissions, getSubmissions().filter(s => s.assignmentId !== id));
+  syncActionToSheet({ action: 'delete_assignment', id });
 }
 
 // ─── CRUD – Submissions ───────────────────────────────────────────────────────
@@ -292,12 +467,14 @@ export function updateSubmissionScore(id: string, newScore: number): void {
   if (idx !== -1) {
     all[idx].score = newScore;
     write(KEYS.submissions, all);
+    syncActionToSheet({ action: 'update_submission_score', id, score: newScore });
   }
 }
 
 export function deleteSubmission(id: string): void {
   const all = getSubmissions();
   write(KEYS.submissions, all.filter(s => s.id !== id));
+  syncActionToSheet({ action: 'delete_submission', id });
 }
 
 export function updateTrackingScore(id: string, newScore: number): void {
@@ -306,12 +483,14 @@ export function updateTrackingScore(id: string, newScore: number): void {
   if (idx !== -1) {
     all[idx].score = newScore;
     write(KEYS.dailyTracking, all);
+    syncActionToSheet({ action: 'update_tracking_score', id, score: newScore });
   }
 }
 
 export function deleteTracking(id: string): void {
   const all = getDailyTrackings();
   write(KEYS.dailyTracking, all.filter(t => t.id !== id));
+  syncActionToSheet({ action: 'delete_tracking', id });
 }
 
 export function clearAllData(): void {
@@ -328,6 +507,7 @@ export function clearAllData(): void {
 export function submitVocab(payload: {
   assignmentId: string; studentName: string;
   answers: { word: string; studentAnswer: string }[];
+  overriddenWords?: string[];
 }): Submission {
   const assignment = getAssignment(payload.assignmentId);
   if (!assignment) throw new Error('Assignment not found');
@@ -336,7 +516,8 @@ export function submitVocab(payload: {
   const vocabAnswers: VocabAnswerResult[] = keywords.map(kw => {
     const entry = payload.answers.find(a => a.word.toLowerCase() === kw.word.toLowerCase());
     const studentAnswer = entry?.studentAnswer || '';
-    return { word: kw.word, studentAnswer, isCorrect: isFuzzyMatch(studentAnswer, kw.answer), correctAnswer: kw.answer };
+    const isOverride = payload.overriddenWords?.includes(kw.word) || false;
+    return { word: kw.word, studentAnswer, isCorrect: isOverride || isFuzzyMatch(studentAnswer, kw.answer), correctAnswer: kw.answer };
   });
 
   const correct = vocabAnswers.filter(a => a.isCorrect).length;
@@ -353,8 +534,7 @@ export function submitVocab(payload: {
     submittedAt: new Date().toISOString(),
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);
-  const profile = updateGamification(payload.studentName, 'submission', sub);
-  syncSubmissionToSheet({ ...sub, profile });
+  syncSubmissionToSheet(sub);
   return sub;
 }
 
@@ -370,11 +550,21 @@ export function submitQuiz(payload: {
     const entry = payload.answers.find(a => a.questionId === q.id);
     const studentAnswer = entry?.studentAnswer || '';
     const isCorrect = studentAnswer.trim().toUpperCase() === q.answer.trim().toUpperCase();
-    return { questionId: q.id, studentAnswer, isCorrect, correctAnswer: q.answer, explanation: q.explanation };
+    return { questionId: q.id, studentAnswer, isCorrect, correctAnswer: q.answer, explanation: q.explanation, knowledgeArea: q.knowledgeArea };
   });
 
   const correct = quizAnswers.filter(a => a.isCorrect).length;
   const score = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
+
+  const wrongAnswers = quizAnswers.filter(a => !a.isCorrect);
+  const areas: Record<string, number> = {};
+  wrongAnswers.forEach(w => {
+    const area = w.knowledgeArea || 'Khác';
+    areas[area] = (areas[area] || 0) + 1;
+  });
+  const feedback = Object.keys(areas).length > 0 
+    ? `Hệ thống nhận thấy bạn cần ôn tập thêm các mảng kiến thức sau:\n` + Object.keys(areas).map(k => `- ${k} (sai ${areas[k]} câu)`).join('\n')
+    : 'Tuyệt vời, bạn đã nắm vững các kiến thức trong bài!';
 
   const sub: Submission = {
     id: crypto.randomUUID(),
@@ -384,11 +574,11 @@ export function submitQuiz(payload: {
     studentName: payload.studentName,
     score,
     quizAnswers,
+    feedback,
     submittedAt: new Date().toISOString(),
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);
-  const profile = updateGamification(payload.studentName, 'submission', sub);
-  syncSubmissionToSheet({ ...sub, profile });
+  syncSubmissionToSheet(sub);
   return sub;
 }
 
@@ -434,8 +624,7 @@ export function submitRewrite(payload: {
     submittedAt: new Date().toISOString(),
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);
-  const profile = updateGamification(payload.studentName, 'submission', sub);
-  syncSubmissionToSheet({ ...sub, profile });
+  syncSubmissionToSheet(sub);
   return sub;
 }
 
@@ -459,14 +648,11 @@ export function submitDailyTracking(payload: {
   // Lưu record vào localStorage (KHÔNG lưu image để tiết kiệm dung lượng)
   write(KEYS.dailyTracking, [...getDailyTrackings(), record]);
 
-  const profile = updateGamification(payload.studentName, 'tracking', record);
-
-  // Đẩy lên Google Sheets kèm theo ảnh và gamification
+  // Đẩy lên Google Sheets kèm theo ảnh
   syncSubmissionToSheet({
     ...record,
     type: 'daily_tracking',
-    imageBase64: payload.imageBase64,
-    profile
+    imageBase64: payload.imageBase64
   });
 
   return record;
@@ -474,136 +660,10 @@ export function submitDailyTracking(payload: {
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 
-const SEED_ASSIGNMENTS: Omit<Assignment, 'id' | 'createdAt'>[] = [
-  {
-    title: 'Unit 3 – Daily Routines (Vocab In-Context)',
-    type: 'vocab_context',
-    passage: 'Mỗi buổi sáng, Nam [wake up] lúc 6 giờ và bắt đầu [exercise] trong 30 phút trước khi ăn sáng. Sau đó anh ấy [commute] đến trường bằng xe máy, mất khoảng 20 phút. Anh cố gắng [focus] trong giờ học để có thể [accomplish] mọi bài tập trước khi về nhà.',
-    keywords: [
-      { word: 'wake up',    answer: 'thức dậy' },
-      { word: 'exercise',   answer: 'tập thể dục' },
-      { word: 'commute',    answer: 'đi lại' },
-      { word: 'focus',      answer: 'tập trung' },
-      { word: 'accomplish', answer: 'hoàn thành' },
-    ],
-  },
-  {
-    title: 'Unit 5 – Phrasal Verbs Quiz',
-    type: 'multiple_choice',
-    questions: [
-      { id: 1, question: '"Give up" có nghĩa là gì?', options: ['Bắt đầu', 'Từ bỏ', 'Tiếp tục', 'Hoàn thành'], answer: 'B', explanation: '"Give up" = từ bỏ. Mẹo: hình dung bạn "cho đi" (give) cơ hội của mình = từ bỏ.' },
-      { id: 2, question: '"She ran out of money" nghĩa là?', options: ['Cô ấy tìm thấy tiền', 'Cô ấy kiếm được tiền', 'Cô ấy hết tiền', 'Cô ấy mất tiền'], answer: 'C', explanation: '"Run out of" = hết, cạn kiệt. Ghi nhớ: run out = chạy hết = không còn gì.' },
-      { id: 3, question: '"Look forward to" có nghĩa là?', options: ['Nhìn về phía trước', 'Mong đợi / Trông chờ', 'Trốn tránh', 'Lo lắng'], answer: 'B', explanation: '"Look forward to" = mong chờ điều gì tốt đẹp sắp xảy ra. Luôn theo sau bởi danh từ/V-ing.' },
-      { id: 4, question: '"Break down" KHÔNG có nghĩa nào sau đây?', options: ['Hỏng máy móc', 'Mất tinh thần', 'Phân tích chi tiết', 'Xây dựng lại'], answer: 'D', explanation: '"Break down" = hỏng, sụp đổ, phân tích — nhưng KHÔNG có nghĩa là "xây dựng".' },
-      { id: 5, question: '"Put off the meeting" có nghĩa là?', options: ['Hủy cuộc họp', 'Tổ chức cuộc họp', 'Hoãn cuộc họp', 'Kết thúc cuộc họp'], answer: 'C', explanation: '"Put off" = hoãn lại, dời lịch. Không nhầm với "call off" (hủy hoàn toàn).' },
-    ],
-  },
-  {
-    title: 'Viết Lại Chuyện Chêm - Unit 3',
-    type: 'rewrite_vocab',
-    passage: 'Viết một đoạn văn ngắn về buổi sáng của bạn, sử dụng các từ khóa sau.',
-    keywords: [
-      { word: 'wake up',    answer: 'thức dậy' },
-      { word: 'exercise',   answer: 'tập thể dục' },
-      { word: 'commute',    answer: 'đi lại' },
-      { word: 'focus',      answer: 'tập trung' },
-      { word: 'accomplish', answer: 'hoàn thành' },
-    ],
-  },
-];
-
-const SEED_SUBMISSIONS: Omit<Submission, 'id'>[] = [
-  // Minh Uyên – Vocab: 4/5 (thức dậy sai)
-  // Khả Nhi – Vocab: 5/5
-  // Ngọc Huy – Quiz: 3/5
-  // Dương Lâm – Quiz: 5/5
-];
-
 export function seedIfEmpty(): void {
   if (typeof window === 'undefined') return;
   if (localStorage.getItem(KEYS.seeded)) return;
-
-  const assignments: Assignment[] = SEED_ASSIGNMENTS.map(data => ({
-    ...data,
-    id: crypto.randomUUID(),
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-  }));
-  write(KEYS.assignments, assignments);
-
-  const vocabId = assignments[0].id;
-  const quizId = assignments[1].id;
-  const rewriteId = assignments[2].id;
-
-  const subs: Submission[] = [
-    // Minh Uyên – vocab (80)
-    {
-      id: crypto.randomUUID(), assignmentId: vocabId,
-      assignmentTitle: assignments[0].title, assignmentType: 'vocab_context',
-      studentName: 'Minh Uyên', score: 80,
-      vocabAnswers: [
-        { word: 'wake up',    studentAnswer: 'thức giấc', isCorrect: true,  correctAnswer: 'thức dậy' },
-        { word: 'exercise',   studentAnswer: 'tập thể dục', isCorrect: true, correctAnswer: 'tập thể dục' },
-        { word: 'commute',    studentAnswer: '',           isCorrect: false, correctAnswer: 'đi lại' },
-        { word: 'focus',      studentAnswer: 'tập trung', isCorrect: true,  correctAnswer: 'tập trung' },
-        { word: 'accomplish', studentAnswer: 'hoàn thành', isCorrect: true, correctAnswer: 'hoàn thành' },
-      ],
-      submittedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    // Khả Nhi – vocab (100)
-    {
-      id: crypto.randomUUID(), assignmentId: vocabId,
-      assignmentTitle: assignments[0].title, assignmentType: 'vocab_context',
-      studentName: 'Khả Nhi', score: 100,
-      vocabAnswers: [
-        { word: 'wake up',    studentAnswer: 'thức dậy',   isCorrect: true, correctAnswer: 'thức dậy' },
-        { word: 'exercise',   studentAnswer: 'tập thể dục', isCorrect: true, correctAnswer: 'tập thể dục' },
-        { word: 'commute',    studentAnswer: 'di chuyển',  isCorrect: true, correctAnswer: 'đi lại' },
-        { word: 'focus',      studentAnswer: 'tập trung',  isCorrect: true, correctAnswer: 'tập trung' },
-        { word: 'accomplish', studentAnswer: 'đạt được',   isCorrect: true, correctAnswer: 'hoàn thành' },
-      ],
-      submittedAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    },
-    // Ngọc Huy – quiz (60)
-    {
-      id: crypto.randomUUID(), assignmentId: quizId,
-      assignmentTitle: assignments[1].title, assignmentType: 'multiple_choice',
-      studentName: 'Ngọc Huy', score: 60,
-      quizAnswers: [
-        { questionId: 1, studentAnswer: 'B', isCorrect: true,  correctAnswer: 'B', explanation: '"Give up" = từ bỏ.' },
-        { questionId: 2, studentAnswer: 'A', isCorrect: false, correctAnswer: 'C', explanation: '"Run out of" = hết.' },
-        { questionId: 3, studentAnswer: 'B', isCorrect: true,  correctAnswer: 'B', explanation: '"Look forward to" = mong chờ.' },
-        { questionId: 4, studentAnswer: 'A', isCorrect: false, correctAnswer: 'D', explanation: '"Break down" không có nghĩa xây dựng.' },
-        { questionId: 5, studentAnswer: 'C', isCorrect: true,  correctAnswer: 'C', explanation: '"Put off" = hoãn lại.' },
-      ],
-      submittedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-    },
-    // Dương Lâm – quiz (100)
-    {
-      id: crypto.randomUUID(), assignmentId: quizId,
-      assignmentTitle: assignments[1].title, assignmentType: 'multiple_choice',
-      studentName: 'Dương Lâm', score: 100,
-      quizAnswers: [
-        { questionId: 1, studentAnswer: 'B', isCorrect: true, correctAnswer: 'B', explanation: '"Give up" = từ bỏ.' },
-        { questionId: 2, studentAnswer: 'C', isCorrect: true, correctAnswer: 'C', explanation: '"Run out of" = hết.' },
-        { questionId: 3, studentAnswer: 'B', isCorrect: true, correctAnswer: 'B', explanation: '"Look forward to" = mong chờ.' },
-        { questionId: 4, studentAnswer: 'D', isCorrect: true, correctAnswer: 'D', explanation: '"Break down" không có nghĩa xây dựng.' },
-        { questionId: 5, studentAnswer: 'C', isCorrect: true, correctAnswer: 'C', explanation: '"Put off" = hoãn lại.' },
-      ],
-      submittedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-    },
-    // Minh Uyên - rewrite (80)
-    {
-      id: crypto.randomUUID(), assignmentId: rewriteId,
-      assignmentTitle: assignments[2].title, assignmentType: 'rewrite_vocab',
-      studentName: 'Minh Uyên', score: 80,
-      rewriteAnswers: {
-        studentText: 'Sáng nay tôi wake up lúc 7h. Sau đó tôi exercise và đi làm bằng xe buýt nên tôi commute khá xa. Tôi luôn focus vào công việc.',
-        foundKeywords: ['wake up', 'exercise', 'commute', 'focus'],
-        missingKeywords: ['accomplish']
-      },
-      submittedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    }
-  ];
-  write(KEYS.submissions, subs);
+  
+  // Không tạo sample data nữa, chỉ đánh dấu đã khởi tạo
   localStorage.setItem(KEYS.seeded, '1');
 }

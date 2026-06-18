@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   getSubmissions, getAssignments, seedIfEmpty, getDailyTrackings,
-  STUDENT_NAMES, STUDENT_COLORS, STUDENT_AVATARS,
+  getStudentNames, getStudentColors, getStudentAvatar,
   Submission, Assignment, DailyTracking,
-  getGamificationProfiles, BADGE_DEFS, GamificationProfile
+  getGamificationProfiles, GamificationProfile, getBadges
 } from '@/lib/local-store';
 import { Trophy, BookOpen, CheckCircle2, TrendingUp, User, ChevronRight, PenTool, ListChecks, Target, Brain, AlertCircle, Flame } from 'lucide-react';
 import { 
@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 
 function StudentCard({ name, isSelected, onClick }: { name: string; isSelected: boolean; onClick: () => void }) {
-  const c = STUDENT_COLORS[name];
+  const c = getStudentColors(name);
   const subs = getSubmissions().filter(s => s.studentName === name);
   const avg = subs.length ? Math.round(subs.reduce((s, x) => s + x.score, 0) / subs.length) : null;
   const profile = getGamificationProfiles().find(p => p.studentName === name);
@@ -26,7 +26,7 @@ function StudentCard({ name, isSelected, onClick }: { name: string; isSelected: 
         isSelected ? `${c.border} ${c.bg}` : 'border-border hover:border-primary/30'
       }`}>
       <div className={`w-12 h-12 ${c.bg} ${c.text} border ${c.border} rounded-xl flex items-center justify-center text-lg font-bold mb-3`}>
-        {STUDENT_AVATARS[name]}
+        {getStudentAvatar(name)}
       </div>
       <p className={`font-semibold text-sm ${isSelected ? c.text : ''}`}>{name}</p>
       <p className="text-xs text-muted-foreground mt-1">
@@ -57,7 +57,7 @@ export default function StudentDashboard() {
       setSelectedStudent(session.username);
     } else {
       const saved = localStorage.getItem('et_current_student');
-      if (saved && STUDENT_NAMES.includes(saved)) setSelectedStudent(saved);
+      if (saved && getStudentNames().includes(saved)) setSelectedStudent(saved);
     }
     setMounted(true);
   }, []);
@@ -202,27 +202,96 @@ export default function StudentDashboard() {
             <User className="h-4 w-4" /> Chọn học viên
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {STUDENT_NAMES.map(name => (
+            {getStudentNames().map(name => (
               <StudentCard key={name} name={name} isSelected={selectedStudent === name} onClick={() => setSelectedStudent(name)} />
             ))}
           </div>
         </div>
       )}
 
+      {/* LEADERBOARD SECTION */}
+      <div className="fade-in stagger-4 space-y-6">
+        <h2 className="text-xl font-bold font-heading gradient-text flex items-center gap-2">
+          <Trophy className="h-5 w-5" /> Bảng Vàng Thi Đua
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Top Streak */}
+          <div className="glass rounded-2xl border border-border p-5">
+            <h3 className="text-sm font-semibold text-orange-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Flame className="h-4 w-4" /> Ngôi Sao Chăm Chỉ
+            </h3>
+            <div className="space-y-3">
+              {getGamificationProfiles()
+                .sort((a, b) => b.streakCount - a.streakCount)
+                .slice(0, 3)
+                .map((p, idx) => (
+                <div key={p.studentName} className="flex items-center justify-between p-3 rounded-xl bg-secondary/30">
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted-foreground font-bold text-sm w-4">{idx + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-lg ${getStudentColors(p.studentName).bg} ${getStudentColors(p.studentName).text} flex items-center justify-center text-xs font-bold`}>
+                        {getStudentAvatar(p.studentName)}
+                      </div>
+                      <span className="font-medium text-sm">{p.studentName}</span>
+                    </div>
+                  </div>
+                  <span className="font-bold text-orange-400">{p.streakCount} ngày</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Top Score */}
+          <div className="glass rounded-2xl border border-border p-5">
+            <h3 className="text-sm font-semibold text-emerald-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Trophy className="h-4 w-4" /> Vua Điểm Số
+            </h3>
+            <div className="space-y-3">
+              {getStudentNames()
+                .map(name => {
+                  const subs = getSubmissions().filter(s => s.studentName === name);
+                  const trks = getDailyTrackings().filter(t => t.studentName === name);
+                  const total = subs.reduce((s, x) => s + x.score, 0) + trks.reduce((s, x) => s + x.score, 0);
+                  return { name, total };
+                })
+                .sort((a, b) => b.total - a.total)
+                .slice(0, 3)
+                .map((p, idx) => (
+                <div key={p.name} className="flex items-center justify-between p-3 rounded-xl bg-secondary/30">
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted-foreground font-bold text-sm w-4">{idx + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-lg ${getStudentColors(p.name).bg} ${getStudentColors(p.name).text} flex items-center justify-center text-xs font-bold`}>
+                        {getStudentAvatar(p.name)}
+                      </div>
+                      <span className="font-medium text-sm">{p.name}</span>
+                    </div>
+                  </div>
+                  <span className="font-bold text-emerald-400">{p.total}đ</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Stats for selected student */}
-      {selectedStudent && (
+      {selectedStudent && (() => {
+        const studentColors = getStudentColors(selectedStudent);
+        const studentAvatar = getStudentAvatar(selectedStudent);
+        return (
         <div className="space-y-8 fade-in stagger-3">
-          <div className={`glass-strong rounded-3xl border-2 ${STUDENT_COLORS[selectedStudent].border} p-6 relative overflow-hidden`}>
+          <div className={`glass-strong rounded-3xl border-2 ${studentColors.border} p-6 relative overflow-hidden`}>
             {/* Background glow specific to student */}
-            <div className={`absolute inset-0 opacity-10 bg-gradient-to-br ${STUDENT_COLORS[selectedStudent].bg.replace('bg-', 'from-')}`}></div>
+            <div className={`absolute inset-0 opacity-10 bg-gradient-to-br ${studentColors.bg.replace('bg-', 'from-')}`}></div>
             
             <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
               <div className="flex items-center gap-4">
-                <div className={`w-16 h-16 ${STUDENT_COLORS[selectedStudent].bg} ${STUDENT_COLORS[selectedStudent].text} border-2 ${STUDENT_COLORS[selectedStudent].border} rounded-2xl flex items-center justify-center text-3xl font-bold`}>
-                  {STUDENT_AVATARS[selectedStudent]}
+                <div className={`w-16 h-16 ${studentColors.bg} ${studentColors.text} border-2 ${studentColors.border} rounded-2xl flex items-center justify-center text-3xl font-bold`}>
+                  {studentAvatar}
                 </div>
                 <div>
-                  <h2 className={`text-2xl font-bold font-heading ${STUDENT_COLORS[selectedStudent].text}`}>{selectedStudent}</h2>
+                  <h2 className={`text-2xl font-bold font-heading ${studentColors.text}`}>{selectedStudent}</h2>
                   <p className="text-sm text-muted-foreground">{submissions.length} lần nộp bài</p>
                 </div>
               </div>
@@ -237,9 +306,9 @@ export default function StudentDashboard() {
                     </div>
                   </div>
                   {profile.badges.slice(0, 2).map(b => {
-                    const def = BADGE_DEFS[b];
+                    const def = getBadges().find(badge => badge.id === b);
                     return def ? (
-                      <div key={b} className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${def.color}`} title={def.desc}>
+                      <div key={b} className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${def.color}`} title={def.description}>
                         <span className="text-lg">{def.icon}</span>
                         <div>
                           <p className="text-xs opacity-80 uppercase font-semibold">Huy Hiệu</p>
@@ -550,7 +619,7 @@ export default function StudentDashboard() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{s.assignmentTitle}</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(s.submittedAt).toLocaleDateString('vi-VN')}
+                          {new Date(s.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                         </p>
                       </div>
                       <span className={`px-3 py-1 rounded-full border text-sm font-bold ${
@@ -576,7 +645,8 @@ export default function StudentDashboard() {
             </button>
           )}
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

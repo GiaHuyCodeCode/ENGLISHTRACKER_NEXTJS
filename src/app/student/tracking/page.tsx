@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { submitDailyTracking, TrackCategory, STUDENT_NAMES, STUDENT_COLORS, STUDENT_AVATARS } from '@/lib/local-store';
+import { submitDailyTracking, TrackCategory, getStudentNames, getStudentColors, getStudentAvatar } from '@/lib/local-store';
 import { Upload, CheckCircle2, AlertCircle, ArrowLeft, Image as ImageIcon, Send, User, ChevronRight } from 'lucide-react';
 
 // ── Student picker modal ────────────────────────────────────────────────────
@@ -19,9 +19,9 @@ function StudentModal({ onConfirm }: { onConfirm: (name: string) => void }) {
           <p className="text-sm text-muted-foreground">Chọn tên để nộp báo cáo</p>
         </div>
         <div className="grid grid-cols-2 gap-2.5">
-          {STUDENT_NAMES.map(name => {
-            const c = STUDENT_COLORS[name] || { bg: 'bg-secondary', text: 'text-foreground', border: 'border-border' };
-            const initials = STUDENT_AVATARS[name] || name.slice(0, 2).toUpperCase();
+          {getStudentNames().map(name => {
+            const c = getStudentColors(name);
+            const initials = getStudentAvatar(name);
             return (
               <button
                 key={name}
@@ -109,7 +109,7 @@ export default function DailyTrackingPage() {
 
   useEffect(() => {
     const saved = localStorage.getItem('et_current_student');
-    if (saved && STUDENT_NAMES.includes(saved)) {
+    if (saved && getStudentNames().includes(saved)) {
       setCurrentStudent(saved);
     } else {
       setShowStudentModal(true);

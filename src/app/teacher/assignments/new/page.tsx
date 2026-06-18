@@ -146,7 +146,9 @@ function QuizForm({ onSave, isSaving }: {
       "question": "'Give up' có nghĩa là?",
       "options": ["Bắt đầu", "Từ bỏ", "Tiếp tục", "Hoàn thành"],
       "answer": "B",
-      "explanation": "Give up = từ bỏ"
+      "explanation": "Give up = từ bỏ",
+      "hint": "Cụm động từ này thường dùng khi bạn không muốn làm gì nữa vì quá khó.",
+      "knowledgeArea": "Phrasal Verbs"
     }
   ]
 }`;
@@ -188,7 +190,7 @@ function QuizForm({ onSave, isSaving }: {
       <textarea value={jsonText}
         onChange={e => { setJsonText(e.target.value); if (e.target.value.trim()) parseJson(e.target.value); }}
         rows={8} className="input-field font-mono text-xs resize-none"
-        placeholder={'{\n  "title": "Quiz Unit 5",\n  "questions": [\n    {\n      "id": 1,\n      "question": "\'Give up\' có nghĩa là?",\n      "options": ["Bắt đầu", "Từ bỏ", "Tiếp tục", "Hoàn thành"],\n      "answer": "B",\n      "explanation": "Give up = từ bỏ..."\n    }\n  ]\n}'} />
+        placeholder={'{\n  "title": "Quiz Unit 5",\n  "questions": [\n    {\n      "id": 1,\n      "question": "\'Give up\' có nghĩa là?",\n      "options": ["Bắt đầu", "Từ bỏ", "Tiếp tục", "Hoàn thành"],\n      "answer": "B",\n      "explanation": "Give up = từ bỏ",\n      "hint": "Gợi ý đây...",\n      "knowledgeArea": "Phrasal Verbs"\n    }\n  ]\n}'} />
 
       {error && (
         <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">

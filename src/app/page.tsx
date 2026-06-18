@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import {
   getAssignments, getSubmissions, getDailyTrackings, deleteAssignment,
   updateSubmissionScore, updateTrackingScore, deleteSubmission, deleteTracking, clearAllData,
-  Assignment, Submission, DailyTracking, STUDENT_NAMES, STUDENT_COLORS, STUDENT_AVATARS,
-  seedIfEmpty, getGamificationProfiles, BADGE_DEFS, GamificationProfile, importAssignment
+  Assignment, Submission, DailyTracking, getStudentNames, getStudentColors, getStudentAvatar,
+  seedIfEmpty, getGamificationProfiles, getBadges, GamificationProfile, importAssignment, updateAssignment, syncAllFromCloud, createStudent
 } from '@/lib/local-store';
 import { 
   Users, BookOpen, Clock, Target, Edit2, Save, X, XCircle,
-  Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2
+  Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2, Lightbulb, Settings, Loader2, RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
 import { 
@@ -29,8 +29,8 @@ function ScoreBadge({ score }: { score: number }) {
 }
 
 function StudentAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
-  const colors = STUDENT_COLORS[name] || { bg: 'bg-secondary', text: 'text-foreground', border: 'border-border' };
-  const initials = STUDENT_AVATARS[name] || name.slice(0, 2).toUpperCase();
+  const colors = getStudentColors(name);
+  const initials = getStudentAvatar(name);
   const sizeClass = size === 'sm' ? 'w-7 h-7 text-xs' : 'w-9 h-9 text-sm';
   return (
     <div className={`${sizeClass} ${colors.bg} ${colors.text} border ${colors.border} rounded-full flex items-center justify-center font-bold flex-shrink-0`}>
@@ -39,195 +39,39 @@ function StudentAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md'
   );
 }
 
-function ScoreManagementTab({ 
-  initialStudent,
-  submissions, 
-  trackings, 
-  onUpdate
-}: { 
-  initialStudent: string | null;
-  submissions: Submission[], 
-  trackings: DailyTracking[], 
-  onUpdate: () => void
-}) {
-  const [selectedStudent, setSelectedStudent] = useState<string>(initialStudent || STUDENT_NAMES[0] || '');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editScore, setEditScore] = useState<string>('');
 
-  const studentSubmissions = submissions.filter(s => s.studentName === selectedStudent);
-  const studentTrackings = trackings.filter(t => t.studentName === selectedStudent);
-
-  // Merge & Sort
-  const allRecords = [
-    ...studentSubmissions.map(s => ({ ...s, isTracking: false, date: new Date(s.submittedAt).getTime() })),
-    ...studentTrackings.map(t => ({ ...t, isTracking: true, date: new Date(t.submittedAt).getTime() }))
-  ].sort((a, b) => b.date - a.date);
-
-  const handleSave = (id: string, isTracking: boolean) => {
-    const num = parseInt(editScore, 10);
-    if (isNaN(num) || num < 0 || num > 100) return alert('Điểm phải từ 0-100');
-    
-    if (isTracking) updateTrackingScore(id, num);
-    else updateSubmissionScore(id, num);
-    
-    setEditingId(null);
-    onUpdate();
-  };
-
-  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean, action: () => void, title: string, message: string } | null>(null);
-
-  const handleDelete = (id: string, isTracking: boolean) => {
-    setConfirmDialog({
-      isOpen: true,
-      title: 'Xác nhận xóa',
-      message: 'Bạn có chắc muốn xóa điểm này?',
-      action: () => {
-        if (isTracking) deleteTracking(id);
-        else deleteSubmission(id);
-        onUpdate();
-        setConfirmDialog(null);
-      }
-    });
-  };
-
-  return (
-    <div className="glass-strong rounded-3xl p-6 border border-white/5 space-y-6 slide-up relative">
-      {confirmDialog?.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-background p-6 rounded-2xl border border-white/10 max-w-sm w-full mx-4 shadow-xl">
-            <h3 className="text-lg font-bold mb-2 text-foreground">{confirmDialog.title}</h3>
-            <p className="text-sm text-muted-foreground mb-6">{confirmDialog.message}</p>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setConfirmDialog(null)} className="px-4 py-2 rounded-lg font-medium hover:bg-secondary transition-colors text-foreground">Hủy</button>
-              <button onClick={confirmDialog.action} className="px-4 py-2 rounded-lg font-medium bg-red-500/20 text-red-500 hover:bg-red-500/30 transition-colors">Xóa</button>
-            </div>
-          </div>
-        </div>
-      )}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
-        <div>
-          <h2 className="text-xl font-bold font-heading flex items-center gap-2">
-            <Edit2 className="h-5 w-5 text-primary" />
-            Quản Lý Điểm Số
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">Chỉnh sửa hoặc xóa điểm lịch sử của học viên</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <StudentAvatar name={selectedStudent} size="sm" />
-          <select 
-            value={selectedStudent} 
-            onChange={e => setSelectedStudent(e.target.value)}
-            className="input-field text-sm py-2 px-3 min-w-[180px]"
-          >
-            {STUDENT_NAMES.map(name => <option key={name} value={name}>{name}</option>)}
-          </select>
-        </div>
-      </div>
-
-      <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-        {allRecords.length === 0 ? (
-          <div className="text-center py-10 text-muted-foreground">Chưa có dữ liệu nào.</div>
-        ) : (
-          allRecords.map(r => (
-            <div key={r.id} className="flex items-center justify-between p-4 rounded-xl bg-secondary/20 border border-white/5 hover:bg-secondary/40 transition-colors group">
-              <div className="flex-1 min-w-0 pr-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                    r.isTracking ? 'bg-blue-500/10 text-blue-400' : 'bg-violet-500/10 text-violet-400'
-                  }`}>
-                    {r.isTracking ? 'BÁO CÁO' : 'BÀI TẬP'}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(r.submittedAt).toLocaleString('vi-VN')}
-                  </span>
-                </div>
-                <p className="font-medium text-sm truncate">
-                  {r.isTracking ? (r as DailyTracking).category : (r as Submission).assignmentTitle}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {editingId === r.id ? (
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="number" 
-                      value={editScore} 
-                      onChange={e => setEditScore(e.target.value)}
-                      className="input-field w-20 text-center py-1 text-sm font-bold" 
-                      autoFocus
-                      onKeyDown={e => e.key === 'Enter' && handleSave(r.id, r.isTracking)}
-                    />
-                    <button onClick={() => handleSave(r.id, r.isTracking)} className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30">
-                      <CheckCircle2 className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg bg-slate-500/20 text-slate-400 hover:bg-slate-500/30">
-                      <XCircle className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <ScoreBadge score={r.score} />
-                    <div className="flex items-center gap-1">
-                      <button 
-                        onClick={() => { setEditingId(r.id); setEditScore(r.score.toString()); }}
-                        className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
-                        title="Sửa điểm"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(r.id, r.isTracking); }}
-                        className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-red-400 hover:bg-red-500/10 transition-colors relative z-10"
-                        title="Xóa bài nộp"
-                      >
-                        <Trash2 className="h-4 w-4 pointer-events-none" />
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function TeacherDashboard() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [trackings, setTrackings] = useState<DailyTracking[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'score_management'>('overview');
-  const [selectedStudentForEdit, setSelectedStudentForEdit] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics'>('overview');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const refreshData = async () => {
+    // 1. Lấy dữ liệu local trước để hiển thị nhanh
     setAssignments(getAssignments());
     setSubmissions(getSubmissions());
     setTrackings(getDailyTrackings());
 
+    // 2. Fetch từ server ngầm
+    setIsSyncing(true);
     try {
       const res = await fetch('/api/assignments');
       if (res.ok) {
-        const cloudAssignments: Assignment[] = await res.json();
-        if (Array.isArray(cloudAssignments) && cloudAssignments.length > 0) {
-          let hasNew = false;
-          const current = getAssignments();
-          for (const a of cloudAssignments) {
-            if (!current.find(curr => curr.id === a.id)) {
-              importAssignment(a);
-              hasNew = true;
-            }
-          }
-          if (hasNew) {
-            setAssignments(getAssignments());
-          }
+        const cloudData = await res.json();
+        const hasChanges = syncAllFromCloud(cloudData);
+        if (hasChanges) {
+          setAssignments(getAssignments());
+          setSubmissions(getSubmissions());
+          setTrackings(getDailyTrackings());
         }
       }
     } catch (e) {
-      console.error('Lỗi khi đồng bộ bài tập:', e);
+      console.error('Lỗi khi đồng bộ dữ liệu:', e);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -237,6 +81,20 @@ export default function TeacherDashboard() {
   }, []);
 
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean, action: () => void, title: string, message: string } | null>(null);
+  const [addStudentDialog, setAddStudentDialog] = useState(false);
+  const [newStudent, setNewStudent] = useState({ name: '', color: '#3B82F6' });
+
+  const handleAddStudent = () => {
+    if (!newStudent.name.trim()) return alert('Vui lòng nhập tên học viên!');
+    try {
+      createStudent(newStudent.name.trim(), newStudent.color);
+      setAddStudentDialog(false);
+      setNewStudent({ name: '', color: '#3B82F6' });
+      refreshData();
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
 
   const handleDelete = (id: string) => {
     setConfirmDialog({
@@ -249,6 +107,11 @@ export default function TeacherDashboard() {
         setConfirmDialog(null);
       }
     });
+  };
+
+  const handleToggleHint = (a: Assignment) => {
+    updateAssignment(a.id, { allowHints: !a.allowHints });
+    refreshData();
   };
 
   const handleShareAssignment = (assignment: Assignment) => {
@@ -288,7 +151,7 @@ export default function TeacherDashboard() {
   const filteredAssignments = assignments.filter(a => a.createdAt ? a.createdAt <= endOfDay : true);
 
   // ── Stats ──────────────────────────────────────────────────────────────────
-  const totalStudents = STUDENT_NAMES.length;
+  const totalStudents = getStudentNames().length;
   const totalAssignments = filteredAssignments.length;
   const avgScore = filteredSubmissions.length
     ? Math.round(filteredSubmissions.reduce((s, x) => s + x.score, 0) / filteredSubmissions.length)
@@ -299,7 +162,7 @@ export default function TeacherDashboard() {
 
   // ── Per-student stats ──────────────────────────────────────────────────────
   const profiles = getGamificationProfiles();
-  const studentStats = STUDENT_NAMES.map(name => {
+  const studentStats = getStudentNames().map(name => {
     const subs = filteredSubmissions.filter(s => s.studentName === name);
     const trks = filteredTrackings.filter(t => t.studentName === name);
     const profile = profiles.find(p => p.studentName === name);
@@ -440,13 +303,65 @@ export default function TeacherDashboard() {
         </div>
       )}
 
+      {addStudentDialog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-background p-6 rounded-2xl border border-white/10 max-w-sm w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-bold mb-4 text-foreground">Thêm Học Viên Mới</h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Tên Học Viên</label>
+                <input
+                  type="text"
+                  value={newStudent.name}
+                  onChange={e => setNewStudent(s => ({ ...s, name: e.target.value }))}
+                  className="input-field w-full"
+                  placeholder="Ví dụ: Nguyễn Văn A"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Màu Sắc (Hex)</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={/^#[0-9A-Fa-f]{6}$/i.test(newStudent.color) ? newStudent.color : '#000000'}
+                    onChange={e => setNewStudent(s => ({ ...s, color: e.target.value }))}
+                    className="h-10 w-10 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={newStudent.color}
+                    onChange={e => setNewStudent(s => ({ ...s, color: e.target.value }))}
+                    className="input-field flex-1"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setAddStudentDialog(false)} className="px-4 py-2 rounded-lg font-medium hover:bg-secondary transition-colors text-foreground">Hủy</button>
+              <button onClick={handleAddStudent} className="px-4 py-2 rounded-lg font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity">Thêm Mới</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="fade-in stagger-1">
-          <h1 className="text-3xl font-bold font-heading gradient-text">Dashboard Giáo Viên</h1>
+          <h1 className="text-3xl font-bold font-heading gradient-text flex items-center gap-3">
+            Dashboard Giáo Viên
+            {isSyncing && <Loader2 className="h-6 w-6 text-primary animate-spin" />}
+          </h1>
           <p className="text-muted-foreground mt-1 text-sm">Quản lý lớp học và theo dõi tiến độ thi đua</p>
         </div>
         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+          <button
+            type="button"
+            onClick={() => { setIsSyncing(true); refreshData(); }}
+            disabled={isSyncing}
+            className="fade-in stagger-1 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-sm font-semibold border border-primary/20 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} /> Đồng bộ
+          </button>
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClearAllData(); }}
@@ -454,12 +369,19 @@ export default function TeacherDashboard() {
           >
             <Trash2 className="h-4 w-4 pointer-events-none" /> Xóa tất cả dữ liệu
           </button>
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAddStudentDialog(true); }}
+            className="fade-in stagger-1 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors text-sm font-semibold border border-emerald-500/20"
+          >
+            <Users className="h-4 w-4 pointer-events-none" /> Thêm Học Viên
+          </button>
           <div className="fade-in stagger-1 flex items-center gap-2 bg-secondary/50 p-2 rounded-xl border border-white/5">
             <span className="text-sm font-medium text-muted-foreground ml-2">Chọn ngày:</span>
             <input 
               type="date" 
               value={selectedDate}
-              onChange={e => setSelectedDate(e.target.value)}
+              onChange={e => setSelectedDate(e.target.value || new Date().toISOString().split('T')[0])}
               max={new Date().toISOString().split('T')[0]}
               className="input-field text-sm py-1.5 px-3 w-auto"
             />
@@ -501,12 +423,6 @@ export default function TeacherDashboard() {
         >
           Phân Tích Chuyên Sâu
         </button>
-        <button 
-          onClick={() => setActiveTab('score_management')} 
-          className={`pb-3 font-semibold transition-colors border-b-2 ${activeTab === 'score_management' ? 'text-primary border-primary' : 'text-muted-foreground border-transparent hover:text-foreground'}`}
-        >
-          Quản Lý Điểm Số
-        </button>
       </div>
 
       {activeTab === 'overview' ? (
@@ -541,11 +457,7 @@ export default function TeacherDashboard() {
               {studentStats.map((s, idx) => (
                 <div 
                   key={s.name} 
-                  onClick={() => {
-                    setSelectedStudentForEdit(s.name);
-                    setActiveTab('score_management');
-                  }}
-                  className="flex items-center gap-4 p-4 rounded-2xl bg-secondary/30 hover:bg-secondary/60 transition-colors border border-white/5 cursor-pointer group"
+                  className="flex items-center gap-4 p-4 rounded-2xl bg-secondary/30 hover:bg-secondary/60 transition-colors border border-white/5 cursor-default group"
                 >
                   {/* Rank */}
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
@@ -600,10 +512,16 @@ export default function TeacherDashboard() {
               <BookOpen className="h-5 w-5 text-violet-400" />
               Bài Tập Đã Giao
             </h2>
-            <Link href="/teacher/assignments/new"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors text-xs font-semibold">
-              <PlusCircle className="h-3.5 w-3.5" /> Thêm
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/teacher/scores"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/20 text-primary hover:bg-primary/10 transition-colors text-xs font-semibold">
+                <Settings className="h-3.5 w-3.5" /> Quản lý điểm
+              </Link>
+              <Link href="/teacher/assignments/new"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors text-xs font-semibold">
+                <PlusCircle className="h-3.5 w-3.5" /> Thêm
+              </Link>
+            </div>
           </div>
           <div className="glass-strong rounded-3xl p-6 h-[400px] flex flex-col">
             {assignments.length === 0 ? (
@@ -648,6 +566,21 @@ export default function TeacherDashboard() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
+                      {a.type === 'multiple_choice' && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleHint(a); }}
+                          className={`p-1.5 rounded-lg transition-colors relative z-10 flex items-center gap-1 px-2 ${
+                            a.allowHints 
+                              ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' 
+                              : 'text-muted-foreground/50 hover:text-amber-400 hover:bg-amber-500/10'
+                          }`}
+                          title={a.allowHints ? "Tắt gợi ý" : "Bật gợi ý"}
+                        >
+                          <Lightbulb className="h-4 w-4 pointer-events-none" />
+                          <span className="text-[10px] font-semibold">{a.allowHints ? 'Bật' : 'Tắt'}</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleShareAssignment(a); }}
@@ -823,15 +756,6 @@ export default function TeacherDashboard() {
             </div>
           </div>
         </div>
-      )}
-
-      {activeTab === 'score_management' && (
-        <ScoreManagementTab 
-          initialStudent={selectedStudentForEdit}
-          submissions={submissions}
-          trackings={trackings}
-          onUpdate={refreshData}
-        />
       )}
     </div>
   );

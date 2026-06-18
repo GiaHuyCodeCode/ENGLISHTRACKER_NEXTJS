@@ -33,7 +33,7 @@ export async function syncSubmissionToSheet(submission: any): Promise<void> {
 /**
  * Gửi đề bài mới lên Google Sheets thông qua Google Apps Script Web App.
  */
-export async function syncAssignmentToSheet(assignment: any): Promise<void> {
+export async function syncAssignmentToSheet(assignment: any, action: 'add_assignment' | 'update_assignment' = 'add_assignment'): Promise<void> {
   const url = process.env.NEXT_PUBLIC_GAS_WEB_APP_URL;
 
   if (!url) {
@@ -42,7 +42,7 @@ export async function syncAssignmentToSheet(assignment: any): Promise<void> {
   }
 
   try {
-    const payload = { ...assignment, action: 'add_assignment' };
+    const payload = { ...assignment, action };
     const response = await fetch(url, {
       method: 'POST',
       mode: 'no-cors',
@@ -55,5 +55,22 @@ export async function syncAssignmentToSheet(assignment: any): Promise<void> {
     console.log('✅ Đã đẩy bài tập lên Google Sheets thành công (nền).', assignment.title);
   } catch (error) {
     console.error('❌ Lỗi khi đẩy bài tập lên Google Sheets:', error);
+  }
+}
+
+export async function syncActionToSheet(payload: any): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_GAS_WEB_APP_URL;
+  if (!url) return;
+
+  try {
+    await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    console.log('✅ Đã gửi action lên Google Sheets:', payload.action);
+  } catch (error) {
+    console.error('❌ Lỗi khi gửi action lên Sheets:', error);
   }
 }
