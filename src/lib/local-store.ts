@@ -1,4 +1,5 @@
-import { syncSubmissionToSheet, syncAssignmentToSheet, syncActionToSheet } from './google-sheets';
+import { USE_MOCK_DB, mockAssignments, mockSubmissions, mockTrackings, mockVocabCards, mockVocabProgress, mockGamification } from './database_mockup';
+import { syncSubmissionToSheet, syncAssignmentToSheet, syncActionToSheet, syncVocabListToSheet } from './google-sheets';
 
 // ─── Fuzzy Match (Levenshtein, threshold 80%) ────────────────────────────────
 
@@ -31,16 +32,36 @@ export interface QuizQuestion {
   id: number; question: string; options: string[]; answer: string; explanation: string;
   knowledgeArea?: string; hint?: string;
 }
+// ─── Dictation Types ─────────────────────────────────────────────────────────
+
+export interface DictationSentence {
+  id: number;
+  text: string;       // Nội dung câu chuẩn (giáo viên nhập)
+  startTime: number;  // Giây bắt đầu trong video YouTube
+  endTime?: number;   // Giây kết thúc (tuỳ chọn)
+}
+
+export interface DictationResult {
+  sentenceId: number;
+  studentText: string;
+  accuracy: number;    // 0–100
+  errors: string[];    // Từ bị sai
+  replayCount: number; // Số lần replay
+}
+
 export interface Assignment {
   id: string;
   title: string;
-  type: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab';
+  type: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary';
   passage?: string;
   keywords?: VocabKeyword[];
   questions?: QuizQuestion[];
+  vocabCards?: VocabCard[]; // Vocabulary cards for learning & review assignments
   imageUrl?: string;
   allowHints?: boolean;
   createdAt: string;
+  // Dictation-specific fields
+  sentences?: DictationSentence[];
 }
 
 export interface VocabAnswerResult {
@@ -59,13 +80,15 @@ export interface Submission {
   id: string;
   assignmentId: string;
   assignmentTitle: string;
-  assignmentType: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab';
+  assignmentType: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary';
   studentName: string;
   score: number;
   vocabAnswers?: VocabAnswerResult[];
   quizAnswers?: QuizAnswerResult[];
   rewriteAnswers?: RewriteAnswerResult;
+  dictationResults?: DictationResult[];
   feedback?: string;
+  durationMs?: number;
   submittedAt: string;
 }
 
@@ -79,6 +102,26 @@ export interface DailyTracking {
 
 export type TrackCategory = DailyTracking['category'];
 
+export interface VocabCard {
+  id: string;
+  word: string;
+  phonetic?: string;
+  synonyms: string[];
+  meaning: string;
+  example: string;
+  createdAt?: string;
+}
+
+export interface VocabProgress {
+  studentName: string;
+  wordId: string;
+  stage: number;
+  interval: number;
+  nextReviewDate: string;
+  repetitions: number;
+  lastReviewed: string;
+}
+
 // ─── Storage Keys ────────────────────────────────────────────────────────────
 
 const KEYS = {
@@ -87,6 +130,9 @@ const KEYS = {
   dailyTracking: 'et_daily_tracking',
   seeded: 'et_seeded_v2',
   session: 'et_session',
+  vocabulary: 'et_vocabulary',
+  vocabProgress: 'et_vocab_progress',
+  gamification: 'et_gamification',
 };
 
 // ─── Auth / Session ──────────────────────────────────────────────────────────
@@ -162,12 +208,10 @@ export function createStudent(name: string, color: string) {
   return newStudent;
 }
 
-// Hàm hỗ trợ lấy màu sắc an toàn cho Tailwind (map từ hex sang tailwind color)
 export function getStudentColors(name: string): { bg: string; text: string; border: string; hex: string } {
   const student = getStudents().find(s => s.name === name);
-  const hex = student?.color || '#8B5CF6'; // Default Violet
+  const hex = student?.color || '#8B5CF6'; 
   
-  // Ánh xạ đơn giản màu Hex sang Tailwind class
   if (hex.toUpperCase().includes('EF4444')) return { bg: 'bg-red-500/15', text: 'text-red-400', border: 'border-red-500/30', hex };
   if (hex.toUpperCase().includes('3B82F6')) return { bg: 'bg-blue-500/15', text: 'text-blue-400', border: 'border-blue-500/30', hex };
   if (hex.toUpperCase().includes('10B981')) return { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', hex };
@@ -175,18 +219,14 @@ export function getStudentColors(name: string): { bg: string; text: string; bord
   if (hex.toUpperCase().includes('8B5CF6')) return { bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/30', hex };
   if (hex.toUpperCase().includes('EC4899')) return { bg: 'bg-pink-500/15', text: 'text-pink-400', border: 'border-pink-500/30', hex };
   
-  // Fallback
   return { bg: 'bg-indigo-500/15', text: 'text-indigo-400', border: 'border-indigo-500/30', hex };
 }
 
 export function getStudentAvatar(name: string): string {
   const student = getStudents().find(s => s.name === name);
   if (student) return student.avatar;
-  // Fallback auto gen avatar
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'ST';
 }
-
-// ─── Gamification ──────────────────────────────────────────────────────────────
 
 export interface GamificationProfile {
   studentName: string;
@@ -219,7 +259,7 @@ export function getGamificationProfiles(): GamificationProfile[] {
   return students.map(studentName => {
     // Collect all activities for student
     const activities: { date: string, hour: number, score: number, category: string, type: 'submission' | 'tracking' }[] = [];
-    
+
     trackings.forEach(t => {
       if (t.studentName === studentName) {
         const d = new Date(t.submittedAt);
@@ -238,12 +278,12 @@ export function getGamificationProfiles(): GamificationProfile[] {
     // Sort descending by date
     const uniqueDates = Array.from(new Set(activities.map(a => a.date))).sort((a, b) => b.localeCompare(a));
     let streakCount = 0;
-    
+
     if (uniqueDates.length > 0) {
       const today = new Date();
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
-      
+
       const todayStr = today.toISOString().split('T')[0];
       const yesterdayStr = yesterday.toISOString().split('T')[0];
 
@@ -265,10 +305,10 @@ export function getGamificationProfiles(): GamificationProfile[] {
 
     // Evaluate Badges
     const earnedBadges: string[] = [];
-    
+
     const totalScore = activities.reduce((sum, a) => sum + a.score, 0);
     const submitCount = activities.length;
-    
+
     badgesDefs.forEach(badge => {
       let isEarned = false;
       const target = badge.conditionTarget?.toLowerCase() || '';
@@ -295,17 +335,17 @@ export function getGamificationProfiles(): GamificationProfile[] {
           const perfectCount = activities.filter(a => {
             if (a.score < 100) return false;
             if (!target) return true; // Any perfect score
-            
+
             // Map category to target
             const cat = a.category.toLowerCase();
             if (target === 'vocabulary' && (cat === 'vocabulary' || cat === 'vocab_context')) return true;
             if (target === 'grammar' && (cat === 'grammar' || cat === 'multiple_choice')) return true;
             if (target === 'writing' && (cat === 'writing' || cat === 'rewrite_vocab')) return true;
             if (cat === target) return true;
-            
+
             return false;
           }).length;
-          
+
           if (perfectCount >= value) isEarned = true;
           break;
       }
@@ -347,10 +387,10 @@ export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'>): Assi
   const all = getAssignments();
   const a: Assignment = { ...data, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
   write(KEYS.assignments, [...all, a]);
-  
+
   // Đồng bộ lên Google Sheets (Chạy ngầm)
   syncAssignmentToSheet(a);
-  
+
   return a;
 }
 
@@ -372,39 +412,33 @@ export function syncAllFromCloud(cloudData: any): boolean {
     hasChanges = true;
   }
 
-  // 1. Assignments
-  if (Array.isArray(cloudData.assignments) && cloudData.assignments.length > 0) {
-    const current = getAssignments();
-    const newItems = cloudData.assignments.filter((a: any) => !current.find(curr => curr.id === a.id));
-    if (newItems.length > 0) {
-      write(KEYS.assignments, [...current, ...newItems]);
-      hasChanges = true;
-    }
+  // 1. Assignments (Overwrite completely to support deletions from Cloud)
+  if (Array.isArray(cloudData.assignments)) {
+    write(KEYS.assignments, cloudData.assignments);
+    hasChanges = true;
   }
 
-  // 2. Submissions
-  if (Array.isArray(cloudData.submissions) && cloudData.submissions.length > 0) {
-    const current = getSubmissions();
-    const newItems = cloudData.submissions.filter((s: any) => !current.find(curr => curr.id === s.id));
-    if (newItems.length > 0) {
-      write(KEYS.submissions, [...current, ...newItems]);
-      hasChanges = true;
-    }
+  // 2. Submissions (Overwrite completely)
+  if (Array.isArray(cloudData.submissions)) {
+    write(KEYS.submissions, cloudData.submissions);
+    hasChanges = true;
   }
 
-  // 3. Daily Tracking
-  if (Array.isArray(cloudData.dailyTracking) && cloudData.dailyTracking.length > 0) {
-    const current = getDailyTrackings();
-    const newItems = cloudData.dailyTracking.filter((t: any) => !current.find(curr => curr.id === t.id));
-    if (newItems.length > 0) {
-      write(KEYS.dailyTracking, [...current, ...newItems]);
-      hasChanges = true;
-    }
+  // 3. Daily Tracking (Overwrite completely)
+  if (Array.isArray(cloudData.dailyTracking)) {
+    write(KEYS.dailyTracking, cloudData.dailyTracking);
+    hasChanges = true;
   }
 
   // 4. Badges (Overwrite completely)
   if (Array.isArray(cloudData.badges) && cloudData.badges.length > 0) {
     write('et_badges', cloudData.badges);
+    hasChanges = true;
+  }
+
+  // 5. Vocabulary (Overwrite completely)
+  if (Array.isArray(cloudData.vocabulary)) {
+    write(KEYS.vocabulary, cloudData.vocabulary);
     hasChanges = true;
   }
 
@@ -473,8 +507,16 @@ export function updateSubmissionScore(id: string, newScore: number): void {
 
 export function deleteSubmission(id: string): void {
   const all = getSubmissions();
+  const subToDelete = all.find(s => s.id === id);
+  if (!subToDelete) return;
+
   write(KEYS.submissions, all.filter(s => s.id !== id));
   syncActionToSheet({ action: 'delete_submission', id });
+
+  // If this was a vocabulary submission, recalculate spaced repetition progress
+  if (subToDelete.assignmentType === 'vocabulary') {
+    recalculateVocabProgress(subToDelete.studentName);
+  }
 }
 
 export function updateTrackingScore(id: string, newScore: number): void {
@@ -508,6 +550,7 @@ export function submitVocab(payload: {
   assignmentId: string; studentName: string;
   answers: { word: string; studentAnswer: string }[];
   overriddenWords?: string[];
+  durationMs?: number;
 }): Submission {
   const assignment = getAssignment(payload.assignmentId);
   if (!assignment) throw new Error('Assignment not found');
@@ -531,6 +574,7 @@ export function submitVocab(payload: {
     studentName: payload.studentName,
     score,
     vocabAnswers,
+    durationMs: payload.durationMs,
     submittedAt: new Date().toISOString(),
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);
@@ -538,9 +582,72 @@ export function submitVocab(payload: {
   return sub;
 }
 
+export function submitVocabularyAssignment(payload: {
+  assignmentId: string;
+  studentName: string;
+  score: number;
+  answers: { word: string; studentAnswer: string; isCorrect: boolean }[];
+  durationMs?: number;
+}): Submission {
+  const assignment = getAssignment(payload.assignmentId);
+  if (!assignment) throw new Error('Assignment not found');
+
+  const sub: Submission = {
+    id: crypto.randomUUID(),
+    assignmentId: payload.assignmentId,
+    assignmentTitle: assignment.title,
+    assignmentType: 'vocabulary',
+    studentName: payload.studentName,
+    score: payload.score,
+    vocabAnswers: payload.answers.map(ans => ({
+      word: ans.word,
+      studentAnswer: ans.studentAnswer,
+      isCorrect: ans.isCorrect,
+      correctAnswer: ans.word
+    })),
+    durationMs: payload.durationMs,
+    submittedAt: new Date().toISOString(),
+  };
+
+  // Save the submission
+  write(KEYS.submissions, [...getSubmissions(), sub]);
+  syncSubmissionToSheet(sub);
+
+  // Seed into global vocabulary library if not present
+  const currentCards = getVocabularyCards();
+  const assignmentCards = assignment.vocabCards || [];
+
+  const updatedCards = [...currentCards];
+  assignmentCards.forEach(c => {
+    if (!updatedCards.some(curr => curr.word.toLowerCase() === c.word.toLowerCase())) {
+      updatedCards.push({
+        ...c,
+        id: c.id || crypto.randomUUID(),
+        createdAt: c.createdAt || new Date().toISOString()
+      });
+    }
+  });
+  saveVocabularyCards(updatedCards);
+
+  // Initialize/update progress in spaced repetition for the student
+  // We need to re-fetch vocabulary cards to have the correct assigned IDs
+  const freshCards = getVocabularyCards();
+  assignmentCards.forEach(ac => {
+    const matched = freshCards.find(fc => fc.word.toLowerCase() === ac.word.toLowerCase());
+    if (matched) {
+      const ansStatus = payload.answers.find(a => a.word.toLowerCase() === ac.word.toLowerCase());
+      const rating = ansStatus ? (ansStatus.isCorrect ? 'good' : 'again') : 'good';
+      updateVocabProgress(payload.studentName, matched.id, rating);
+    }
+  });
+
+  return sub;
+}
+
 export function submitQuiz(payload: {
   assignmentId: string; studentName: string;
   answers: { questionId: number; studentAnswer: string }[];
+  durationMs?: number;
 }): Submission {
   const assignment = getAssignment(payload.assignmentId);
   if (!assignment) throw new Error('Assignment not found');
@@ -562,7 +669,7 @@ export function submitQuiz(payload: {
     const area = w.knowledgeArea || 'Khác';
     areas[area] = (areas[area] || 0) + 1;
   });
-  const feedback = Object.keys(areas).length > 0 
+  const feedback = Object.keys(areas).length > 0
     ? `Hệ thống nhận thấy bạn cần ôn tập thêm các mảng kiến thức sau:\n` + Object.keys(areas).map(k => `- ${k} (sai ${areas[k]} câu)`).join('\n')
     : 'Tuyệt vời, bạn đã nắm vững các kiến thức trong bài!';
 
@@ -575,6 +682,7 @@ export function submitQuiz(payload: {
     score,
     quizAnswers,
     feedback,
+    durationMs: payload.durationMs,
     submittedAt: new Date().toISOString(),
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);
@@ -585,6 +693,7 @@ export function submitQuiz(payload: {
 export function submitRewrite(payload: {
   assignmentId: string; studentName: string;
   studentText: string;
+  durationMs?: number;
 }): Submission {
   const assignment = getAssignment(payload.assignmentId);
   if (!assignment) throw new Error('Assignment not found');
@@ -621,6 +730,38 @@ export function submitRewrite(payload: {
     studentName: payload.studentName,
     score,
     rewriteAnswers,
+    durationMs: payload.durationMs,
+    submittedAt: new Date().toISOString(),
+  };
+  write(KEYS.submissions, [...getSubmissions(), sub]);
+  syncSubmissionToSheet(sub);
+  return sub;
+}
+
+// ─── Dictation Submit ────────────────────────────────────────────────────────
+
+export function submitDictation(payload: {
+  assignmentId: string;
+  studentName: string;
+  results: DictationResult[];
+  durationMs?: number;
+}): Submission {
+  const assignment = getAssignment(payload.assignmentId);
+  if (!assignment) throw new Error('Assignment not found');
+
+  const sentences = assignment.sentences || [];
+  const totalAccuracy = payload.results.reduce((sum, r) => sum + r.accuracy, 0);
+  const score = sentences.length > 0 ? Math.round(totalAccuracy / sentences.length) : 0;
+
+  const sub: Submission = {
+    id: crypto.randomUUID(),
+    assignmentId: payload.assignmentId,
+    assignmentTitle: assignment.title,
+    assignmentType: 'dictation',
+    studentName: payload.studentName,
+    score,
+    dictationResults: payload.results,
+    durationMs: payload.durationMs,
     submittedAt: new Date().toISOString(),
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);
@@ -640,8 +781,8 @@ export function submitDailyTracking(payload: {
     studentName: payload.studentName,
     category: payload.category,
     score: payload.score,
-    submittedAt: payload.customDate 
-      ? new Date(payload.customDate).toISOString() 
+    submittedAt: payload.customDate
+      ? new Date(payload.customDate).toISOString()
       : new Date().toISOString(),
   };
 
@@ -660,10 +801,162 @@ export function submitDailyTracking(payload: {
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 
+let initializedSwitch = false;
 export function seedIfEmpty(): void {
   if (typeof window === 'undefined') return;
+
+  if (!initializedSwitch) {
+    initializedSwitch = true;
+    const isCurrentlyMock = localStorage.getItem('is_mock_db') === '1';
+    if (USE_MOCK_DB && !isCurrentlyMock) {
+      localStorage.clear();
+      localStorage.setItem('is_mock_db', '1');
+    } else if (!USE_MOCK_DB && isCurrentlyMock) {
+      localStorage.clear();
+      localStorage.setItem('is_mock_db', '0');
+    }
+  }
+
+  // Patch existing assignments that might be missing keywords or vocabCards (e.g. D8 bug)
+  const assignments = getAssignments();
+  let changed = false;
+  const updatedAssignments = assignments.map(a => {
+    let patched = false;
+    const update = { ...a };
+    if (!update.keywords) {
+      update.keywords = [];
+      patched = true;
+    }
+    if (!update.vocabCards) {
+      update.vocabCards = [];
+      patched = true;
+    }
+    if (patched) changed = true;
+    return update;
+  });
+
+  if (changed) {
+    write(KEYS.assignments, updatedAssignments);
+  }
+
   if (localStorage.getItem(KEYS.seeded)) return;
-  
-  // Không tạo sample data nữa, chỉ đánh dấu đã khởi tạo
+
+  if (USE_MOCK_DB) {
+    write(KEYS.assignments, mockAssignments);
+    write(KEYS.submissions, mockSubmissions);
+    write(KEYS.dailyTracking, mockTrackings);
+    write(KEYS.vocabulary, mockVocabCards);
+    write(KEYS.vocabProgress, mockVocabProgress);
+    write(KEYS.gamification, mockGamification);
+    write('et_students', [
+      { id: '1', name: 'Huy', color: '#3B82F6', avatar: 'HY', createdAt: new Date().toISOString() },
+      { id: '2', name: 'Linh', color: '#10B981', avatar: 'LN', createdAt: new Date().toISOString() },
+      { id: '3', name: 'Tuấn', color: '#F59E0B', avatar: 'TN', createdAt: new Date().toISOString() },
+      { id: '4', name: 'Mai', color: '#EF4444', avatar: 'MI', createdAt: new Date().toISOString() }
+    ]);
+  }
+
   localStorage.setItem(KEYS.seeded, '1');
+}
+
+export function getVocabularyCards(): VocabCard[] {
+  return read<VocabCard[]>(KEYS.vocabulary, []);
+}
+
+export function saveVocabularyCards(cards: VocabCard[]): void {
+  write(KEYS.vocabulary, cards);
+  syncVocabListToSheet(cards);
+}
+
+export function getVocabProgressList(): VocabProgress[] {
+  return read<VocabProgress[]>(KEYS.vocabProgress, []);
+}
+
+export function getStudentVocabProgress(studentName: string): VocabProgress[] {
+  return getVocabProgressList().filter(p => p.studentName === studentName);
+}
+
+const REVIEW_INTERVALS = [1, 3, 7, 14, 30, 60]; // 2 months stages
+
+export function updateVocabProgress(
+  studentName: string,
+  wordId: string,
+  rating: 'easy' | 'good' | 'hard' | 'again',
+  actionDate?: Date
+): VocabProgress {
+  const allProgress = getVocabProgressList();
+  let progressIndex = allProgress.findIndex(p => p.studentName === studentName && p.wordId === wordId);
+
+  let progress: VocabProgress;
+  const now = actionDate || new Date();
+
+  if (progressIndex === -1) {
+    progress = {
+      studentName,
+      wordId,
+      stage: rating === 'again' ? 1 : rating === 'hard' ? 1 : rating === 'good' ? 2 : 3,
+      interval: 1,
+      nextReviewDate: now.toISOString(),
+      repetitions: 1,
+      lastReviewed: now.toISOString()
+    };
+
+    // Calculate initial next review date
+    const stageVal = progress.stage;
+    const days = REVIEW_INTERVALS[stageVal - 1] || 1;
+    progress.interval = days;
+    progress.nextReviewDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+
+    allProgress.push(progress);
+  } else {
+    progress = allProgress[progressIndex];
+    progress.repetitions += 1;
+    progress.lastReviewed = now.toISOString();
+
+    if (rating === 'again') {
+      progress.stage = 1;
+    } else if (rating === 'hard') {
+      progress.stage = Math.max(1, progress.stage - 1);
+    } else if (rating === 'good') {
+      progress.stage = Math.min(6, progress.stage + 1);
+    } else if (rating === 'easy') {
+      progress.stage = Math.min(6, progress.stage + 2);
+    }
+
+    const days = REVIEW_INTERVALS[progress.stage - 1];
+    progress.interval = days;
+    progress.nextReviewDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+
+    allProgress[progressIndex] = progress;
+  }
+
+  write(KEYS.vocabProgress, allProgress);
+  return progress;
+}
+
+export function recalculateVocabProgress(studentName: string): void {
+  // Clear progress for this student
+  let allProgress = getVocabProgressList().filter(p => p.studentName !== studentName);
+  write(KEYS.vocabProgress, allProgress);
+
+  // Get all remaining vocabulary submissions for this student, sorted oldest to newest
+  const allSubmissions = getSubmissions()
+    .filter(s => s.studentName === studentName && s.assignmentType === 'vocabulary')
+    .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
+
+  const freshCards = getVocabularyCards();
+
+  // Replay submissions
+  allSubmissions.forEach(sub => {
+    if (!sub.vocabAnswers) return;
+    const subDate = new Date(sub.submittedAt);
+
+    sub.vocabAnswers.forEach(ans => {
+      const matchedCard = freshCards.find(fc => fc.word.toLowerCase() === ans.word.toLowerCase());
+      if (matchedCard) {
+        const rating = ans.isCorrect ? 'good' : 'again';
+        updateVocabProgress(studentName, matchedCard.id, rating, subDate);
+      }
+    });
+  });
 }

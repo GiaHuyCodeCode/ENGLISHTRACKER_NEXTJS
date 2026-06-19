@@ -1,15 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
-  getAssignment, getStudentSubmission, getSubmissions, submitVocab, submitQuiz, submitRewrite,
+  getAssignment, getStudentSubmission, getSubmissions, submitVocab, submitQuiz, submitRewrite, submitVocabularyAssignment,
   Assignment, Submission, getStudentNames, getStudentColors, getStudentAvatar, seedIfEmpty,
 } from '@/lib/local-store';
 import { VocabContextExercise } from '@/components/exercises/VocabContextExercise';
 import { MultipleChoiceExercise } from '@/components/exercises/MultipleChoiceExercise';
+import { RaceTrackLeaderboard } from '@/components/ui/RaceTrackLeaderboard';
 import { RewriteVocabExercise } from '@/components/exercises/RewriteVocabExercise';
-import { ArrowLeft, BookOpen, ListChecks, User, ChevronRight, AlertCircle, PenTool } from 'lucide-react';
+import { VocabularyExercise } from '@/components/exercises/VocabularyExercise';
+import { ArrowLeft, BookOpen, ListChecks, User, ChevronRight, AlertCircle, PenTool, FileJson, Clock, Trophy } from 'lucide-react';
 
 // ── Student picker modal ────────────────────────────────────────────────────
 
@@ -62,8 +64,10 @@ function StudentModal({ onConfirm }: { onConfirm: (name: string) => void }) {
 
 export default function ExercisePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const id = params.id as string;
+  const initialMode = searchParams.get('mode') as any || 'flashcard';
 
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [existingResult, setExistingResult] = useState<Submission | null>(null);
@@ -73,8 +77,10 @@ export default function ExercisePage() {
   const [pendingAnswers, setPendingAnswers] = useState<unknown>(null);
   const [pendingOverrides, setPendingOverrides] = useState<string[] | undefined>(undefined);
   const [currentStudent, setCurrentStudent] = useState<string | null>(null);
+  const startTimeRef = useRef<number>(Date.now());
 
   useEffect(() => {
+    startTimeRef.current = Date.now();
     seedIfEmpty();
     const a = getAssignment(id);
     if (!a) { router.replace('/student/assignments'); return; }
@@ -107,6 +113,12 @@ export default function ExercisePage() {
     else setShowModal(true);
   };
 
+  const handleVocabularySubmit = (answers: { word: string; studentAnswer: string; isCorrect: boolean }[], customScore?: number) => {
+    setPendingAnswers({ answers, customScore });
+    if (currentStudent) doSubmitVocabulary(currentStudent, { answers, customScore });
+    else setShowModal(true);
+  };
+
   const doSubmitVocab = (name: string, answers: unknown, overriddenWords?: string[]) => {
     setIsSubmitting(true);
     setShowModal(false);
@@ -118,6 +130,35 @@ export default function ExercisePage() {
         studentName: name,
         answers: answers as { word: string; studentAnswer: string }[],
         overriddenWords,
+        durationMs: Date.now() - startTimeRef.current,
+      });
+      setResult(sub);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const doSubmitVocabulary = (name: string, pending: any) => {
+    setIsSubmitting(true);
+    setShowModal(false);
+    localStorage.setItem('et_current_student', name);
+    setCurrentStudent(name);
+    try {
+      const { answers, customScore } = pending;
+      const list = answers as { word: string; studentAnswer: string; isCorrect: boolean }[];
+      let score = 0;
+      if (customScore !== undefined) {
+        score = customScore;
+      } else {
+        const correct = list.filter(a => a.isCorrect).length;
+        score = list.length > 0 ? Math.round((correct / list.length) * 100) : 0;
+      }
+      const sub = submitVocabularyAssignment({
+        assignmentId: id,
+        studentName: name,
+        score,
+        answers: list,
+        durationMs: Date.now() - startTimeRef.current,
       });
       setResult(sub);
     } finally {
@@ -135,6 +176,7 @@ export default function ExercisePage() {
         assignmentId: id,
         studentName: name,
         answers: answers as { questionId: number; studentAnswer: string }[],
+        durationMs: Date.now() - startTimeRef.current,
       });
       setResult(sub);
     } finally {
@@ -152,6 +194,7 @@ export default function ExercisePage() {
         assignmentId: id,
         studentName: name,
         studentText: studentText as string,
+        durationMs: Date.now() - startTimeRef.current,
       });
       setResult(sub);
     } finally {
@@ -162,6 +205,7 @@ export default function ExercisePage() {
   const handleModalConfirm = (name: string) => {
     if (assignment?.type === 'vocab_context') doSubmitVocab(name, pendingAnswers, pendingOverrides);
     else if (assignment?.type === 'multiple_choice') doSubmitQuiz(name, pendingAnswers);
+    else if (assignment?.type === 'vocabulary') doSubmitVocabulary(name, pendingAnswers);
     else doSubmitRewrite(name, pendingAnswers);
   };
 
@@ -180,28 +224,30 @@ export default function ExercisePage() {
     <>
       {showModal && <StudentModal onConfirm={handleModalConfirm} />}
 
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-start gap-4">
           <button
             onClick={() => router.push('/student/assignments')}
-            className="p-2 rounded-xl border border-border hover:border-primary/40 hover:bg-slate-800/50 transition-all text-muted-foreground hover:text-foreground flex-shrink-0"
+            className="p-2 rounded-xl border border-white/5 hover:border-primary/40 hover:bg-white/5 transition-all text-muted-foreground hover:text-foreground flex-shrink-0"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5">
               <span className={`text-[11px] px-2 py-0.5 rounded-md font-semibold ${
                 assignment.type === 'vocab_context' ? 'bg-violet-500/15 text-violet-400' : 
                 assignment.type === 'multiple_choice' ? 'bg-teal-500/15 text-teal-400' :
+                assignment.type === 'vocabulary' ? 'bg-[#0071e3]/15 text-sky-400' :
                 'bg-amber-500/15 text-amber-400'
               }`}>
                 {assignment.type === 'vocab_context' ? 'Vocab In-Context' : 
-                 assignment.type === 'multiple_choice' ? 'Trắc Nghiệm' : 'Viết Chuyện Chêm'}
+                 assignment.type === 'multiple_choice' ? 'Trắc Nghiệm' :
+                 assignment.type === 'vocabulary' ? 'Học Từ Vựng' : 'Viết Chuyện Chêm'}
               </span>
               {isReview && (
-                <span className="text-[11px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 font-medium">
-                  Đang xem lại
+                <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 font-medium">
+                  Đã hoàn thành
                 </span>
               )}
             </div>
@@ -212,63 +258,87 @@ export default function ExercisePage() {
           </div>
         </div>
 
-        {/* Exercise */}
-        <div className="glass rounded-2xl border border-border p-6">
-          <div className="flex items-center gap-2 mb-6 pb-4 border-b border-border/50">
-            <div className={`p-2 rounded-lg ${
-              assignment.type === 'vocab_context' ? 'bg-violet-500/15' : 
-              assignment.type === 'multiple_choice' ? 'bg-teal-500/15' : 
-              'bg-amber-500/15'
-            }`}>
-              {assignment.type === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-400" /> : 
-               assignment.type === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-400" /> :
-               <PenTool className="h-4 w-4 text-amber-400" />}
-            </div>
-            <div>
-              <p className="text-sm font-semibold">
-                {assignment.type === 'vocab_context' ? 'Điền Nghĩa Từ Vựng' : 
-                 assignment.type === 'multiple_choice' ? 'Chọn Đáp Án Đúng' : 'Viết Chuyện Chêm'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {assignment.type === 'vocab_context' ? `${assignment.keywords?.length} từ khóa` : 
-                 assignment.type === 'multiple_choice' ? `${assignment.questions?.length} câu hỏi` :
-                 `${assignment.keywords?.length} từ khóa cần dùng`}
-              </p>
-            </div>
+        {/* Exercise Header - Small Minimal Header Bar */}
+        <div className="glass rounded-2xl border border-white/5 p-4 flex items-center gap-2">
+          <div className={`p-2 rounded-lg ${
+            assignment.type === 'vocab_context' ? 'bg-violet-500/15' : 
+            assignment.type === 'multiple_choice' ? 'bg-teal-500/15' : 
+            assignment.type === 'vocabulary' ? 'bg-[#0071e3]/15' : 
+            'bg-amber-500/15'
+          }`}>
+            {assignment.type === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-400" strokeWidth={1.5} /> : 
+             assignment.type === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-400" strokeWidth={1.5} /> :
+             assignment.type === 'vocabulary' ? <FileJson className="h-4 w-4 text-sky-400" strokeWidth={1.5} /> :
+             <PenTool className="h-4 w-4 text-amber-400" strokeWidth={1.5} />}
           </div>
+          <div>
+            <p className="text-sm font-semibold">
+              {assignment.type === 'vocab_context' ? 'Điền Nghĩa Từ Vựng' : 
+               assignment.type === 'multiple_choice' ? 'Chọn Đáp Án Đúng' :
+               assignment.type === 'vocabulary' ? 'Học & Kiểm Tra Từ Vựng' : 'Viết Chuyện Chêm'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {assignment.type === 'vocab_context' ? `${assignment.keywords?.length} từ khóa` : 
+               assignment.type === 'multiple_choice' ? `${assignment.questions?.length} câu hỏi` :
+               assignment.type === 'vocabulary' ? `${assignment.vocabCards?.length || 0} từ vựng` :
+               `${assignment.keywords?.length} từ khóa cần dùng`}
+            </p>
+          </div>
+        </div>
 
+        {/* Exercise Content Area - Completely released from tight glass card bounds */}
+        <div className="w-full">
           {assignment.type === 'vocab_context' && assignment.passage && assignment.keywords && (
-            <VocabContextExercise
-              passage={assignment.passage}
-              keywords={assignment.keywords}
-              onSubmit={handleVocabSubmit}
-              isSubmitting={isSubmitting}
-              result={displayResult?.vocabAnswers}
-              score={displayResult?.score}
-            />
+            <div className="glass rounded-3xl border border-white/5 p-6 md:p-8">
+              <VocabContextExercise
+                passage={assignment.passage}
+                keywords={assignment.keywords}
+                onSubmit={handleVocabSubmit}
+                isSubmitting={isSubmitting}
+                result={displayResult?.vocabAnswers}
+                score={displayResult?.score}
+                allSubmissions={getSubmissions().filter(s => s.assignmentId === id)}
+              />
+            </div>
           )}
 
           {assignment.type === 'multiple_choice' && assignment.questions && (
-            <MultipleChoiceExercise
-              questions={assignment.questions}
-              onSubmit={handleQuizSubmit}
-              isSubmitting={isSubmitting}
-              result={displayResult?.quizAnswers}
-              score={displayResult?.score}
-              allowHints={assignment.allowHints}
-              feedback={displayResult?.feedback}
-              allSubmissions={getSubmissions().filter(s => s.assignmentId === id)}
-            />
+            <div className="glass rounded-3xl border border-white/5 p-6 md:p-8">
+              <MultipleChoiceExercise
+                questions={assignment.questions}
+                onSubmit={handleQuizSubmit}
+                isSubmitting={isSubmitting}
+                result={displayResult?.quizAnswers}
+                score={displayResult?.score}
+                allowHints={assignment.allowHints}
+                feedback={displayResult?.feedback}
+                allSubmissions={getSubmissions().filter(s => s.assignmentId === id)}
+              />
+            </div>
           )}
 
           {assignment.type === 'rewrite_vocab' && assignment.passage && assignment.keywords && (
-            <RewriteVocabExercise
-              passage={assignment.passage}
-              keywords={assignment.keywords}
-              onSubmit={handleRewriteSubmit}
+            <div className="glass rounded-3xl border border-white/5 p-6 md:p-8">
+              <RewriteVocabExercise
+                passage={assignment.passage}
+                keywords={assignment.keywords}
+                onSubmit={handleRewriteSubmit}
+                isSubmitting={isSubmitting}
+                result={displayResult?.rewriteAnswers}
+                score={displayResult?.score}
+              />
+            </div>
+          )}
+
+          {assignment.type === 'vocabulary' && assignment.vocabCards && (
+            <VocabularyExercise
+              vocabCards={assignment.vocabCards}
+              onSubmit={handleVocabularySubmit}
               isSubmitting={isSubmitting}
-              result={displayResult?.rewriteAnswers}
+              result={displayResult?.vocabAnswers}
               score={displayResult?.score}
+              initialMode={initialMode}
+              isRequirementWorkflow={true}
             />
           )}
         </div>
@@ -289,6 +359,11 @@ export default function ExercisePage() {
               Xem bảng xếp hạng
             </button>
           </div>
+        )}
+
+        {/* Leaderboard */}
+        {(result || isReview) && (
+          <RaceTrackLeaderboard submissions={getSubmissions().filter(s => s.assignmentId === id)} />
         )}
       </div>
     </>

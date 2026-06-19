@@ -226,7 +226,7 @@ export default function DailyTrackingPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-24 lg:pb-0" onPaste={handlePaste}>
+    <div className="max-w-5xl mx-auto space-y-6 pb-24 lg:pb-0" onPaste={handlePaste}>
       {/* Header */}
       <div className="flex items-center gap-4">
         <button onClick={() => router.push('/student')}

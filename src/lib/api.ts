@@ -34,7 +34,7 @@ export interface QuizQuestion {
 export interface Assignment {
   _id: string;
   title: string;
-  type: 'vocab_context' | 'multiple_choice';
+  type: 'vocab_context' | 'multiple_choice' | 'vocabulary';
   passage?: string;
   keywords?: VocabKeyword[];
   questions?: QuizQuestion[];
@@ -45,7 +45,7 @@ export interface Assignment {
 
 export interface CreateAssignmentPayload {
   title: string;
-  type: 'vocab_context' | 'multiple_choice';
+  type: 'vocab_context' | 'multiple_choice' | 'vocabulary';
   passage?: string;
   keywords?: VocabKeyword[];
   questions?: QuizQuestion[];
@@ -98,7 +98,7 @@ export interface SubmissionResult {
 export interface SubmitVocabPayload {
   assignmentId: string;
   studentName: string;
-  assignmentType: 'vocab_context';
+  assignmentType: 'vocab_context' | 'vocabulary';
   vocabAnswers: { word: string; studentAnswer: string }[];
 }
 

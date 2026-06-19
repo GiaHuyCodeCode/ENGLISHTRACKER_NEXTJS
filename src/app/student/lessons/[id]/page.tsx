@@ -1,0 +1,192 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { getAssignment, Assignment } from '@/lib/local-store';
+import { 
+  ArrowLeft, BookOpen, Search, Volume2, 
+  Layers, Headphones, FileText, LayoutGrid
+} from 'lucide-react';
+
+export default function LessonDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const id = params.id as string;
+
+  const [assignment, setAssignment] = useState<Assignment | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [speakingWord, setSpeakingWord] = useState<string | null>(null);
+
+  useEffect(() => {
+    const a = getAssignment(id);
+    if (!a) { router.replace('/student/lessons'); return; }
+    setAssignment(a);
+  }, [id, router]);
+
+  if (!assignment) return null;
+
+  const vocabCards = assignment.vocabCards || [];
+  const filteredCards = vocabCards.filter(c => 
+    c.word.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.meaning.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleSpeak = (text: string) => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.85;
+      utterance.onstart = () => setSpeakingWord(text);
+      utterance.onend = () => setSpeakingWord(null);
+      utterance.onerror = () => setSpeakingWord(null);
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const openMode = (mode: string) => {
+    router.push(`/student/assignments/${id}?mode=${mode}`);
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-8">
+      {/* Header */}
+      <div className="flex items-center gap-4 fade-in">
+        <button
+          onClick={() => router.push('/student/vocabulary')}
+          className="p-2 rounded-xl border border-border hover:border-primary/40 hover:bg-slate-800/50 transition-all text-muted-foreground hover:text-foreground flex-shrink-0"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold bg-indigo-500/15 text-indigo-400">
+              Thư mục Từ Vựng
+            </span>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold font-heading gradient-text leading-tight">{assignment.title}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Tổng cộng: {vocabCards.length} từ vựng
+          </p>
+        </div>
+      </div>
+
+      {/* Word List (Overview First) */}
+      <div className="space-y-4 fade-in stagger-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Danh Sách Từ Vựng</h2>
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Tìm từ vựng..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="input-field !pl-10 w-full sm:w-64 py-2 text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 max-h-[500px] overflow-y-auto pr-2">
+          {filteredCards.length === 0 ? (
+            <div className="text-center p-8 border border-white/5 rounded-2xl text-muted-foreground">
+              Không tìm thấy từ vựng nào.
+            </div>
+          ) : (
+            filteredCards.map((c, i) => (
+              <div key={i} className="glass p-4 rounded-2xl border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold text-foreground">{c.word}</span>
+                    {c.phonetic && <span className="text-sm font-mono text-primary/80">{c.phonetic}</span>}
+                    <button 
+                      onClick={() => handleSpeak(c.word)} 
+                      className={`p-1 rounded-full transition-all duration-200 ${
+                        speakingWord === c.word 
+                          ? 'bg-primary/20 text-primary animate-pulse' 
+                          : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
+                      } ml-1`}
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-sm text-foreground/80 font-medium">{c.meaning}</p>
+                  {c.synonyms && c.synonyms.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {c.synonyms.map(syn => (
+                        <span key={syn} className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 text-[10px] font-semibold">
+                          {syn}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {c.example && (
+                  <div className="flex-1 bg-secondary/30 p-3 rounded-xl border border-white/5 hidden md:block">
+                    <p className="text-xs text-muted-foreground italic">"{c.example}"</p>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Action Grid (Study Modes) */}
+      <div className="space-y-3 fade-in stagger-2">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Các Chế Độ Học Tập</h2>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <button onClick={() => openMode('flashcard')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-emerald-500/20 hover:border-emerald-500/40 group">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
+              <Layers className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="font-bold text-foreground text-sm">Flashcard</p>
+              <p className="text-[10px] text-muted-foreground">Lật thẻ ghi nhớ</p>
+            </div>
+          </button>
+          
+          <button onClick={() => openMode('synonym')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-violet-500/20 hover:border-violet-500/40 group">
+            <div className="w-12 h-12 rounded-full bg-violet-500/10 flex items-center justify-center text-violet-400 group-hover:bg-violet-500/20 transition-colors">
+              <BookOpen className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="font-bold text-foreground text-sm">Đồng Nghĩa</p>
+              <p className="text-[10px] text-muted-foreground">Đoán từ qua gợi ý</p>
+            </div>
+          </button>
+
+          <button onClick={() => openMode('test')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-amber-500/20 hover:border-amber-500/40 group">
+            <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-400 group-hover:bg-amber-500/20 transition-colors">
+              <FileText className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="font-bold text-foreground text-sm">Kiểm Tra</p>
+              <p className="text-[10px] text-muted-foreground">Làm bài trắc nghiệm</p>
+            </div>
+          </button>
+
+          <button onClick={() => openMode('dictation')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-sky-500/20 hover:border-sky-500/40 group">
+            <div className="w-12 h-12 rounded-full bg-sky-500/10 flex items-center justify-center text-sky-400 group-hover:bg-sky-500/20 transition-colors">
+              <Headphones className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="font-bold text-foreground text-sm">Nghe Chép</p>
+              <p className="text-[10px] text-muted-foreground">Nghe và gõ lại</p>
+            </div>
+          </button>
+
+          <button onClick={() => openMode('game_match')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-rose-500/20 hover:border-rose-500/40 group col-span-2 md:col-span-1">
+            <div className="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-400 group-hover:bg-rose-500/20 transition-colors">
+              <LayoutGrid className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="font-bold text-foreground text-sm">Nối Từ</p>
+              <p className="text-[10px] text-muted-foreground">Minigame trí nhớ</p>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

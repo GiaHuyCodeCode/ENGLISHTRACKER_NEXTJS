@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { VocabKeyword, VocabAnswerResult, isFuzzyMatch } from '@/lib/local-store';
+import { VocabKeyword, VocabAnswerResult, isFuzzyMatch, Submission, getStudentAvatar } from '@/lib/local-store';
 import { CheckCircle2, XCircle, Lightbulb, Send, Eye, Check } from 'lucide-react';
 
 interface Props {
@@ -11,9 +11,10 @@ interface Props {
   isSubmitting?: boolean;
   result?: VocabAnswerResult[];
   score?: number;
+  allSubmissions?: Submission[];
 }
 
-export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting, result, score }: Props) {
+export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting, result, score, allSubmissions }: Props) {
   const [answers, setAnswers] = useState<Record<string, string>>(
     Object.fromEntries(keywords.map(k => [k.word, ''])),
   );
@@ -78,6 +79,13 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
             const wordResult = getResult(word);
             const matchKeyword = keywords.find(k => k.word.toLowerCase() === word.toLowerCase());
 
+            const failedPeers = allSubmissions?.filter(sub => {
+              if (!sub.vocabAnswers) return false;
+              const ans = sub.vocabAnswers.find(a => a.word.toLowerCase() === word.toLowerCase());
+              return ans && !ans.isCorrect;
+            }).map(sub => sub.studentName) || [];
+            const uniqueFailedPeers = Array.from(new Set(failedPeers));
+
             return (
               <span key={i} className="inline-flex items-center gap-1.5 mx-1 my-1">
                 {/* Keyword badge */}
@@ -123,6 +131,22 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
                         )}
                       </span>
                     )}
+                  </span>
+                )}
+
+                {uniqueFailedPeers.length > 0 && (
+                  <span className="inline-flex items-center gap-1 ml-1 bg-red-500/5 px-2 py-0.5 rounded-md border border-red-500/10 align-middle">
+                    <span className="text-[9px] text-red-400/80 uppercase font-semibold">Vài con gà đã ngã xuống:</span>
+                    <span className="flex -space-x-1">
+                      {uniqueFailedPeers.map(peer => (
+                        <span key={peer} title={`${peer} đã làm sai từ này`} className="relative w-4 h-4 rounded-full border border-red-500/50 flex items-center justify-center bg-background text-[7px] font-bold shadow-sm z-10 hover:z-20 transition-all hover:scale-110">
+                          {getStudentAvatar(peer)}
+                          <span className="absolute -bottom-0.5 -right-0.5 bg-red-500 rounded-full w-2 h-2 flex items-center justify-center border border-background">
+                            <XCircle className="w-1.5 h-1.5 text-white" />
+                          </span>
+                        </span>
+                      ))}
+                    </span>
                   </span>
                 )}
               </span>

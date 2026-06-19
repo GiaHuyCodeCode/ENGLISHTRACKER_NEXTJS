@@ -74,3 +74,26 @@ export async function syncActionToSheet(payload: any): Promise<void> {
     console.error('❌ Lỗi khi gửi action lên Sheets:', error);
   }
 }
+
+export async function syncVocabListToSheet(cards: any[]): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_GAS_WEB_APP_URL;
+  if (!url) {
+    console.warn('⚠️ Google Sheets Sync: Missing NEXT_PUBLIC_GAS_WEB_APP_URL. Không thể đồng bộ từ vựng.');
+    return;
+  }
+
+  try {
+    const payload = { action: 'sync_vocab_list', cards };
+    await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    console.log('✅ Đã đồng bộ danh sách từ vựng lên Google Sheets.');
+  } catch (error) {
+    console.error('❌ Lỗi khi đồng bộ từ vựng lên Google Sheets:', error);
+  }
+}

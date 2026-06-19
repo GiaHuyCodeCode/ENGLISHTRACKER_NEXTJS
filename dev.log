@@ -1,0 +1,110 @@
+
+> frontend@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 2s
+ ○ Compiling / ...
+ ✓ Compiled / in 7.8s (1662 modules)
+ GET / 200 in 8767ms
+ ✓ Compiled in 1082ms (826 modules)
+ GET / 200 in 88ms
+ ○ Compiling /api/assignments ...
+ ✓ Compiled /api/assignments in 2.2s (1703 modules)
+ GET /api/assignments 200 in 2110ms
+ GET /api/assignments 200 in 15ms
+ ✓ Compiled /login in 429ms (1715 modules)
+ GET /api/assignments 200 in 42ms
+ GET /api/assignments 200 in 17ms
+ GET / 200 in 265ms
+ GET /api/assignments 200 in 31ms
+ GET /api/assignments 200 in 11ms
+ ○ Compiling /teacher/scores ...
+ ✓ Compiled /teacher/scores in 1118ms (1715 modules)
+ GET /api/assignments 200 in 36ms
+ GET /api/assignments 200 in 19ms
+ GET /login 200 in 126ms
+ ○ Compiling /student/assignments ...
+ ✓ Compiled /student/assignments in 1213ms (1725 modules)
+ GET /student/assignments 200 in 1499ms
+ ✓ Compiled /student in 306ms (899 modules)
+ GET /student/assignments 200 in 230ms
+ GET /api/assignments 200 in 140ms
+ GET /api/assignments 200 in 37ms
+ GET /login 200 in 50ms
+ ○ Compiling /student/assignments/[id] ...
+ ✓ Compiled /student/assignments/[id] in 1920ms (1809 modules)
+ GET /student/assignments/a4 200 in 192ms
+ GET /api/assignments 200 in 39ms
+ GET /api/assignments 200 in 48ms
+ ○ Compiling /student/library ...
+ ✓ Compiled /student/library in 537ms (1811 modules)
+ GET /student/library 200 in 740ms
+ GET /api/assignments 200 in 19ms
+ GET /api/assignments 200 in 8ms
+ ✓ Compiled in 1284ms (891 modules)
+ ⨯ ./src/app/page.tsx
+Error: 
+  [31mx[0m Unexpected token `div`. Expected jsx identifier
+     ,-[[36;1;4m/home/huyhg/Documents/English_Tracking/frontend/src/app/page.tsx[0m:304:1]
+ [2m304[0m |   };
+ [2m305[0m | 
+ [2m306[0m |   return (
+ [2m307[0m |     <div className="space-y-8 max-w-7xl mx-auto relative">
+     : [31;1m     ^^^[0m
+ [2m308[0m |       {confirmDialog?.isOpen && (
+ [2m309[0m |         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+ [2m310[0m |           <div className="bg-background p-6 rounded-2xl border border-white/10 max-w-sm w-full mx-4 shadow-xl">
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/page.tsx
+ ⨯ ./src/app/page.tsx
+Error: 
+  [31mx[0m Unexpected token `div`. Expected jsx identifier
+     ,-[[36;1;4m/home/huyhg/Documents/English_Tracking/frontend/src/app/page.tsx[0m:304:1]
+ [2m304[0m |   };
+ [2m305[0m | 
+ [2m306[0m |   return (
+ [2m307[0m |     <div className="space-y-8 max-w-7xl mx-auto relative">
+     : [31;1m     ^^^[0m
+ [2m308[0m |       {confirmDialog?.isOpen && (
+ [2m309[0m |         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+ [2m310[0m |           <div className="bg-background p-6 rounded-2xl border border-white/10 max-w-sm w-full mx-4 shadow-xl">
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/page.tsx
+ ⨯ ./src/app/page.tsx
+Error: 
+  [31mx[0m Unexpected token `div`. Expected jsx identifier
+     ,-[[36;1;4m/home/huyhg/Documents/English_Tracking/frontend/src/app/page.tsx[0m:304:1]
+ [2m304[0m |   };
+ [2m305[0m | 
+ [2m306[0m |   return (
+ [2m307[0m |     <div className="space-y-8 max-w-7xl mx-auto relative">
+     : [31;1m     ^^^[0m
+ [2m308[0m |       {confirmDialog?.isOpen && (
+ [2m309[0m |         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+ [2m310[0m |           <div className="bg-background p-6 rounded-2xl border border-white/10 max-w-sm w-full mx-4 shadow-xl">
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/page.tsx
+ ✓ Compiled in 1112ms (891 modules)
+ ✓ Compiled in 1138ms (1775 modules)
+ ✓ Compiled in 2.2s (1789 modules)
+ ✓ Compiled in 829ms (1789 modules)

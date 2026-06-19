@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
+import { USE_MOCK_DB, mockAssignments } from '@/lib/database_mockup';
 
 export const dynamic = 'force-dynamic'; // Ensures this API is not statically cached
 
 export async function GET() {
+  if (USE_MOCK_DB) {
+    return NextResponse.json(mockAssignments);
+  }
+
   const url = process.env.NEXT_PUBLIC_GAS_WEB_APP_URL;
   
   if (!url) {

@@ -5,11 +5,14 @@ import {
   getAssignments, getSubmissions, getDailyTrackings, deleteAssignment,
   updateSubmissionScore, updateTrackingScore, deleteSubmission, deleteTracking, clearAllData,
   Assignment, Submission, DailyTracking, getStudentNames, getStudentColors, getStudentAvatar,
-  seedIfEmpty, getGamificationProfiles, getBadges, GamificationProfile, importAssignment, updateAssignment, syncAllFromCloud, createStudent
+  seedIfEmpty, getGamificationProfiles, getBadges, GamificationProfile, importAssignment, updateAssignment, syncAllFromCloud, createStudent,
+  getVocabularyCards, getVocabProgressList, saveVocabularyCards, VocabCard
 } from '@/lib/local-store';
+import { syncVocabListToSheet } from '@/lib/google-sheets';
+import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
 import { 
   Users, BookOpen, Clock, Target, Edit2, Save, X, XCircle,
-  Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2, Lightbulb, Settings, Loader2, RefreshCw
+  Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2, Lightbulb, Settings, Loader2, RefreshCw, FileJson, Volume2, Headphones
 } from 'lucide-react';
 import Link from 'next/link';
 import { 
@@ -39,13 +42,11 @@ function StudentAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md'
   );
 }
 
-
-
 export default function TeacherDashboard() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [trackings, setTrackings] = useState<DailyTracking[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'vocabulary'>('overview');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -73,6 +74,19 @@ export default function TeacherDashboard() {
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  const getDictationCount = (a: any) => {
+    if (a.sentences && Array.isArray(a.sentences)) return a.sentences.length;
+    if (!a.passage) return 0;
+    let parsed = a.passage;
+    if (typeof parsed === 'string') {
+      try { parsed = JSON.parse(parsed); } catch { return 0; }
+      if (typeof parsed === 'string') {
+        try { parsed = JSON.parse(parsed); } catch { return 0; }
+      }
+    }
+    return Array.isArray(parsed) ? parsed.length : 0;
   };
 
   useEffect(() => {
@@ -232,8 +246,9 @@ export default function TeacherDashboard() {
     
     const scores = { Vocab: [] as number[], Grammar: [] as number[], Reading: [] as number[], Listening: [] as number[], Writing: [] as number[] };
     dSubs.forEach(s => {
-      if (s.assignmentType === 'vocab_context') scores.Vocab.push(s.score);
+      if (s.assignmentType === 'vocab_context' || s.assignmentType === 'vocabulary') scores.Vocab.push(s.score);
       else if (s.assignmentType === 'multiple_choice') scores.Grammar.push(s.score);
+      else if (s.assignmentType === 'dictation') scores.Listening.push(s.score);
       else if (s.assignmentType === 'rewrite_vocab') scores.Writing.push(s.score);
     });
     dTrks.forEach(t => {
@@ -423,9 +438,15 @@ export default function TeacherDashboard() {
         >
           Phân Tích Chuyên Sâu
         </button>
+        <button 
+          onClick={() => setActiveTab('vocabulary')} 
+          className={`pb-3 font-semibold transition-colors border-b-2 ${activeTab === 'vocabulary' ? 'text-primary border-primary' : 'text-muted-foreground border-transparent hover:text-foreground'}`}
+        >
+          Theo Dõi Từ Vựng
+        </button>
       </div>
 
-      {activeTab === 'overview' ? (
+      {activeTab === 'overview' && (
         <div className="space-y-6 fade-in stagger-4">
           {/* Star of the day */}
           {starOfTheDay && (
@@ -450,58 +471,10 @@ export default function TeacherDashboard() {
         <div className="lg:col-span-3 space-y-4">
           <h2 className="text-lg font-semibold font-heading flex items-center gap-2">
             <Trophy className="h-5 w-5 text-amber-400" />
-            Bảng Xếp Hạng Thi Đua
+            Biểu Đồ Thi Đua Học Tập
           </h2>
-          <div className="glass-strong rounded-3xl p-6">
-            <div className="space-y-4">
-              {studentStats.map((s, idx) => (
-                <div 
-                  key={s.name} 
-                  className="flex items-center gap-4 p-4 rounded-2xl bg-secondary/30 hover:bg-secondary/60 transition-colors border border-white/5 cursor-default group"
-                >
-                  {/* Rank */}
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                    idx === 0 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                    idx === 1 ? 'bg-slate-400/20 text-slate-400 border border-slate-400/30' :
-                    idx === 2 ? 'bg-orange-700/20 text-orange-600 border border-orange-700/30' :
-                    'bg-secondary text-muted-foreground'
-                  }`}>
-                    {idx + 1}
-                  </div>
-
-                  <StudentAvatar name={s.name} />
-
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">{s.name}</p>
-                    <p className="text-xs text-muted-foreground">{s.submissionCount} bài tập, {s.trackingCount} báo cáo</p>
-                  </div>
-
-                  {s.profile && s.profile.streakCount > 0 && (
-                    <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded bg-orange-500/10 border border-orange-500/20">
-                      <Flame className="h-3 w-3 text-orange-500" />
-                      <span className="text-xs font-bold text-orange-400">{s.profile.streakCount}</span>
-                    </div>
-                  )}
-                  {s.profile && s.profile.badges.length > 0 && (
-                    <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded bg-secondary/30 border border-white/5">
-                      <Trophy className="h-3 w-3 text-amber-400" />
-                      <span className="text-xs font-bold">{s.profile.badges.length}</span>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-3">
-                    {s.avg !== null ? (
-                      <ScoreBadge score={s.avg} />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Chưa làm</span>
-                    )}
-                    {s.trend === 'up'   && <TrendingUp className="h-4 w-4 text-emerald-400" />}
-                    {s.trend === 'down' && <TrendingDown className="h-4 w-4 text-red-400" />}
-                    {s.trend === 'same' && <Minus className="h-4 w-4 text-muted-foreground" />}
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="glass-strong rounded-3xl p-6 flex flex-col justify-center">
+            <StudentPerformanceChart submissions={submissions} />
           </div>
         </div>
 
@@ -535,31 +508,38 @@ export default function TeacherDashboard() {
                   const subs = submissions.filter(s => s.assignmentId === a.id);
                   const avg = subs.length ? Math.round(subs.reduce((s, x) => s + x.score, 0) / subs.length) : null;
                   return (
-                    <div key={a.id} className="flex items-start gap-3 p-4 rounded-2xl bg-secondary/30 border border-white/5 group hover:bg-secondary/60 transition-colors">
+                    <Link key={a.id} href={`/teacher/assignments/${a.id}/edit`} className="flex items-start gap-3 p-4 rounded-2xl bg-secondary/30 border border-white/5 group hover:bg-secondary/60 transition-colors cursor-pointer">
                       <div className={`p-2.5 rounded-xl ${
-                        a.type === 'vocab_context' ? 'bg-violet-500/10 text-violet-400' : 
+                        a.type === 'vocab_context' || a.type === 'vocabulary' ? 'bg-violet-500/10 text-violet-400' : 
                         a.type === 'multiple_choice' ? 'bg-teal-500/10 text-teal-400' :
+                        a.type === 'dictation' ? 'bg-sky-500/10 text-sky-400' :
                         'bg-amber-500/10 text-amber-400'
                       }`}>
                       {a.type === 'vocab_context' ? <BookOpen className="h-4 w-4" /> : 
                        a.type === 'multiple_choice' ? <ListChecks className="h-4 w-4" /> :
+                       a.type === 'dictation' ? <Headphones className="h-4 w-4" /> :
+                       a.type === 'vocabulary' ? <FileJson className="h-4 w-4" /> :
                        <PenTool className="h-4 w-4" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">{a.title}</p>
                       <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
                         <span className={`px-1.5 py-0.5 rounded-md font-medium ${
-                          a.type === 'vocab_context' ? 'bg-violet-500/10 text-violet-300' : 
+                          a.type === 'vocab_context' || a.type === 'vocabulary' ? 'bg-violet-500/10 text-violet-300' : 
                           a.type === 'multiple_choice' ? 'bg-teal-500/10 text-teal-300' :
+                          a.type === 'dictation' ? 'bg-sky-500/10 text-sky-300' :
                           'bg-amber-500/10 text-amber-300'
                         }`}>
-                          {a.type === 'vocab_context' ? 'Vocab' : 
-                           a.type === 'multiple_choice' ? 'Quiz' : 'Viết'}
+                          {a.type === 'vocab_context' || a.type === 'vocabulary' ? 'Vocab' : 
+                           a.type === 'multiple_choice' ? 'Quiz' :
+                           a.type === 'dictation' ? 'Nghe chép' : 'Viết'}
                         </span>
                         <span>•</span>
                         <span>
                           {a.type === 'vocab_context' ? `${a.keywords?.length || 0} từ khóa` : 
                            a.type === 'multiple_choice' ? `${a.questions?.length || 0} câu hỏi` :
+                           a.type === 'dictation' ? `${getDictationCount(a)} câu` :
+                           a.type === 'vocabulary' ? `${a.vocabCards?.length || 0} từ vựng` :
                            `${a.keywords?.length || 0} từ khóa`}
                         </span>
                         {avg !== null && <ScoreBadge score={avg} />}
@@ -598,7 +578,7 @@ export default function TeacherDashboard() {
                         <Trash2 className="h-4 w-4 pointer-events-none" />
                       </button>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
@@ -642,17 +622,21 @@ export default function TeacherDashboard() {
                     <td className="px-6 py-3 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${
                           act.isTracking ? 'bg-blue-500/10 text-blue-300 border-blue-500/20' :
-                          act.assignmentType === 'vocab_context' ? 'bg-violet-500/10 text-violet-300 border-violet-500/20' : 
+                          act.assignmentType === 'vocab_context' || act.assignmentType === 'vocabulary' ? 'bg-violet-500/10 text-violet-300 border-violet-500/20' : 
                           act.assignmentType === 'multiple_choice' ? 'bg-teal-500/10 text-teal-300 border-teal-500/20' :
+                          act.assignmentType === 'dictation' ? 'bg-sky-500/10 text-sky-300 border-sky-500/20' :
                           'bg-amber-500/10 text-amber-300 border-amber-500/20'
                         }`}>
                           {act.isTracking ? <Target className="h-3 w-3" /> :
                            act.assignmentType === 'vocab_context' ? <BookOpen className="h-3 w-3" /> : 
                            act.assignmentType === 'multiple_choice' ? <ListChecks className="h-3 w-3" /> :
+                           act.assignmentType === 'dictation' ? <Headphones className="h-3 w-3" /> :
+                           act.assignmentType === 'vocabulary' ? <FileJson className="h-3 w-3" /> :
                            <PenTool className="h-3 w-3" />}
                           {act.isTracking ? act.category :
-                           act.assignmentType === 'vocab_context' ? 'Vocab' : 
-                           act.assignmentType === 'multiple_choice' ? 'Quiz' : 'Viết'}
+                           act.assignmentType === 'vocab_context' || act.assignmentType === 'vocabulary' ? 'Vocab' : 
+                           act.assignmentType === 'multiple_choice' ? 'Quiz' :
+                           act.assignmentType === 'dictation' ? 'Nghe chép' : 'Viết'}
                         </span>
                     </td>
                     <td className="px-6 py-3 text-center"><ScoreBadge score={act.score} /></td>
@@ -664,8 +648,10 @@ export default function TeacherDashboard() {
           </div>
         </div>
       )}
-      </div>
-      ) : (
+        </div>
+      )}
+
+      {activeTab === 'analytics' && (
         <div className="space-y-6 fade-in stagger-4">
           {/* Actionable Insights */}
           <div className="glass-strong rounded-3xl p-6 border border-primary/20 bg-primary/5">
@@ -753,6 +739,89 @@ export default function TeacherDashboard() {
                   </RadarChart>
                 </ResponsiveContainer>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'vocabulary' && (
+        <div className="grid grid-cols-1 gap-6 fade-in">
+          {/* Báo cáo ôn tập */}
+          <div className="glass-strong rounded-3xl p-6 border border-white/5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-bold font-heading">Báo Cáo Ôn Tập Từ Vựng</h3>
+                <p className="text-sm text-muted-foreground mt-1">Theo dõi tiến độ lặp lại ngắt quãng (Spaced Repetition) của học sinh</p>
+              </div>
+              <div className="text-xs px-3 py-1.5 rounded-xl bg-secondary/80 text-muted-foreground font-semibold self-start sm:self-center">
+                Tổng số từ thư viện chung: <span className="text-primary font-bold">{getVocabularyCards().length} từ</span>
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 text-muted-foreground uppercase font-bold text-xs">
+                    <th className="pb-3 pt-2">Học viên</th>
+                    <th className="pb-3 pt-2 text-center">Đang học</th>
+                    <th className="pb-3 pt-2 text-center">Đã Master (Stage 6)</th>
+                    <th className="pb-3 pt-2 text-center">Cần ôn hôm nay</th>
+                    <th className="pb-3 pt-2 text-center">Chăm chỉ (Streak)</th>
+                    <th className="pb-3 pt-2 text-right">Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {getStudentNames().map(name => {
+                    const progress = getVocabProgressList().filter(p => p.studentName === name);
+                    const totalCards = getVocabularyCards();
+                    const progressMap = new Map<string, any>();
+                    progress.forEach(p => progressMap.set(p.wordId, p));
+                    
+                    const learnedCount = progress.filter(p => p.stage > 0).length;
+                    const masterCount = progress.filter(p => p.stage === 6).length;
+                    
+                    const now = new Date();
+                    const dueCount = totalCards.filter(card => {
+                      const prog = progressMap.get(card.id);
+                      if (!prog) return true; // Due to study
+                      return new Date(prog.nextReviewDate) <= now;
+                    }).length;
+                    
+                    const profile = getGamificationProfiles().find(p => p.studentName === name);
+
+                    return (
+                      <tr key={name} className="hover:bg-white/5 transition-colors">
+                        <td className="py-4 font-semibold flex items-center gap-3">
+                          <StudentAvatar name={name} size="sm" />
+                          <span>{name}</span>
+                        </td>
+                        <td className="py-4 text-center font-bold">{learnedCount} / {totalCards.length}</td>
+                        <td className="py-4 text-center text-emerald-400 font-bold">{masterCount}</td>
+                        <td className="py-4 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-full font-bold text-xs ${
+                            dueCount > 0 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          }`}>
+                            {dueCount} từ
+                          </span>
+                        </td>
+                        <td className="py-4 text-center">
+                          <span className="text-orange-400 font-bold flex items-center justify-center gap-1">
+                            <Flame className="w-4 h-4 text-orange-500" />
+                            {profile?.streakCount || 0} ngày
+                          </span>
+                        </td>
+                        <td className="py-4 text-right">
+                          {dueCount === 0 ? (
+                            <span className="text-emerald-400 text-xs font-semibold">Đã ôn đầy đủ</span>
+                          ) : (
+                            <span className="text-amber-400 text-xs font-semibold">Còn {dueCount} từ đến hạn</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

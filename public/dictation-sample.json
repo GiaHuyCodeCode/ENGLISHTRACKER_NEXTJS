@@ -1,0 +1,11 @@
+{
+  "title": "Daily Dictation - Sample Passage",
+  "description": "Practice listening and writing English sentences",
+  "sentences": [
+    { "id": 1, "text": "The weather today is really nice and sunny." },
+    { "id": 2, "text": "I usually wake up early in the morning." },
+    { "id": 3, "text": "She is studying English at a language center." },
+    { "id": 4, "text": "They went to the market to buy some vegetables." },
+    { "id": 5, "text": "Learning a new language takes time and practice." }
+  ]
+}

@@ -1,0 +1,465 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { VocabCard, VocabAnswerResult, Submission } from '@/lib/local-store';
+import { Send, BookOpen, Layers, FileText, Headphones, LayoutGrid, ArrowRight, CheckCircle2, AlertTriangle, HelpCircle } from 'lucide-react';
+
+import { FlashcardBlock } from './vocabulary-blocks/FlashcardBlock';
+import { SynonymBlock } from './vocabulary-blocks/SynonymBlock';
+import { DictationBlock } from './vocabulary-blocks/DictationBlock';
+import { TestBlock } from './vocabulary-blocks/TestBlock';
+import { MatchGameBlock } from './vocabulary-blocks/MatchGameBlock';
+
+interface Props {
+  vocabCards: VocabCard[];
+  onSubmit: (answers: { word: string; studentAnswer: string; isCorrect: boolean }[], score?: number) => void;
+  isSubmitting?: boolean;
+  result?: VocabAnswerResult[];
+  score?: number;
+  initialMode?: 'flashcard' | 'synonym' | 'dictation' | 'test' | 'game_match';
+  isRequirementWorkflow?: boolean;
+  allSubmissions?: Submission[];
+}
+
+export type ActiveMode = 'flashcard' | 'synonym' | 'dictation' | 'test' | 'game_match';
+
+export function VocabularyExercise({ 
+  vocabCards, 
+  onSubmit, 
+  isSubmitting, 
+  result, 
+  score, 
+  initialMode = 'flashcard',
+  isRequirementWorkflow = false,
+  allSubmissions
+}: Props) {
+  const [activeMode, setActiveMode] = useState<ActiveMode>(
+    isRequirementWorkflow ? 'dictation' : initialMode
+  );
+  
+  // States cho luồng ôn tập lần lượt
+  const [dictationScore, setDictationScore] = useState<number | null>(null);
+  const [isDictationFinished, setIsDictationFinished] = useState(false);
+  
+  // Shared states for different modes
+  const [textAnswers, setTextAnswers] = useState<Record<string, string>>({}); // for dictation & synonym
+  const [mcAnswers, setMcAnswers] = useState<Record<string, string>>({}); // for test
+  const [gameMatchedIds, setGameMatchedIds] = useState<string[]>([]); // for game match
+
+  // State nhận từ block con (Dictation hoặc Test) để cập nhật bảng Tracking Sidebar
+  const [progressStats, setProgressStats] = useState<{
+    completed: number;
+    incorrect: number;
+    pending: number;
+    statusMap: Record<string, 'correct' | 'incorrect' | 'pending' | 'active'>;
+    currentIdx: number;
+    roundWords: VocabCard[];
+    onJumpToQuestion?: (idx: number) => void;
+  } | null>(null);
+
+  // Speed setting
+  const [speed, setSpeed] = useState(1.0);
+
+  const isSubmitted = !!result;
+
+  // Đồng bộ khi đổi workflow
+  useEffect(() => {
+    if (isRequirementWorkflow) {
+      setActiveMode('dictation');
+      setIsDictationFinished(false);
+      setDictationScore(null);
+      setProgressStats(null);
+    }
+  }, [isRequirementWorkflow]);
+
+  const handleSpeak = useCallback((text: string, rateOverride?: number) => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = rateOverride ?? speed;
+      window.speechSynthesis.speak(utterance);
+    }
+  }, [speed]);
+
+  const handleTextAnswerChange = (word: string, val: string) => {
+    if (isSubmitted) return;
+    setTextAnswers(prev => ({ ...prev, [word]: val }));
+  };
+
+  const handleMcAnswerChange = (wordId: string, val: string) => {
+    if (isSubmitted) return;
+    setMcAnswers(prev => ({ ...prev, [wordId]: val }));
+  };
+
+  const calculateScore = () => {
+    if (isRequirementWorkflow) {
+      let testCorrect = 0;
+      vocabCards.forEach(c => { if (mcAnswers[c.id] === c.word) testCorrect++; });
+      const testScore = Math.round((testCorrect / vocabCards.length) * 100);
+      return Math.round(((dictationScore || 0) + testScore) / 2);
+    }
+
+    if (activeMode === 'test') {
+      let correct = 0;
+      vocabCards.forEach(c => { if (mcAnswers[c.id] === c.word) correct++; });
+      return Math.round((correct / vocabCards.length) * 100);
+    }
+    if (activeMode === 'game_match') {
+      return Math.round((gameMatchedIds.length / (vocabCards.length * 2)) * 100);
+    }
+    if (activeMode === 'flashcard') return 100;
+
+    let correct = 0;
+    vocabCards.forEach(c => {
+      if ((textAnswers[c.word] || '').trim().toLowerCase() === c.word.toLowerCase()) correct++;
+    });
+    return Math.round((correct / vocabCards.length) * 100);
+  };
+
+  const handleDictationFinished = (score: number, dictationAnswers: Record<string, string>) => {
+    setDictationScore(score);
+    setIsDictationFinished(true);
+    setTextAnswers(dictationAnswers);
+    setActiveMode('test');
+    setProgressStats(null); // Reset progress để block test cập nhật
+  };
+
+  const handleSubmitAll = () => {
+    const finalAnswers = vocabCards.map(c => {
+      let studentAnswer = '';
+      let isCorrect = false;
+
+      if (isRequirementWorkflow || activeMode === 'test') {
+        studentAnswer = mcAnswers[c.id] || '';
+        isCorrect = studentAnswer.toLowerCase() === c.word.toLowerCase();
+      } else if (activeMode === 'game_match') {
+        const isMatched = gameMatchedIds.includes(`w_${c.id}`);
+        studentAnswer = isMatched ? 'Matched' : 'Unmatched';
+        isCorrect = isMatched;
+      } else if (activeMode === 'flashcard') {
+        studentAnswer = 'Viewed';
+        isCorrect = true;
+      } else {
+        studentAnswer = (textAnswers[c.word] || '').trim();
+        isCorrect = studentAnswer.toLowerCase() === c.word.toLowerCase();
+      }
+
+      return { word: c.word, studentAnswer, isCorrect };
+    });
+
+    const finalScore = calculateScore();
+    onSubmit(finalAnswers, finalScore);
+  };
+
+  // Pre-fill answers if already submitted
+  useEffect(() => {
+    if (result) {
+      const prefilledAnswers: Record<string, string> = {};
+      result.forEach(r => {
+        prefilledAnswers[r.word] = r.studentAnswer;
+      });
+      setTextAnswers(prefilledAnswers);
+      
+      if (initialMode === 'flashcard' && !isRequirementWorkflow) {
+        setActiveMode('test');
+      }
+    }
+  }, [result, initialMode, isRequirementWorkflow]);
+
+  // Handler callback nhận dữ liệu tiến độ từ block con
+  const handleProgressUpdate = useCallback((stats: any) => {
+    setProgressStats(stats);
+  }, []);
+
+  const totalWordsCount = vocabCards.length;
+  const isTrackingAvailable = progressStats && totalWordsCount > 0;
+  const progressPercentage = isTrackingAvailable
+    ? Math.round(((progressStats.completed + progressStats.incorrect) / totalWordsCount) * 100)
+    : 0;
+
+  return (
+    <div className="space-y-6 fade-in w-full">
+      {/* Result Score */}
+      {isSubmitted && score !== undefined && (
+        <div className={`rounded-3xl p-8 text-center border-2 score-pop relative overflow-hidden ${
+          score >= 80 ? 'border-emerald-500/40 bg-emerald-500/10 glow-success' :
+          score >= 50 ? 'border-amber-500/40 bg-amber-500/10' :
+          'border-red-500/40 bg-red-500/10'
+        }`}>
+          <div className="absolute inset-0 bg-dot-pattern opacity-30"></div>
+          <div className="relative z-10">
+            <div className={`text-6xl md:text-7xl font-extrabold font-heading tracking-tighter ${
+              score >= 80 ? 'text-emerald-400' : score >= 50 ? 'text-amber-400' : 'text-red-400'
+            }`}>
+              {score}<span className="text-2xl md:text-3xl text-muted-foreground/80 font-medium">/100</span>
+            </div>
+            <p className="text-sm md:text-base text-foreground/90 mt-3 font-medium">
+              ✅ Đã hoàn thành bài học • Điểm số: {score}đ
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Workflow Header Progress */}
+      {isRequirementWorkflow && !isSubmitted && (
+        <div className="flex items-center justify-center gap-3 bg-white/5 p-4 rounded-2xl border border-white/5 backdrop-blur-sm">
+          <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${activeMode === 'dictation' ? 'text-[#0071e3]' : 'text-muted-foreground'}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${isDictationFinished ? 'bg-emerald-500 text-black' : activeMode === 'dictation' ? 'bg-[#0071e3] text-white' : 'bg-white/5 text-muted-foreground'}`}>
+              {isDictationFinished ? '✓' : '1'}
+            </span>
+            Phần 1: Nghe Chép
+          </div>
+          <div className="w-12 h-px bg-white/10"></div>
+          <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${activeMode === 'test' ? 'text-[#0071e3]' : 'text-muted-foreground'}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${activeMode === 'test' ? 'bg-[#0071e3] text-white' : 'bg-white/5 text-muted-foreground'}`}>
+              2
+            </span>
+            Phần 2: Trắc Nghiệm
+          </div>
+        </div>
+      )}
+
+      {/* Mode Switcher Tabs (Chỉ hiện trong chế độ học tự do) */}
+      {!isSubmitted && !isRequirementWorkflow && (
+        <div className="flex flex-wrap bg-white/5 p-2 rounded-2xl border border-white/5 gap-2 backdrop-blur-sm">
+          <button 
+            onClick={() => { setActiveMode('flashcard'); setProgressStats(null); }} 
+            className={`flex-1 min-w-[100px] flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl text-xs font-bold transition-all duration-300 ${activeMode === 'flashcard' ? 'bg-[#0071e3] text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+          >
+            <Layers className="h-5 w-5" strokeWidth={1.5} /> Flashcard
+          </button>
+          <button 
+            onClick={() => { setActiveMode('synonym'); setProgressStats(null); }} 
+            className={`flex-1 min-w-[100px] flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl text-xs font-bold transition-all duration-300 ${activeMode === 'synonym' ? 'bg-violet-600 text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+          >
+            <BookOpen className="h-5 w-5" strokeWidth={1.5} /> Đồng Nghĩa
+          </button>
+          <button 
+            onClick={() => { setActiveMode('test'); setProgressStats(null); }} 
+            className={`flex-1 min-w-[100px] flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl text-xs font-bold transition-all duration-300 ${activeMode === 'test' ? 'bg-amber-500 text-black shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+          >
+            <FileText className="h-5 w-5" strokeWidth={1.5} /> Trắc Nghiệm
+          </button>
+          <button 
+            onClick={() => { setActiveMode('dictation'); setProgressStats(null); }} 
+            className={`flex-1 min-w-[100px] flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl text-xs font-bold transition-all duration-300 ${activeMode === 'dictation' ? 'bg-sky-500 text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+          >
+            <Headphones className="h-5 w-5" strokeWidth={1.5} /> Nghe Chép
+          </button>
+          <button 
+            onClick={() => { setActiveMode('game_match'); setProgressStats(null); }} 
+            className={`flex-1 min-w-[100px] flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl text-xs font-bold transition-all duration-300 ${activeMode === 'game_match' ? 'bg-rose-500 text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+          >
+            <LayoutGrid className="h-5 w-5" strokeWidth={1.5} /> Nối Từ
+          </button>
+        </div>
+      )}
+
+      {/* Main Workspace Layout (2 Columns on Desktop) */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+        
+        {/* LEFT COLUMN (Desktop): Real-time Apple Activity Tracking Sidebar */}
+        <aside className="lg:col-span-1 order-last lg:order-first space-y-4">
+          
+          {/* Tracking Sidebar Panel */}
+          {isTrackingAvailable ? (
+            <div className="glass-strong rounded-3xl border border-white/5 p-5 space-y-6 sticky top-6 shadow-2xl">
+              
+              {/* Progress Summary and Circular-style Ring */}
+              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <div>
+                  <h4 className="text-xs uppercase font-bold tracking-widest text-muted-foreground">Tiến độ bài làm</h4>
+                  <p className="text-2xl font-black font-heading mt-1 text-white">{progressPercentage}%</p>
+                </div>
+                {/* Circular ring path */}
+                <div className="relative w-14 h-14">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      className="text-white/5"
+                      strokeWidth="3.5"
+                      stroke="currentColor"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      className="text-[#0071e3] transition-all duration-500 ease-out"
+                      strokeWidth="3.5"
+                      strokeDasharray={`${progressPercentage}, 100`}
+                      strokeLinecap="round"
+                      stroke="currentColor"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-muted-foreground">
+                    {progressStats.completed + progressStats.incorrect}/{totalWordsCount}
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress Statistics Badges */}
+              <div className="grid grid-cols-3 gap-2.5">
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2.5 text-center">
+                  <span className="text-[9px] uppercase font-bold text-emerald-400 block mb-0.5">Đã xong</span>
+                  <span className="text-lg font-black text-emerald-300 leading-none">{progressStats.completed}</span>
+                </div>
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-2.5 text-center">
+                  <span className="text-[9px] uppercase font-bold text-red-400 block mb-0.5">Sai/Lỗi</span>
+                  <span className="text-lg font-black text-red-300 leading-none">{progressStats.incorrect}</span>
+                </div>
+                <div className="bg-white/5 border border-white/5 rounded-xl p-2.5 text-center">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground block mb-0.5">Chưa làm</span>
+                  <span className="text-lg font-black text-muted-foreground leading-none">{progressStats.pending}</span>
+                </div>
+              </div>
+
+              {/* Real-time Jump Map */}
+              <div className="space-y-2.5">
+                <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Sơ đồ câu hỏi</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {progressStats.roundWords.map((card, idx) => {
+                    const status = progressStats.statusMap[card.id] || 'pending';
+                    
+                    let bgCls = 'bg-white/5 text-muted-foreground border-white/5';
+                    if (status === 'correct') {
+                      bgCls = 'bg-emerald-500 text-black border-emerald-500';
+                    } else if (status === 'incorrect') {
+                      bgCls = 'bg-red-500 text-white border-red-500 glow-error';
+                    } else if (status === 'active') {
+                      bgCls = 'bg-[#0071e3] text-white border-[#0071e3] scale-110';
+                    }
+
+                    return (
+                      <button
+                        key={card.id}
+                        onClick={() => progressStats.onJumpToQuestion?.(idx)}
+                        title={card.word}
+                        className={`w-full aspect-square flex items-center justify-center text-xs font-bold rounded-lg border transition-all duration-300 hover-lift ${bgCls}`}
+                      >
+                        {idx + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Speed Settings */}
+              <div className="pt-4 border-t border-white/5 space-y-2.5">
+                <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5"><Headphones className="h-3 w-3" /> Tốc độ đọc âm thanh</p>
+                <select value={speed} onChange={e => setSpeed(Number(e.target.value))} className="w-full bg-secondary/50 border border-white/10 rounded-lg text-xs py-2 px-3 text-muted-foreground hover:text-foreground outline-none transition-colors">
+                  <option value={0.75}>0.75x</option>
+                  <option value={1.0}>1.0x (Chuẩn)</option>
+                  <option value={1.25}>1.25x</option>
+                  <option value={1.5}>1.5x</option>
+                </select>
+              </div>
+
+            </div>
+          ) : (
+            // Fallback information card when tracking is not active (like in flashcards or matching game)
+            <div className="glass-strong rounded-3xl border border-white/5 p-5 space-y-4 shadow-xl">
+              <h4 className="text-xs uppercase font-bold tracking-widest text-muted-foreground">Chế độ học</h4>
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/5 rounded-xl text-sky-400">
+                  {activeMode === 'flashcard' ? <Layers className="w-5 h-5" strokeWidth={1.5} /> :
+                   activeMode === 'synonym' ? <BookOpen className="w-5 h-5" strokeWidth={1.5} /> :
+                   activeMode === 'game_match' ? <LayoutGrid className="w-5 h-5" strokeWidth={1.5} /> :
+                   <HelpCircle className="w-5 h-5" strokeWidth={1.5} />}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">
+                    {activeMode === 'flashcard' ? 'Lướt Flashcard' :
+                     activeMode === 'synonym' ? 'Ôn từ đồng nghĩa' :
+                     activeMode === 'game_match' ? 'Game ghép đôi từ' : 'Đang tải...'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Tổng cộng {totalWordsCount} từ vựng</p>
+                </div>
+              </div>
+
+              {/* Speed Settings */}
+              <div className="pt-4 border-t border-white/5 space-y-2.5">
+                <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5"><Headphones className="h-3 w-3" /> Tốc độ đọc âm thanh</p>
+                <select value={speed} onChange={e => setSpeed(Number(e.target.value))} className="w-full bg-secondary/50 border border-white/10 rounded-lg text-xs py-2 px-3 text-muted-foreground hover:text-foreground outline-none transition-colors">
+                  <option value={0.75}>0.75x</option>
+                  <option value={1.0}>1.0x (Chuẩn)</option>
+                  <option value={1.25}>1.25x</option>
+                  <option value={1.5}>1.5x</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+        </aside>
+
+        {/* RIGHT COLUMN (Desktop): Main Exercise Area (Spacious & Clean) */}
+        <div className="lg:col-span-3 order-first lg:order-last space-y-6">
+          <div className="w-full">
+            {activeMode === 'flashcard' && (
+              <FlashcardBlock vocabCards={vocabCards} handleSpeak={handleSpeak} isSubmitted={isSubmitted} />
+            )}
+            
+            {activeMode === 'synonym' && (
+              <SynonymBlock vocabCards={vocabCards} answers={textAnswers} onAnswerChange={handleTextAnswerChange} handleSpeak={handleSpeak} isSubmitted={isSubmitted} />
+            )}
+            
+            {activeMode === 'dictation' && (
+              <DictationBlock 
+                vocabCards={vocabCards} 
+                answers={textAnswers} 
+                onAnswerChange={handleTextAnswerChange} 
+                handleSpeak={handleSpeak} 
+                isSubmitted={isSubmitted}
+                isRequirementWorkflow={isRequirementWorkflow}
+                onFinishDictation={handleDictationFinished}
+                onProgressUpdate={handleProgressUpdate}
+                allSubmissions={allSubmissions}
+              />
+            )}
+            
+            {activeMode === 'test' && (
+              <TestBlock 
+                vocabCards={vocabCards} 
+                answers={mcAnswers} 
+                onAnswerChange={handleMcAnswerChange} 
+                isSubmitted={isSubmitted}
+                onProgressUpdate={handleProgressUpdate}
+                allSubmissions={allSubmissions}
+              />
+            )}
+
+            {activeMode === 'game_match' && (
+              <MatchGameBlock vocabCards={vocabCards} gameMatchedIds={gameMatchedIds} setGameMatchedIds={setGameMatchedIds} handleSpeak={handleSpeak} isSubmitted={isSubmitted} />
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Submit Section (Chỉ hiển thị khi làm bài tự do, hoặc khi ở phần trắc nghiệm trong chế độ bắt buộc) */}
+      {!isSubmitted && (!isRequirementWorkflow || (isRequirementWorkflow && activeMode === 'test')) && (
+        <div className="pt-6 border-t border-white/5 space-y-4 max-w-2xl mx-auto">
+          <div className="flex justify-between items-center text-xs font-bold text-muted-foreground uppercase tracking-widest px-2">
+            <span>
+              {activeMode === 'test' ? `Đã trả lời: ${Object.keys(mcAnswers).length} / ${vocabCards.length}` : 
+               `Đã điền: ${vocabCards.filter(c => (textAnswers[c.word] || '').trim()).length} / ${vocabCards.length}`}
+            </span>
+            <span className={calculateScore() >= 80 ? 'text-emerald-400' : 'text-foreground'}>
+              {isRequirementWorkflow 
+                ? `Điểm trung bình dự kiến: ${calculateScore()}% (Nghe: ${dictationScore}đ)`
+                : `Dự kiến: ${calculateScore()}%`}
+            </span>
+          </div>
+          <button
+            onClick={handleSubmitAll}
+            disabled={isSubmitting || (isRequirementWorkflow && Object.keys(mcAnswers).length < vocabCards.length)}
+            className="w-full h-14 flex items-center justify-center gap-2 rounded-2xl bg-[#0071e3] text-white font-bold text-sm hover:bg-[#0071e3]/90 disabled:opacity-40 transition-all hover-lift"
+          >
+            <Send className="h-5 w-5" strokeWidth={1.5} />
+            {isSubmitting ? 'Đang nộp bài...' : 'Hoàn Thành & Lưu Điểm'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

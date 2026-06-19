@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   getAssignments, getSubmissions, seedIfEmpty, syncAllFromCloud,
@@ -8,7 +9,7 @@ import {
 } from '@/lib/local-store';
 import {
   BookOpen, ListChecks, ChevronRight, CheckCircle2,
-  Clock, Trophy, User, LogOut, PenTool, Loader2, RefreshCw
+  Clock, Trophy, User, LogOut, PenTool, Loader2, RefreshCw, Headphones, FileJson, FileText
 } from 'lucide-react';
 
 function ScorePill({ score }: { score: number }) {
@@ -59,9 +60,31 @@ function StudentPicker({ onSelect }: { onSelect: (name: string) => void }) {
   );
 }
 
+// ── Helper ───────────────────────────────────────────────────────────────────
+
+/** Đọc số câu dictation từ cả `sentences` (array) lẫn `passage` (JSON string) */
+function getDictationCount(a: Assignment): number {
+  // Ưu tiên: nếu có field sentences là array hợp lệ
+  if (a.sentences && Array.isArray(a.sentences) && a.sentences.length > 0) {
+    return a.sentences.length;
+  }
+  // Fallback: parse từ passage (lưu dưới dạng JSON string)
+  if (!a.passage) return 0;
+  let parsed: unknown = a.passage;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch { return 0; }
+    // Double-encoded trường hợp lưu 2 lần JSON.stringify
+    if (typeof parsed === 'string') {
+      try { parsed = JSON.parse(parsed); } catch { return 0; }
+    }
+  }
+  return Array.isArray(parsed) ? parsed.length : 0;
+}
+
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function StudentAssignmentsPage() {
+  const router = useRouter();
   const [studentName, setStudentName] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('et_current_student');
@@ -126,7 +149,7 @@ export default function StudentAssignmentsPage() {
   const todo = assignments.filter(a => !getSubmission(a.id));
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
+    <div className="space-y-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
@@ -150,9 +173,9 @@ export default function StudentAssignmentsPage() {
           </button>
           <button
             onClick={() => { setStudentName(null); localStorage.removeItem('et_current_student'); }}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-xl hover:bg-slate-800/50"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-xl hover:bg-white/5"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-4 w-4" strokeWidth={1.5} />
             Đổi học viên
           </button>
         </div>
@@ -161,9 +184,9 @@ export default function StudentAssignmentsPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Đã hoàn thành', value: done.length, total: assignments.length, color: 'text-teal-400', bg: 'border-teal-500/20' },
-          { label: 'Điểm Trung Bình', value: myAvgScore !== null ? `${myAvgScore}đ` : '—', color: 'text-violet-400', bg: 'border-violet-500/20' },
-          { label: 'Chờ làm', value: todo.length, color: 'text-amber-400', bg: 'border-amber-500/20' },
+          { label: 'Đã hoàn thành', value: done.length, total: assignments.length, color: 'text-teal-400', bg: 'border-white/5' },
+          { label: 'Điểm Trung Bình', value: myAvgScore !== null ? `${myAvgScore}đ` : '—', color: 'text-[#0071e3]', bg: 'border-white/5' },
+          { label: 'Chờ làm', value: todo.length, color: 'text-amber-400', bg: 'border-white/5' },
         ].map(({ label, value, color, bg }) => (
           <div key={label} className={`glass rounded-2xl p-5 border ${bg}`}>
             <p className="text-xs text-muted-foreground mb-2">{label}</p>
@@ -181,40 +204,63 @@ export default function StudentAssignmentsPage() {
             <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 text-xs border border-amber-500/30">{todo.length}</span>
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            {todo.map(a => (
-              <Link key={a.id} href={`/student/assignments/${a.id}`}>
-                <div className="group glass hover-lift rounded-2xl p-5 border border-border hover:border-primary/40 transition-all cursor-pointer">
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <div className={`p-3 rounded-xl ${
-                      a.type === 'vocab_context' ? 'bg-violet-500/15' : 
-                      a.type === 'multiple_choice' ? 'bg-teal-500/15' :
-                      'bg-amber-500/15'
-                    }`}>
-                      {a.type === 'vocab_context' ? <BookOpen className="h-5 w-5 text-violet-400" /> : 
-                       a.type === 'multiple_choice' ? <ListChecks className="h-5 w-5 text-teal-400" /> :
-                       <PenTool className="h-5 w-5 text-amber-400" />}
+            {todo.map(a => {
+              const isDictation = a.type === 'dictation';
+              const isVocab = a.type === 'vocabulary';
+              const href = isDictation ? `/student/dictation/${a.id}` : `/student/assignments/${a.id}`;
+              
+              const cardContent = (
+                <div className="group glass hover-lift rounded-2xl p-5 border border-white/5 hover:border-primary/40 transition-all cursor-pointer h-full flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className={`p-3 rounded-xl ${
+                        a.type === 'vocab_context' ? 'bg-violet-500/15' :
+                        a.type === 'multiple_choice' ? 'bg-teal-500/15' :
+                        a.type === 'dictation' ? 'bg-sky-500/15' :
+                        a.type === 'vocabulary' ? 'bg-indigo-500/15' :
+                        'bg-amber-500/15'
+                      }`}>
+                        {a.type === 'vocab_context' ? <BookOpen className="h-5 w-5 text-violet-400" /> :
+                         a.type === 'multiple_choice' ? <ListChecks className="h-5 w-5 text-teal-400" /> :
+                         a.type === 'dictation' ? <Headphones className="h-5 w-5 text-sky-400" /> :
+                         a.type === 'vocabulary' ? <FileJson className="h-5 w-5 text-indigo-400" /> :
+                         <PenTool className="h-5 w-5 text-amber-400" />}
+                      </div>
+                      <span className={`text-[11px] px-2 py-1 rounded-lg font-semibold ${
+                        a.type === 'vocab_context' ? 'bg-violet-500/10 text-violet-400' :
+                        a.type === 'multiple_choice' ? 'bg-teal-500/10 text-teal-400' :
+                        a.type === 'dictation' ? 'bg-sky-500/10 text-sky-400' :
+                        a.type === 'vocabulary' ? 'bg-indigo-500/10 text-indigo-400' :
+                        'bg-amber-500/10 text-amber-400'
+                      }`}>
+                        {a.type === 'vocab_context' ? 'Vocab' :
+                         a.type === 'multiple_choice' ? 'Quiz' :
+                         a.type === 'dictation' ? 'Dictation' :
+                         a.type === 'vocabulary' ? 'Học Từ' : 'Viết'}
+                      </span>
                     </div>
-                    <span className={`text-[11px] px-2 py-1 rounded-lg font-semibold ${
-                      a.type === 'vocab_context' ? 'bg-violet-500/10 text-violet-400' : 
-                      a.type === 'multiple_choice' ? 'bg-teal-500/10 text-teal-400' :
-                      'bg-amber-500/10 text-amber-400'
-                    }`}>
-                      {a.type === 'vocab_context' ? 'Vocab' : 
-                       a.type === 'multiple_choice' ? 'Quiz' : 'Viết'}
-                    </span>
+                    <h3 className="font-semibold text-sm leading-snug mb-2 group-hover:text-primary transition-colors">{a.title}</h3>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      {a.type === 'vocab_context' ? `${a.keywords?.length || 0} từ khóa` :
+                       a.type === 'multiple_choice' ? `${a.questions?.length || 0} câu hỏi` :
+                       a.type === 'dictation' ? `${getDictationCount(a)} câu • Nghe & gõ lại` :
+                       a.type === 'vocabulary' ? `${a.vocabCards?.length || 0} từ • Học & Kiểm tra` :
+                       `${a.keywords?.length || 0} từ khóa cần dùng`}
+                    </p>
                   </div>
-                  <h3 className="font-semibold text-sm leading-snug mb-2 group-hover:text-primary transition-colors">{a.title}</h3>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    {a.type === 'vocab_context' ? `${a.keywords?.length || 0} từ khóa` : 
-                     a.type === 'multiple_choice' ? `${a.questions?.length || 0} câu hỏi` :
-                     `${a.keywords?.length || 0} từ khóa cần dùng`}
-                  </p>
+                  
                   <div className="flex items-center gap-1.5 text-sm font-medium text-primary group-hover:gap-2.5 transition-all">
                     Bắt đầu <ChevronRight className="h-4 w-4" />
                   </div>
                 </div>
-              </Link>
-            ))}
+              );
+
+              return (
+                <Link key={a.id} href={href}>
+                  {cardContent}
+                </Link>
+              );
+            })}
           </div>
         </section>
       )}
@@ -226,19 +272,23 @@ export default function StudentAssignmentsPage() {
             <CheckCircle2 className="h-4 w-4 text-emerald-400" />
             Đã Hoàn Thành
           </h2>
-          <div className="glass rounded-2xl border border-border overflow-hidden">
-            <div className="divide-y divide-border/30">
+          <div className="glass rounded-2xl border border-white/5 overflow-hidden">
+            <div className="divide-y divide-white/5">
               {done.map(a => {
                 const sub = getSubmission(a.id)!;
                 return (
-                  <div key={a.id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-800/20 transition-colors">
+                  <div key={a.id} className="flex items-center gap-4 px-6 py-4 hover:bg-white/5 transition-colors">
                     <div className={`p-2 rounded-lg ${
-                      a.type === 'vocab_context' ? 'bg-violet-500/10' : 
+                      a.type === 'vocab_context' ? 'bg-violet-500/10' :
                       a.type === 'multiple_choice' ? 'bg-teal-500/10' :
+                      a.type === 'dictation' ? 'bg-sky-500/10' :
+                      a.type === 'vocabulary' ? 'bg-indigo-500/10' :
                       'bg-amber-500/10'
                     }`}>
-                      {a.type === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-400" /> : 
+                      {a.type === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-400" /> :
                        a.type === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-400" /> :
+                       a.type === 'dictation' ? <Headphones className="h-4 w-4 text-sky-400" /> :
+                       a.type === 'vocabulary' ? <FileJson className="h-4 w-4 text-indigo-400" /> :
                        <PenTool className="h-4 w-4 text-amber-400" />}
                     </div>
                     <div className="flex-1 min-w-0">

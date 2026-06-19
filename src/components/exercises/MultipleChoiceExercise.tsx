@@ -109,7 +109,7 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                   {/* Peer Failure Avatars */}
                   {uniqueFailedPeers.length > 0 && (
                     <div className="flex items-center gap-1.5 mt-2.5 flex-wrap bg-red-500/5 w-fit px-2 py-1 rounded-md border border-red-500/10">
-                      <span className="text-[10px] text-red-400/80 uppercase font-semibold">Các bạn đã sai câu này:</span>
+                      <span className="text-[10px] text-red-400/80 uppercase font-semibold">Vài con gà đã ngã xuống:</span>
                       <div className="flex -space-x-1">
                         {uniqueFailedPeers.map(peer => (
                           <div key={peer} title={`${peer} đã làm sai câu này`} className="relative w-5 h-5 rounded-full border border-red-500/50 flex items-center justify-center bg-background text-[8px] font-bold shadow-sm z-10 hover:z-20 transition-all hover:scale-110">
