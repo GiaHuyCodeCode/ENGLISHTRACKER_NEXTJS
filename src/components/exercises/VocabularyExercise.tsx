@@ -57,8 +57,8 @@ export function VocabularyExercise({
     onJumpToQuestion?: (idx: number) => void;
   } | null>(null);
 
-  // Speed setting
-  const [speed, setSpeed] = useState(1.0);
+  // Thêm state cho chế độ nghe trước/sau
+  const [speakMode, setSpeakMode] = useState<'before' | 'after'>('after');
 
   const isSubmitted = !!result;
 
@@ -72,15 +72,15 @@ export function VocabularyExercise({
     }
   }, [isRequirementWorkflow]);
 
-  const handleSpeak = useCallback((text: string, rateOverride?: number) => {
+  const handleSpeak = useCallback((text: string) => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'en-US';
-      utterance.rate = rateOverride ?? speed;
+      utterance.rate = 1.0;
       window.speechSynthesis.speak(utterance);
     }
-  }, [speed]);
+  }, []);
 
   const handleTextAnswerChange = (word: string, val: string) => {
     if (isSubmitted) return;
@@ -314,46 +314,50 @@ export function VocabularyExercise({
                 </div>
               </div>
 
-              {/* Real-time Jump Map */}
-              <div className="space-y-2.5">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Sơ đồ câu hỏi</p>
-                <div className="grid grid-cols-5 gap-2">
-                  {progressStats.roundWords.map((card, idx) => {
-                    const status = progressStats.statusMap[card.id] || 'pending';
-                    
-                    let bgCls = 'bg-white/5 text-muted-foreground border-white/5';
-                    if (status === 'correct') {
-                      bgCls = 'bg-emerald-500 text-black border-emerald-500';
-                    } else if (status === 'incorrect') {
-                      bgCls = 'bg-red-500 text-white border-red-500 glow-error';
-                    } else if (status === 'active') {
-                      bgCls = 'bg-[#0071e3] text-white border-[#0071e3] scale-110';
-                    }
+              {/* Real-time Jump Map (Ẩn đối với bài nghe từ vựng và trắc nghiệm theo yêu cầu) */}
+              {/* 
+              {activeMode === 'dictation' && (
+                <div className="space-y-2.5">
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Sơ đồ câu hỏi</p>
+                  <div className="grid grid-cols-5 gap-2">
+                    {progressStats.roundWords.map((card, idx) => {
+                      const status = progressStats.statusMap[card.id] || 'pending';
+                      
+                      let bgCls = 'bg-white/5 text-muted-foreground border-white/5';
+                      if (status === 'correct') {
+                        bgCls = 'bg-emerald-500 text-black border-emerald-500';
+                      } else if (status === 'incorrect') {
+                        bgCls = 'bg-red-500 text-white border-red-500 glow-error';
+                      } else if (status === 'active') {
+                        bgCls = 'bg-[#0071e3] text-white border-[#0071e3] scale-110';
+                      }
 
-                    return (
-                      <button
-                        key={card.id}
-                        onClick={() => progressStats.onJumpToQuestion?.(idx)}
-                        title={card.word}
-                        className={`w-full aspect-square flex items-center justify-center text-xs font-bold rounded-lg border transition-all duration-300 hover-lift ${bgCls}`}
-                      >
-                        {idx + 1}
-                      </button>
-                    );
-                  })}
+                      return (
+                        <button
+                          key={card.id}
+                          onClick={() => progressStats.onJumpToQuestion?.(idx)}
+                          title={card.word}
+                          className={`w-full aspect-square flex items-center justify-center text-xs font-bold rounded-lg border transition-all duration-300 hover-lift ${bgCls}`}
+                        >
+                          {idx + 1}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
+              */}
 
-              {/* Speed Settings */}
-              <div className="pt-4 border-t border-white/5 space-y-2.5">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5"><Headphones className="h-3 w-3" /> Tốc độ đọc âm thanh</p>
-                <select value={speed} onChange={e => setSpeed(Number(e.target.value))} className="w-full bg-secondary/50 border border-white/10 rounded-lg text-xs py-2 px-3 text-muted-foreground hover:text-foreground outline-none transition-colors">
-                  <option value={0.75}>0.75x</option>
-                  <option value={1.0}>1.0x (Chuẩn)</option>
-                  <option value={1.25}>1.25x</option>
-                  <option value={1.5}>1.5x</option>
-                </select>
-              </div>
+              {/* Chế độ nghe Dictation (thay cho Speed Settings) */}
+              {activeMode === 'dictation' && (
+                <div className="pt-4 border-t border-white/5 space-y-2.5">
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5"><Headphones className="h-3 w-3" /> Tùy chọn nghe</p>
+                  <select value={speakMode} onChange={e => setSpeakMode(e.target.value as 'before' | 'after')} className="w-full bg-secondary/50 border border-white/10 rounded-lg text-xs py-2 px-3 text-muted-foreground hover:text-foreground outline-none transition-colors">
+                    <option value="after">Nghe sau khi kiểm tra (Mặc định)</option>
+                    <option value="before">Nghe trước khi gõ</option>
+                  </select>
+                </div>
+              )}
 
             </div>
           ) : (
@@ -377,16 +381,16 @@ export function VocabularyExercise({
                 </div>
               </div>
 
-              {/* Speed Settings */}
-              <div className="pt-4 border-t border-white/5 space-y-2.5">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5"><Headphones className="h-3 w-3" /> Tốc độ đọc âm thanh</p>
-                <select value={speed} onChange={e => setSpeed(Number(e.target.value))} className="w-full bg-secondary/50 border border-white/10 rounded-lg text-xs py-2 px-3 text-muted-foreground hover:text-foreground outline-none transition-colors">
-                  <option value={0.75}>0.75x</option>
-                  <option value={1.0}>1.0x (Chuẩn)</option>
-                  <option value={1.25}>1.25x</option>
-                  <option value={1.5}>1.5x</option>
-                </select>
-              </div>
+              {/* Chế độ nghe Dictation (thay cho Speed Settings) */}
+              {activeMode === 'dictation' && (
+                <div className="pt-4 border-t border-white/5 space-y-2.5">
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5"><Headphones className="h-3 w-3" /> Tùy chọn nghe</p>
+                  <select value={speakMode} onChange={e => setSpeakMode(e.target.value as 'before' | 'after')} className="w-full bg-secondary/50 border border-white/10 rounded-lg text-xs py-2 px-3 text-muted-foreground hover:text-foreground outline-none transition-colors">
+                    <option value="after">Nghe sau khi kiểm tra (Mặc định)</option>
+                    <option value="before">Nghe trước khi gõ</option>
+                  </select>
+                </div>
+              )}
             </div>
           )}
 
@@ -414,6 +418,7 @@ export function VocabularyExercise({
                 onFinishDictation={handleDictationFinished}
                 onProgressUpdate={handleProgressUpdate}
                 allSubmissions={allSubmissions}
+                speakMode={speakMode}
               />
             )}
             

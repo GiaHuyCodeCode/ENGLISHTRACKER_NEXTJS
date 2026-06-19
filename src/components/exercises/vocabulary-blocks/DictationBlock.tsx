@@ -20,6 +20,7 @@ interface DictationBlockProps {
     onJumpToQuestion?: (idx: number) => void;
   }) => void;
   allSubmissions?: Submission[];
+  speakMode?: 'before' | 'after';
 }
 
 export function DictationBlock({ 
@@ -31,13 +32,13 @@ export function DictationBlock({
   isRequirementWorkflow = false,
   onFinishDictation,
   onProgressUpdate,
-  allSubmissions
+  allSubmissions,
+  speakMode = 'after'
 }: DictationBlockProps) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [feedback, setFeedback] = useState<Record<string, { isCorrect: boolean; show: boolean }>>({});
   const [shake, setShake] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [speakMode, setSpeakMode] = useState<'before' | 'after'>('after');
 
   // States cho chế độ bắt buộc ôn tập/làm bài sửa lỗi nhiều vòng
   const [currentRound, setCurrentRound] = useState(1);
@@ -357,16 +358,6 @@ export function DictationBlock({
       {/* Exercise Workspace Card */}
       <div className={`glass-strong rounded-3xl border p-6 md:p-10 flex flex-col items-center justify-center text-center space-y-8 transition-all duration-300 relative ${shake ? 'animate-shake border-red-500/50' : currentFeedback?.isCorrect ? 'border-emerald-500/30' : 'border-white/5'}`}>
         
-        {/* Settings Toggle */}
-        {!isSubmitted && (
-          <div className="absolute top-4 right-4 md:top-6 md:right-6">
-            <label className="flex items-center gap-2 text-[10px] md:text-xs font-semibold text-muted-foreground cursor-pointer hover:text-foreground transition-colors bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
-              <input type="checkbox" checked={speakMode === 'before'} onChange={e => setSpeakMode(e.target.checked ? 'before' : 'after')} className="accent-primary" />
-              Nghe trước khi gõ
-            </label>
-          </div>
-        )}
-
         {/* Play Audio Button (Larger for better tap targets on phone) */}
         <div className="relative">
           <div className="absolute inset-0 bg-[#0071e3]/20 rounded-full blur-xl pulse-dot"></div>
