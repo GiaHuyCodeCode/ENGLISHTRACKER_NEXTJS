@@ -9,12 +9,12 @@ interface Props {
   keywords: VocabKeyword[];
   onSubmit: (answers: { word: string; studentAnswer: string }[], overriddenWords?: string[]) => void;
   isSubmitting?: boolean;
-  result?: VocabAnswerResult[];
   score?: number;
+  durationMs?: number;
   allSubmissions?: Submission[];
 }
 
-export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting, result, score, allSubmissions }: Props) {
+export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting, result, score, durationMs, allSubmissions }: Props) {
   const [answers, setAnswers] = useState<Record<string, string>>(
     Object.fromEntries(keywords.map(k => [k.word, ''])),
   );
@@ -57,6 +57,14 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
 
   const correctCount = isSubmitted ? (result?.filter(r => r.isCorrect).length ?? 0) : previewCorrectCount;
   const displayScore = isSubmitted ? score : previewScore;
+
+  const formatDuration = (ms?: number) => {
+    if (!ms) return null;
+    const totalSeconds = Math.floor(ms / 1000);
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return m > 0 ? `${m} phút ${s} giây` : `${s} giây`;
+  };
 
   return (
     <div className="space-y-6">
@@ -174,6 +182,11 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
             {displayScore >= 50 && displayScore < 80 && ' — Khá tốt! 💪'}
             {displayScore < 50 && ' — Cần cố gắng thêm! 📚'}
           </p>
+          {isSubmitted && durationMs && (
+            <p className="text-sm font-medium text-foreground/80 mt-1">
+              ⏱ Thời gian: {formatDuration(durationMs)}
+            </p>
+          )}
         </div>
       )}
 

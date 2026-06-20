@@ -5,7 +5,7 @@ import {
   getSubmissions, getDailyTrackings, updateSubmissionScore, updateTrackingScore, deleteSubmission, deleteTracking,
   Submission, DailyTracking, getStudentNames, getStudentColors, getStudentAvatar, seedIfEmpty
 } from '@/lib/local-store';
-import { Edit2, CheckCircle2, XCircle, Trash2, ArrowLeft } from 'lucide-react';
+import { Edit2, CheckCircle2, XCircle, Trash2, ArrowLeft, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 function ScoreBadge({ score }: { score: number }) {
@@ -56,6 +56,32 @@ export default function ScoreManagementPage() {
     ...studentSubmissions.map(s => ({ ...s, isTracking: false, date: new Date(s.submittedAt).getTime() })),
     ...studentTrackings.map(t => ({ ...t, isTracking: true, date: new Date(t.submittedAt).getTime() }))
   ].sort((a, b) => b.date - a.date);
+
+  const formatDuration = (ms?: number) => {
+    if (!ms) return '0 giây';
+    const totalSeconds = Math.floor(ms / 1000);
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    if (m > 0) return `${m} phút ${s} giây`;
+    return `${s} giây`;
+  };
+
+  const formatTotalTime = (ms: number) => {
+    if (!ms) return '0 phút';
+    const totalMins = Math.floor(ms / 60000);
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    if (h > 0) return `${h} giờ ${m} phút`;
+    return `${m} phút`;
+  };
+
+  const totalStudentDuration = studentSubmissions.reduce((sum, s) => sum + (s.durationMs || 0), 0);
+
+  const studentStats = getStudentNames().map(name => {
+    const subs = submissions.filter(s => s.studentName === name);
+    const totalMs = subs.reduce((sum, s) => sum + (s.durationMs || 0), 0);
+    return { name, totalMs, count: subs.length };
+  }).sort((a, b) => b.totalMs - a.totalMs);
 
   const handleSave = (id: string, isTracking: boolean) => {
     const num = parseInt(editScore, 10);
@@ -113,8 +139,32 @@ export default function ScoreManagementPage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="glass-strong rounded-3xl p-6 border border-white/5 space-y-6 fade-in stagger-1">
+      {/* Overall Statistics Board */}
+      <div className="glass-strong rounded-3xl p-6 border border-white/5 space-y-4 fade-in stagger-1">
+        <h2 className="text-lg font-bold font-heading flex items-center gap-2 mb-2">
+          <Clock className="w-5 h-5 text-sky-400" /> Bảng Thống Kê Thời Gian Học
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {studentStats.map((stat, idx) => (
+            <div key={stat.name} className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center gap-2 hover:bg-white/10 transition-colors cursor-pointer" onClick={() => setSelectedStudent(stat.name)}>
+              <div className="relative">
+                <StudentAvatar name={stat.name} size="md" />
+                {idx === 0 && stat.totalMs > 0 && (
+                  <div className="absolute -top-2 -right-2 bg-amber-500 text-black text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-background z-10" title="Chăm chỉ nhất">👑</div>
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-bold">{stat.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{stat.count} bài tập</p>
+                <p className="text-sm font-bold text-sky-400 mt-1">{formatTotalTime(stat.totalMs)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Main Content (Detailed Records) */}
+      <div className="glass-strong rounded-3xl p-6 border border-white/5 space-y-6 fade-in stagger-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
           <div className="flex items-center gap-3">
             <StudentAvatar name={selectedStudent} size="sm" />
@@ -126,8 +176,9 @@ export default function ScoreManagementPage() {
               {getStudentNames().map(name => <option key={name} value={name}>{name}</option>)}
             </select>
           </div>
-          <div className="text-sm text-muted-foreground">
-            Tổng cộng: <strong>{allRecords.length}</strong> bài nộp
+          <div className="text-sm text-muted-foreground flex items-center gap-4">
+            <span>Tổng cộng: <strong>{allRecords.length}</strong> bài nộp</span>
+            <span className="flex items-center gap-1"><Clock className="h-4 w-4" /> Tổng học: <strong>{formatTotalTime(totalStudentDuration)}</strong></span>
           </div>
         </div>
 
@@ -151,6 +202,11 @@ export default function ScoreManagementPage() {
                   <p className="font-medium text-sm truncate">
                     {r.isTracking ? (r as DailyTracking).category : (r as Submission).assignmentTitle}
                   </p>
+                  {!r.isTracking && (r as Submission).durationMs && (
+                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                      <Clock className="h-3 w-3" /> {formatDuration((r as Submission).durationMs)}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3">

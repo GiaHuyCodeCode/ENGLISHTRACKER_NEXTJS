@@ -145,6 +145,15 @@ export default function StudentAssignmentsPage() {
 
   const getSubmission = (id: string) => submissions.find(s => s.assignmentId === id);
 
+  const formatDuration = (ms?: number) => {
+    if (!ms) return '';
+    const totalSeconds = Math.floor(ms / 1000);
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    if (m > 0) return `${m} phút ${s} giây`;
+    return `${s} giây`;
+  };
+
   const done = assignments.filter(a => getSubmission(a.id));
   const todo = assignments.filter(a => !getSubmission(a.id));
 
@@ -293,8 +302,13 @@ export default function StudentAssignmentsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{a.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {new Date(sub.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+                        <span>{new Date(sub.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                        {sub.durationMs ? (
+                          <span className="text-[10px] text-sky-400 font-medium flex items-center gap-1">
+                            • <Clock className="w-3 h-3" /> {formatDuration(sub.durationMs)}
+                          </span>
+                        ) : null}
                       </p>
                     </div>
                     <ScorePill score={sub.score} />

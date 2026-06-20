@@ -56,7 +56,7 @@ export const mockAssignments: Assignment[] = [
 export const mockSubmissions: Submission[] = [
   {
     id: 'sub1', assignmentId: 'a1', assignmentTitle: 'Từ vựng tuần 1', assignmentType: 'vocabulary',
-    studentName: 'Huy', score: 100, submittedAt: d(6),
+    studentName: 'Huy', score: 100, submittedAt: d(6), durationMs: 120000,
     vocabAnswers: [
       { word: 'Accommodate', studentAnswer: 'Cung cấp', isCorrect: true, correctAnswer: 'Accommodate' },
       { word: 'Fluctuate', studentAnswer: 'Dao động', isCorrect: true, correctAnswer: 'Fluctuate' }
@@ -64,7 +64,7 @@ export const mockSubmissions: Submission[] = [
   },
   {
     id: 'sub2', assignmentId: 'a1', assignmentTitle: 'Từ vựng tuần 1', assignmentType: 'vocabulary',
-    studentName: 'Linh', score: 50, submittedAt: d(6),
+    studentName: 'Linh', score: 50, submittedAt: d(6), durationMs: 95000,
     vocabAnswers: [
       { word: 'Accommodate', studentAnswer: 'Cung cấp', isCorrect: true, correctAnswer: 'Accommodate' },
       { word: 'Fluctuate', studentAnswer: 'Dạo', isCorrect: false, correctAnswer: 'Fluctuate' } // Error to trigger peer failure
@@ -72,22 +72,22 @@ export const mockSubmissions: Submission[] = [
   },
   {
     id: 'sub3', assignmentId: 'a3', assignmentTitle: 'Điền từ ngữ cảnh', assignmentType: 'vocab_context',
-    studentName: 'Tuấn', score: 50, submittedAt: d(5),
+    studentName: 'Tuấn', score: 50, submittedAt: d(5), durationMs: 180000,
     vocabAnswers: [
       { word: 'Fluctuate', studentAnswer: 'Dao động', isCorrect: true, correctAnswer: 'Fluctuate' },
       { word: 'Accommodate', studentAnswer: 'Cung cp', isCorrect: false, correctAnswer: 'Accommodate' } // Error
     ]
   },
-  { id: 'sub4', assignmentId: 'a2', assignmentTitle: 'Dictation Mock', assignmentType: 'dictation', studentName: 'Mai', score: 50, submittedAt: d(4), dictationResults: [{ sentenceId: 1, studentText: 'Welcome to this', accuracy: 80, errors: [], replayCount: 1 }, { sentenceId: 2, studentText: 'It is important', accuracy: 0, errors: [], replayCount: 1 }] },
-  { id: 'sub5', assignmentId: 'a2', assignmentTitle: 'Dictation Mock', assignmentType: 'dictation', studentName: 'Huy', score: 100, submittedAt: d(4), dictationResults: [{ sentenceId: 1, studentText: 'Welcome to this dictation practice.', accuracy: 100, errors: [], replayCount: 1 }, { sentenceId: 2, studentText: 'It is important to listen carefully.', accuracy: 100, errors: [], replayCount: 1 }] },
-  { id: 'sub6', assignmentId: 'a3', assignmentTitle: 'Điền từ', assignmentType: 'vocab_context', studentName: 'Linh', score: 100, submittedAt: d(3) },
-  { id: 'sub7', assignmentId: 'a3', assignmentTitle: 'Điền từ', assignmentType: 'vocab_context', studentName: 'Huy', score: 80, submittedAt: d(2) },
-  { id: 'sub8', assignmentId: 'a1', assignmentTitle: 'Từ vựng', assignmentType: 'vocabulary', studentName: 'Tuấn', score: 120, submittedAt: d(1) },
-  { id: 'sub9', assignmentId: 'a1', assignmentTitle: 'Từ vựng', assignmentType: 'vocabulary', studentName: 'Mai', score: 90, submittedAt: d(1) },
-  { id: 'sub10', assignmentId: 'a2', assignmentTitle: 'Dictation Mock', assignmentType: 'dictation', studentName: 'Huy', score: 55, submittedAt: d(0) },
+  { id: 'sub4', assignmentId: 'a2', assignmentTitle: 'Dictation Mock', assignmentType: 'dictation', studentName: 'Mai', score: 50, submittedAt: d(4), durationMs: 420000, dictationResults: [{ sentenceId: 1, studentText: 'Welcome to this', accuracy: 80, errors: [], replayCount: 1 }, { sentenceId: 2, studentText: 'It is important', accuracy: 0, errors: [], replayCount: 1 }] },
+  { id: 'sub5', assignmentId: 'a2', assignmentTitle: 'Dictation Mock', assignmentType: 'dictation', studentName: 'Huy', score: 100, submittedAt: d(4), durationMs: 250000, dictationResults: [{ sentenceId: 1, studentText: 'Welcome to this dictation practice.', accuracy: 100, errors: [], replayCount: 1 }, { sentenceId: 2, studentText: 'It is important to listen carefully.', accuracy: 100, errors: [], replayCount: 1 }] },
+  { id: 'sub6', assignmentId: 'a3', assignmentTitle: 'Điền từ', assignmentType: 'vocab_context', studentName: 'Linh', score: 100, submittedAt: d(3), durationMs: 65000 },
+  { id: 'sub7', assignmentId: 'a3', assignmentTitle: 'Điền từ', assignmentType: 'vocab_context', studentName: 'Huy', score: 80, submittedAt: d(2), durationMs: 85000 },
+  { id: 'sub8', assignmentId: 'a1', assignmentTitle: 'Từ vựng', assignmentType: 'vocabulary', studentName: 'Tuấn', score: 120, submittedAt: d(1), durationMs: 310000 },
+  { id: 'sub9', assignmentId: 'a1', assignmentTitle: 'Từ vựng', assignmentType: 'vocabulary', studentName: 'Mai', score: 90, submittedAt: d(1), durationMs: 145000 },
+  { id: 'sub10', assignmentId: 'a2', assignmentTitle: 'Dictation Mock', assignmentType: 'dictation', studentName: 'Huy', score: 55, submittedAt: d(0), durationMs: 400000 },
   {
     id: 'sub11', assignmentId: 'a4', assignmentTitle: 'Trắc Nghiệm Kiến Thức', assignmentType: 'multiple_choice',
-    studentName: 'Linh', score: 0, submittedAt: d(0),
+    studentName: 'Linh', score: 0, submittedAt: d(0), durationMs: 15000,
     quizAnswers: [
       { questionId: 1, studentAnswer: 'Intricate', isCorrect: false, correctAnswer: 'Obsolete', explanation: '' } // Peer failure
     ]

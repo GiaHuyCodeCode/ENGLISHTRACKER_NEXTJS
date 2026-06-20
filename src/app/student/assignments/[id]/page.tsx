@@ -11,6 +11,7 @@ import { MultipleChoiceExercise } from '@/components/exercises/MultipleChoiceExe
 import { RaceTrackLeaderboard } from '@/components/ui/RaceTrackLeaderboard';
 import { RewriteVocabExercise } from '@/components/exercises/RewriteVocabExercise';
 import { VocabularyExercise } from '@/components/exercises/VocabularyExercise';
+import { ExerciseTimer } from '@/components/ui/ExerciseTimer';
 import { ArrowLeft, BookOpen, ListChecks, User, ChevronRight, AlertCircle, PenTool, FileJson, Clock, Trophy } from 'lucide-react';
 
 // ── Student picker modal ────────────────────────────────────────────────────
@@ -251,7 +252,10 @@ export default function ExercisePage() {
                 </span>
               )}
             </div>
-            <h1 className="text-xl font-bold font-heading gradient-text leading-tight">{assignment.title}</h1>
+            <div className="flex items-center justify-between">
+              <h1 className="text-xl font-bold font-heading gradient-text leading-tight">{assignment.title}</h1>
+              {(!result && !isReview) && <ExerciseTimer isRunning={true} />}
+            </div>
             {currentStudent && (
               <p className="text-xs text-muted-foreground mt-1">Học viên: <span className="text-foreground font-medium">{currentStudent}</span></p>
             )}
@@ -297,6 +301,7 @@ export default function ExercisePage() {
                 isSubmitting={isSubmitting}
                 result={displayResult?.vocabAnswers}
                 score={displayResult?.score}
+                durationMs={displayResult?.durationMs}
                 allSubmissions={getSubmissions().filter(s => s.assignmentId === id)}
               />
             </div>
@@ -310,6 +315,7 @@ export default function ExercisePage() {
                 isSubmitting={isSubmitting}
                 result={displayResult?.quizAnswers}
                 score={displayResult?.score}
+                durationMs={displayResult?.durationMs}
                 allowHints={assignment.allowHints}
                 feedback={displayResult?.feedback}
                 allSubmissions={getSubmissions().filter(s => s.assignmentId === id)}
@@ -326,6 +332,7 @@ export default function ExercisePage() {
                 isSubmitting={isSubmitting}
                 result={displayResult?.rewriteAnswers}
                 score={displayResult?.score}
+                durationMs={displayResult?.durationMs}
               />
             </div>
           )}
@@ -337,6 +344,7 @@ export default function ExercisePage() {
               isSubmitting={isSubmitting}
               result={displayResult?.vocabAnswers}
               score={displayResult?.score}
+              durationMs={displayResult?.durationMs}
               initialMode={initialMode}
               isRequirementWorkflow={true}
             />

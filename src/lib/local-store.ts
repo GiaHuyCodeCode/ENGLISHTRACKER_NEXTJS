@@ -258,19 +258,19 @@ export function getGamificationProfiles(): GamificationProfile[] {
 
   return students.map(studentName => {
     // Collect all activities for student
-    const activities: { date: string, hour: number, score: number, category: string, type: 'submission' | 'tracking' }[] = [];
+    const activities: { date: string, hour: number, score: number, category: string, type: 'submission' | 'tracking', durationMs: number }[] = [];
 
     trackings.forEach(t => {
       if (t.studentName === studentName) {
         const d = new Date(t.submittedAt);
-        activities.push({ date: d.toISOString().split('T')[0], hour: d.getHours(), score: t.score, category: t.category, type: 'tracking' });
+        activities.push({ date: d.toISOString().split('T')[0], hour: d.getHours(), score: t.score, category: t.category, type: 'tracking', durationMs: 0 });
       }
     });
 
     submissions.forEach(s => {
       if (s.studentName === studentName) {
         const d = new Date(s.submittedAt);
-        activities.push({ date: d.toISOString().split('T')[0], hour: d.getHours(), score: s.score, category: s.assignmentType, type: 'submission' });
+        activities.push({ date: d.toISOString().split('T')[0], hour: d.getHours(), score: s.score, category: s.assignmentType, type: 'submission', durationMs: s.durationMs || 0 });
       }
     });
 
@@ -307,6 +307,8 @@ export function getGamificationProfiles(): GamificationProfile[] {
     const earnedBadges: string[] = [];
 
     const totalScore = activities.reduce((sum, a) => sum + a.score, 0);
+    const totalDurationMs = activities.reduce((sum, a) => sum + a.durationMs, 0);
+    const totalHours = totalDurationMs / 3600000; // convert ms to hours
     const submitCount = activities.length;
 
     badgesDefs.forEach(badge => {
@@ -347,6 +349,15 @@ export function getGamificationProfiles(): GamificationProfile[] {
           }).length;
 
           if (perfectCount >= value) isEarned = true;
+          break;
+        case 'TOTAL_TIME':
+          if (totalHours >= value) isEarned = true;
+          break;
+        case 'FAST_SUBMISSION':
+          // value is in seconds, score must be >= 80, time under value.
+          if (activities.some(a => a.type === 'submission' && a.score >= 80 && a.durationMs > 0 && a.durationMs <= value * 1000)) {
+            isEarned = true;
+          }
           break;
       }
 
@@ -749,9 +760,8 @@ export function submitDictation(payload: {
   const assignment = getAssignment(payload.assignmentId);
   if (!assignment) throw new Error('Assignment not found');
 
-  const sentences = assignment.sentences || [];
   const totalAccuracy = payload.results.reduce((sum, r) => sum + r.accuracy, 0);
-  const score = sentences.length > 0 ? Math.round(totalAccuracy / sentences.length) : 0;
+  const score = payload.results.length > 0 ? Math.round(totalAccuracy / payload.results.length) : 0;
 
   const sub: Submission = {
     id: crypto.randomUUID(),

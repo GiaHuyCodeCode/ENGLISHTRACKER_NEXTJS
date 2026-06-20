@@ -11,9 +11,10 @@ interface Props {
   isSubmitting?: boolean;
   result?: RewriteAnswerResult;
   score?: number;
+  durationMs?: number;
 }
 
-export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting, result, score }: Props) {
+export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting, result, score, durationMs }: Props) {
   const [text, setText] = useState('');
   const [usedKeywords, setUsedKeywords] = useState<Set<string>>(new Set());
   const isSubmitted = !!result;
@@ -39,6 +40,14 @@ export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting
     if (!result) return null;
     const isFound = result.foundKeywords.includes(word);
     return isFound ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <XCircle className="h-4 w-4 text-red-400" />;
+  };
+
+  const formatDuration = (ms?: number) => {
+    if (!ms) return null;
+    const totalSeconds = Math.floor(ms / 1000);
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return m > 0 ? `${m} phút ${s} giây` : `${s} giây`;
   };
 
   return (
@@ -117,6 +126,11 @@ export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting
             {score >= 50 && score < 80 && ' — Khá tốt! 💪'}
             {score < 50 && ' — Cần cố gắng dùng nhiều từ hơn! 📚'}
           </p>
+          {durationMs && (
+            <p className="text-sm font-medium text-foreground/80 mt-1">
+              ⏱ Thời gian: {formatDuration(durationMs)}
+            </p>
+          )}
         </div>
       )}
 

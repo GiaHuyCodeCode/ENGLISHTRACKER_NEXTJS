@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getAssignment, Assignment } from '@/lib/local-store';
+import { getAssignment, Assignment, submitVocabularyAssignment, Submission, getStudentNames, getStudentSubmission } from '@/lib/local-store';
 import { 
   ArrowLeft, BookOpen, Search, Volume2, 
-  Layers, Headphones, FileText, LayoutGrid
+  Layers, Headphones, FileText, LayoutGrid, X
 } from 'lucide-react';
+import { VocabularyExercise } from '@/components/exercises/VocabularyExercise';
+import { RaceTrackLeaderboard } from '@/components/ui/RaceTrackLeaderboard';
 
 export default function LessonDetailPage() {
   const params = useParams();
@@ -16,11 +18,21 @@ export default function LessonDetailPage() {
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [speakingWord, setSpeakingWord] = useState<string | null>(null);
+  const [activeMode, setActiveMode] = useState<string | null>(null);
+  const [result, setResult] = useState<Submission | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const a = getAssignment(id);
     if (!a) { router.replace('/student/lessons'); return; }
     setAssignment(a);
+    
+    // Check if there is an existing result for the current user
+    const saved = localStorage.getItem('et_current_student');
+    if (saved) {
+      const existing = getStudentSubmission(id, saved);
+      if (existing) setResult(existing);
+    }
   }, [id, router]);
 
   if (!assignment) return null;
@@ -45,15 +57,69 @@ export default function LessonDetailPage() {
   };
 
   const openMode = (mode: string) => {
-    router.push(`/student/assignments/${id}?mode=${mode}`);
+    setActiveMode(mode);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const handleVocabularySubmit = (answers: { word: string; studentAnswer: string; isCorrect: boolean }[], customScore?: number) => {
+    setIsSubmitting(true);
+    try {
+      const studentName = localStorage.getItem('et_current_student') || getStudentNames()[0] || 'Unknown';
+      const list = answers;
+      let score = customScore !== undefined ? customScore : (list.filter(a => a.isCorrect).length / list.length) * 100;
+      
+      const sub = submitVocabularyAssignment({
+        assignmentId: id,
+        studentName,
+        score: Math.round(score),
+        answers: list,
+        durationMs: 0,
+      });
+      setResult(sub);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (activeMode) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-6 relative pb-10">
+        <div className="flex items-center justify-between sticky top-4 z-50 bg-background/80 backdrop-blur-xl p-4 -mx-4 md:mx-0 md:-mt-4 rounded-2xl border border-white/10 shadow-2xl">
+          <button
+            onClick={() => setActiveMode(null)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-sm transition-all shadow-lg hover-lift"
+          >
+            <ArrowLeft className="w-4 h-4" /> Quay lại bài học
+          </button>
+          <div className="text-sm font-bold text-muted-foreground uppercase tracking-widest px-3 py-1 bg-white/5 rounded-lg">
+            {activeMode === 'flashcard' ? 'Lướt Flashcard' :
+             activeMode === 'synonym' ? 'Đồng Nghĩa' :
+             activeMode === 'test' ? 'Trắc Nghiệm' :
+             activeMode === 'dictation' ? 'Nghe Chép' : 'Nối Từ'}
+          </div>
+        </div>
+        
+        <VocabularyExercise
+          vocabCards={vocabCards}
+          initialMode={activeMode as any}
+          isRequirementWorkflow={false}
+          hideTabs={true}
+          onSubmit={handleVocabularySubmit}
+          isSubmitting={isSubmitting}
+          result={result?.vocabAnswers}
+          score={result?.score}
+          durationMs={result?.durationMs}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-center gap-4 fade-in">
         <button
-          onClick={() => router.push('/student/vocabulary')}
+          onClick={() => router.push('/student/lessons')}
           className="p-2 rounded-xl border border-border hover:border-primary/40 hover:bg-slate-800/50 transition-all text-muted-foreground hover:text-foreground flex-shrink-0"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -71,69 +137,8 @@ export default function LessonDetailPage() {
         </div>
       </div>
 
-      {/* Word List (Overview First) */}
-      <div className="space-y-4 fade-in stagger-1">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Danh Sách Từ Vựng</h2>
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Tìm từ vựng..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="input-field !pl-10 w-full sm:w-64 py-2 text-sm"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 max-h-[500px] overflow-y-auto pr-2">
-          {filteredCards.length === 0 ? (
-            <div className="text-center p-8 border border-white/5 rounded-2xl text-muted-foreground">
-              Không tìm thấy từ vựng nào.
-            </div>
-          ) : (
-            filteredCards.map((c, i) => (
-              <div key={i} className="glass p-4 rounded-2xl border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold text-foreground">{c.word}</span>
-                    {c.phonetic && <span className="text-sm font-mono text-primary/80">{c.phonetic}</span>}
-                    <button 
-                      onClick={() => handleSpeak(c.word)} 
-                      className={`p-1 rounded-full transition-all duration-200 ${
-                        speakingWord === c.word 
-                          ? 'bg-primary/20 text-primary animate-pulse' 
-                          : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
-                      } ml-1`}
-                    >
-                      <Volume2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <p className="text-sm text-foreground/80 font-medium">{c.meaning}</p>
-                  {c.synonyms && c.synonyms.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {c.synonyms.map(syn => (
-                        <span key={syn} className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 text-[10px] font-semibold">
-                          {syn}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {c.example && (
-                  <div className="flex-1 bg-secondary/30 p-3 rounded-xl border border-white/5 hidden md:block">
-                    <p className="text-xs text-muted-foreground italic">"{c.example}"</p>
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
       {/* Action Grid (Study Modes) */}
-      <div className="space-y-3 fade-in stagger-2">
+      <div className="space-y-3 fade-in stagger-1">
         <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Các Chế Độ Học Tập</h2>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <button onClick={() => openMode('flashcard')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-emerald-500/20 hover:border-emerald-500/40 group">
@@ -185,6 +190,67 @@ export default function LessonDetailPage() {
               <p className="text-[10px] text-muted-foreground">Minigame trí nhớ</p>
             </div>
           </button>
+        </div>
+      </div>
+
+      {/* Word List (Overview First) */}
+      <div className="space-y-4 fade-in stagger-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Danh Sách Từ Vựng</h2>
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Tìm từ vựng..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="input-field !pl-10 w-full sm:w-64 py-2 text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 max-h-[500px] overflow-y-auto pr-2">
+          {filteredCards.length === 0 ? (
+            <div className="text-center p-8 border border-white/5 rounded-2xl text-muted-foreground">
+              Không tìm thấy từ vựng nào.
+            </div>
+          ) : (
+            filteredCards.map((c, i) => (
+              <div key={i} className="glass p-4 rounded-2xl border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold text-foreground">{c.word}</span>
+                    {c.phonetic && <span className="text-sm font-mono text-primary/80">{c.phonetic}</span>}
+                    <button 
+                      onClick={() => handleSpeak(c.word)} 
+                      className={`p-1 rounded-full transition-all duration-200 ${
+                        speakingWord === c.word 
+                          ? 'bg-primary/20 text-primary animate-pulse' 
+                          : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
+                      } ml-1`}
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-sm text-foreground/80 font-medium">{c.meaning}</p>
+                  {c.synonyms && c.synonyms.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {c.synonyms.map(syn => (
+                        <span key={syn} className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 text-[10px] font-semibold">
+                          {syn}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {c.example && (
+                  <div className="flex-1 bg-secondary/30 p-3 rounded-xl border border-white/5 hidden md:block">
+                    <p className="text-xs text-muted-foreground italic">&quot;{c.example}&quot;</p>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

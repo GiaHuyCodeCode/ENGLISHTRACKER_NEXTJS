@@ -5,7 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { getAssignment, getSubmissions, DictationResult } from '@/lib/local-store';
 import {
   ArrowLeft, Trophy, CheckCircle2, AlertCircle, Brain,
-  TrendingUp, RotateCcw, Headphones, ExternalLink, Sparkles
+  TrendingUp, RotateCcw, Headphones, ExternalLink, Sparkles, Clock
 } from 'lucide-react';
 
 interface AiFeedback {
@@ -89,6 +89,14 @@ export default function DictationResultPage() {
   const scoreColor = score >= 80 ? 'text-emerald-400' : score >= 50 ? 'text-amber-400' : 'text-red-400';
   const scoreBg = score >= 80 ? 'bg-emerald-500/10 border-emerald-500/20' : score >= 50 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20';
 
+  const formatDuration = (ms?: number) => {
+    if (!ms) return '—';
+    const totalSeconds = Math.floor(ms / 1000);
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return m > 0 ? `${m} phút ${s} giây` : `${s} giây`;
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
@@ -126,8 +134,9 @@ export default function DictationResultPage() {
             {score >= 80 ? <><Trophy className="h-4 w-4" /> Xuất Sắc!</>
              : score >= 50 ? <><TrendingUp className="h-4 w-4" /> Khá Tốt</>
              : <><AlertCircle className="h-4 w-4" /> Cần Luyện Thêm</>}
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">{results.length} câu · {submission.studentName}</p>
+          <p className="text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
+            {results.length} câu · {submission.studentName} {submission.durationMs && <>· <Clock className="h-3.5 w-3.5" /> {formatDuration(submission.durationMs)}</>}
+          </p>
         </div>
       </div>
 

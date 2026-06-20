@@ -10,6 +10,7 @@ import {
 } from '@/lib/local-store';
 import { syncVocabListToSheet } from '@/lib/google-sheets';
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
+import { StudentTimeChart } from '@/components/ui/StudentTimeChart';
 import { 
   Users, BookOpen, Clock, Target, Edit2, Save, X, XCircle,
   Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2, Lightbulb, Settings, Loader2, RefreshCw, FileJson, Volume2, Headphones
@@ -164,6 +165,24 @@ export default function TeacherDashboard() {
   const filteredTrackings = trackings.filter(t => t.submittedAt <= endOfDay);
   const filteredAssignments = assignments.filter(a => a.createdAt ? a.createdAt <= endOfDay : true);
 
+  const formatDuration = (ms?: number) => {
+    if (!ms) return '0 giây';
+    const totalSeconds = Math.floor(ms / 1000);
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    if (m > 0) return `${m} phút ${s} giây`;
+    return `${s} giây`;
+  };
+
+  const formatTotalTime = (ms: number) => {
+    if (!ms) return '0 phút';
+    const totalMins = Math.floor(ms / 60000);
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    if (h > 0) return `${h} giờ ${m} phút`;
+    return `${m} phút`;
+  };
+
   // ── Stats ──────────────────────────────────────────────────────────────────
   const totalStudents = getStudentNames().length;
   const totalAssignments = filteredAssignments.length;
@@ -184,11 +203,12 @@ export default function TeacherDashboard() {
     // Tổng hợp điểm từ cả bài tập và tracking
     const totalScore = subs.reduce((s, x) => s + x.score, 0) + trks.reduce((s, x) => s + x.score, 0);
     const totalCount = subs.length + trks.length;
+    const totalMs = subs.reduce((sum, s) => sum + (s.durationMs || 0), 0);
     
     const avg = totalCount ? Math.round(totalScore / totalCount) : null;
     const trend = subs.length >= 2 ? (subs[0].score > subs[1].score ? 'up' : subs[0].score < subs[1].score ? 'down' : 'same') : 'same';
     
-    return { name, avg, submissionCount: subs.length, trackingCount: trks.length, trend, profile };
+    return { name, avg, submissionCount: subs.length, trackingCount: trks.length, trend, profile, totalMs };
   }).sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1));
 
   // ── Recent activities (mix submissions and trackings) ──────────────────────
@@ -468,15 +488,26 @@ export default function TeacherDashboard() {
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
             {/* Student Leaderboard */}
-        <div className="lg:col-span-3 space-y-4">
-          <h2 className="text-lg font-semibold font-heading flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-amber-400" />
-            Biểu Đồ Thi Đua Học Tập
-          </h2>
-          <div className="glass-strong rounded-3xl p-6 flex flex-col justify-center">
-            <StudentPerformanceChart submissions={submissions} />
-          </div>
-        </div>
+            <div className="lg:col-span-5 space-y-4">
+              <h2 className="text-lg font-semibold font-heading flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-amber-400" />
+                Biểu Đồ Thi Đua Học Tập
+              </h2>
+              <div className="glass-strong rounded-3xl p-6 flex flex-col justify-center">
+                <StudentPerformanceChart submissions={submissions} />
+              </div>
+            </div>
+
+            {/* Student Study Time Board */}
+            <div className="lg:col-span-3 space-y-4">
+              <h2 className="text-lg font-semibold font-heading flex items-center gap-2">
+                <Clock className="h-5 w-5 text-sky-400" />
+                Bảng Thống Kê Tổng Thời Gian Học
+              </h2>
+              <div className="glass-strong rounded-3xl p-6 flex flex-col justify-center border border-white/5">
+                <StudentTimeChart submissions={submissions} />
+              </div>
+            </div>
 
         {/* Assignments List */}
         <div className="lg:col-span-2 space-y-4">
@@ -604,7 +635,8 @@ export default function TeacherDashboard() {
                   <th className="px-6 py-3 text-left font-medium">Nội dung</th>
                   <th className="px-6 py-3 text-left font-medium">Loại</th>
                   <th className="px-6 py-3 text-center font-medium">Điểm</th>
-                  <th className="px-6 py-3 text-right font-medium">Thời gian</th>
+                  <th className="px-6 py-3 text-right font-medium">Nộp lúc</th>
+                  <th className="px-6 py-3 text-right font-medium">Làm bài tốn</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/20">
@@ -640,7 +672,18 @@ export default function TeacherDashboard() {
                         </span>
                     </td>
                     <td className="px-6 py-3 text-center"><ScoreBadge score={act.score} /></td>
-                    <td className="px-6 py-3 text-right text-muted-foreground text-xs whitespace-nowrap">{timeAgo(act.submittedAt)}</td>
+                    <td className="px-6 py-3 text-right whitespace-nowrap">
+                      <span className="text-xs text-muted-foreground">{timeAgo(act.submittedAt)}</span>
+                    </td>
+                    <td className="px-6 py-3 text-right whitespace-nowrap">
+                      {!act.isTracking && act.durationMs ? (
+                        <span className="text-[11px] text-sky-400 font-medium flex items-center justify-end gap-1">
+                          <Clock className="w-3 h-3" /> {formatDuration(act.durationMs)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/50 text-xs">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

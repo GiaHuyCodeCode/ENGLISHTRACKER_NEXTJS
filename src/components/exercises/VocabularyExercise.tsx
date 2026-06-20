@@ -16,8 +16,10 @@ interface Props {
   isSubmitting?: boolean;
   result?: VocabAnswerResult[];
   score?: number;
+  durationMs?: number;
   initialMode?: 'flashcard' | 'synonym' | 'dictation' | 'test' | 'game_match';
   isRequirementWorkflow?: boolean;
+  hideTabs?: boolean;
   allSubmissions?: Submission[];
 }
 
@@ -29,8 +31,10 @@ export function VocabularyExercise({
   isSubmitting, 
   result, 
   score, 
+  durationMs,
   initialMode = 'flashcard',
   isRequirementWorkflow = false,
+  hideTabs = false,
   allSubmissions
 }: Props) {
   const [activeMode, setActiveMode] = useState<ActiveMode>(
@@ -178,6 +182,14 @@ export function VocabularyExercise({
     ? Math.round(((progressStats.completed + progressStats.incorrect) / totalWordsCount) * 100)
     : 0;
 
+  const formatDuration = (ms?: number) => {
+    if (!ms) return null;
+    const totalSeconds = Math.floor(ms / 1000);
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return m > 0 ? `${m} phút ${s} giây` : `${s} giây`;
+  };
+
   return (
     <div className="space-y-6 fade-in w-full">
       {/* Result Score */}
@@ -196,6 +208,7 @@ export function VocabularyExercise({
             </div>
             <p className="text-sm md:text-base text-foreground/90 mt-3 font-medium">
               ✅ Đã hoàn thành bài học • Điểm số: {score}đ
+              {durationMs && ` • Thời gian: ${formatDuration(durationMs)}`}
             </p>
           </div>
         </div>
@@ -221,7 +234,7 @@ export function VocabularyExercise({
       )}
 
       {/* Mode Switcher Tabs (Chỉ hiện trong chế độ học tự do) */}
-      {!isSubmitted && !isRequirementWorkflow && (
+      {!isSubmitted && !isRequirementWorkflow && !hideTabs && (
         <div className="flex flex-wrap bg-white/5 p-2 rounded-2xl border border-white/5 gap-2 backdrop-blur-sm">
           <button 
             onClick={() => { setActiveMode('flashcard'); setProgressStats(null); }} 

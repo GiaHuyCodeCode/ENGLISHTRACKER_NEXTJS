@@ -332,8 +332,8 @@ export function DictationForm({ onSave, isSaving, initialData }: {
   
   // Safe parse sentences for Dictation
   const initSentences = () => {
-    if (!initialData?.sentences) return [{ id: 1, text: '', startTime: 0 }];
-    let s = initialData.sentences;
+    let s = initialData?.sentences || initialData?.passage;
+    if (!s) return [{ id: 1, text: '', startTime: 0 }];
     if (typeof s === 'string') {
       try { s = JSON.parse(s); } catch { s = []; }
       if (typeof s === 'string') {
@@ -346,7 +346,7 @@ export function DictationForm({ onSave, isSaving, initialData }: {
   const [sentences, setSentences] = useState<DictationSentence[]>(initSentences());
   const [error, setError] = useState('');
   const [jsonText, setJsonText] = useState(() => {
-    if (initialData?.sentences) return JSON.stringify({ title: initialData.title, sentences: initSentences() }, null, 2);
+    if (initialData?.sentences || initialData?.passage) return JSON.stringify({ title: initialData.title, sentences: initSentences() }, null, 2);
     return '';
   });
 

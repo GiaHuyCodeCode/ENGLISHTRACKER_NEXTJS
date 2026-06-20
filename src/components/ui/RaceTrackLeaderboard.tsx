@@ -16,7 +16,8 @@ export function RaceTrackLeaderboard({ submissions }: { submissions: Submission[
     const totalSeconds = Math.floor(ms / 1000);
     const m = Math.floor(totalSeconds / 60);
     const s = totalSeconds % 60;
-    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+    if (m > 0) return `${m} phút ${s} giây`;
+    return `${s} giây`;
   };
 
   return (
@@ -46,8 +47,17 @@ export function RaceTrackLeaderboard({ submissions }: { submissions: Submission[
                   <span className="font-bold text-sm text-foreground">{sub.studentName}</span>
                   {isTop1 && <Trophy className="w-3.5 h-3.5 text-amber-400" />}
                 </div>
-                <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                  <span className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">{score}đ</span> <span className="opacity-50">•</span> <Clock className="w-3 h-3" /> {formatDuration(sub.durationMs)}
+                <div className="text-xs font-semibold text-muted-foreground flex items-center gap-2">
+                  <span className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">{score}đ</span>
+                  {sub.durationMs ? (
+                    <span className="text-[10px] text-sky-400 flex items-center gap-1 bg-sky-500/10 px-1.5 py-0.5 rounded">
+                      <Clock className="w-3 h-3" /> {formatDuration(sub.durationMs)}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] opacity-50 flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> —
+                    </span>
+                  )}
                 </div>
               </div>
 

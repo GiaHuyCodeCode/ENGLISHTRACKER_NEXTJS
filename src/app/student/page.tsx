@@ -11,7 +11,7 @@ import {
 } from '@/lib/local-store';
 
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
-import { Trophy, BookOpen, CheckCircle2, TrendingUp, User, ChevronRight, PenTool, ListChecks, Target, Brain, AlertCircle, Flame, Calendar } from 'lucide-react';
+import { Trophy, BookOpen, CheckCircle2, TrendingUp, User, ChevronRight, PenTool, ListChecks, Target, Brain, AlertCircle, Flame, Calendar, Clock } from 'lucide-react';
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell
@@ -117,6 +117,15 @@ export default function StudentDashboard() {
 
   }, [selectedStudent, user]);
 
+  const formatDuration = (ms?: number) => {
+    if (!ms) return '';
+    const totalSeconds = Math.floor(ms / 1000);
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    if (m > 0) return `${m} phút ${s} giây`;
+    return `${s} giây`;
+  };
+
   if (!mounted) return null;
 
   // ── Tính điểm kỹ năng ───────────────────────────────────────────────────────
@@ -174,6 +183,16 @@ export default function StudentDashboard() {
   const avg = totalScores.length ? Math.round(totalScores.reduce((a, b) => a + b, 0) / totalScores.length) : null;
   const doneIds = new Set(submissions.map(s => s.assignmentId));
   const todo = assignments.filter(a => !doneIds.has(a.id));
+
+  const totalDurationMs = submissions.reduce((sum, s) => sum + (s.durationMs || 0), 0);
+  const formatTotalTime = (ms: number) => {
+    if (!ms) return '0 phút';
+    const totalMins = Math.floor(ms / 60000);
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    if (h > 0) return `${h} giờ ${m} phút`;
+    return `${m} phút`;
+  };
 
   // ── Comparison Calculation ────────────────────────────────────────────────
   const allSubmissions = getSubmissions();
@@ -308,15 +327,16 @@ export default function StudentDashboard() {
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                   { label: 'Điểm Trung Bình', value: avg !== null ? `${avg}đ` : '—', icon: Trophy, color: 'text-amber-400' },
                   { label: 'Đã Hoàn Thành', value: `${submissions.length}/${assignments.length}`, icon: CheckCircle2, color: 'text-emerald-400' },
                   { label: 'Cần Làm', value: todo.length, icon: BookOpen, color: 'text-[#0071e3]' },
+                  { label: 'Thời Gian Học', value: formatTotalTime(totalDurationMs), icon: Clock, color: 'text-violet-400' },
                 ].map(({ label, value, icon: Icon, color }) => (
-                  <div key={label} className="text-center p-4 rounded-xl bg-white/5 border border-white/5">
-                    <Icon className={`h-5 w-5 mx-auto mb-2 ${color}`} strokeWidth={1.5} />
-                    <p className={`text-2xl font-bold font-heading ${color}`}>{value}</p>
+                  <div key={label} className="text-center p-4 rounded-xl bg-white/5 border border-white/5 flex flex-col items-center justify-center">
+                    <Icon className={`h-5 w-5 mb-2 ${color}`} strokeWidth={1.5} />
+                    <p className={`text-xl md:text-2xl font-bold font-heading ${color}`}>{value}</p>
                     <p className="text-xs text-muted-foreground mt-1">{label}</p>
                   </div>
                 ))}
@@ -674,8 +694,13 @@ export default function StudentDashboard() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{s.assignmentTitle}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(s.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                          <p className="text-xs text-muted-foreground flex items-center gap-2">
+                            <span>{new Date(s.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                            {s.durationMs && (
+                              <span className="text-[10px] text-sky-400 font-medium flex items-center gap-1">
+                                • <Clock className="w-3 h-3" /> {formatDuration(s.durationMs)}
+                              </span>
+                            )}
                           </p>
                         </div>
                         <span className={`px-3 py-1 rounded-full border text-sm font-bold ${s.score >= 80 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'

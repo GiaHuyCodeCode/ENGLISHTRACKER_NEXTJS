@@ -132,13 +132,6 @@ export function TestBlock({
           const blankedExample = c.example ? c.example.replace(new RegExp(c.word, 'gi'), '___') : '';
           const opts = mcOptions[c.id] || [c.word];
 
-          const failedPeers = allSubmissions?.filter(sub => {
-            if (sub.assignmentType !== 'vocabulary' || !sub.vocabAnswers) return false;
-            const ans = sub.vocabAnswers.find(a => a.correctAnswer === c.word);
-            return ans && !ans.isCorrect;
-          }).map(sub => sub.studentName) || [];
-          const uniqueFailedPeers = Array.from(new Set(failedPeers));
-
           return (
             <div 
               key={c.id} 
@@ -160,48 +153,16 @@ export function TestBlock({
                 }`}>
                   {idx + 1}
                 </span>
-                <div className="flex-1 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div className="flex-1 space-y-4 pt-1">
+                  {blankedExample ? (
                     <div className="space-y-1">
-                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Nghĩa tiếng Việt</p>
-                      <p className="font-semibold text-lg text-foreground">{c.meaning}</p>
-                    </div>
-                    {c.synonyms && c.synonyms.length > 0 && (
-                      <div className="sm:col-span-1 space-y-1">
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Từ đồng nghĩa</p>
-                        <div className="flex flex-wrap gap-1.5 mt-1">
-                          {c.synonyms.map((s, i) => (
-                            <span key={i} className="px-2 py-0.5 rounded border border-[#0071e3]/30 bg-[#0071e3]/10 text-sky-400 text-xs font-medium">
-                              {s}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {blankedExample && (
-                    <div className="pt-3 border-t border-white/5 space-y-1">
                       <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Ví dụ ngữ cảnh</p>
                       <p className="text-base italic text-foreground/80 leading-relaxed">&quot;{blankedExample}&quot;</p>
                     </div>
-                  )}
-                  
-                  {uniqueFailedPeers.length > 0 && (
-                    <div className="pt-2">
-                      <div className="flex items-center gap-1.5 flex-wrap bg-red-500/5 w-fit px-2 py-1 rounded-md border border-red-500/10">
-                        <span className="text-[10px] text-red-400/80 uppercase font-semibold">Vài con gà đã ngã xuống:</span>
-                        <div className="flex -space-x-1">
-                          {uniqueFailedPeers.map(peer => (
-                            <div key={peer} title={`${peer} đã làm sai câu này`} className="relative w-5 h-5 rounded-full border border-red-500/50 flex items-center justify-center bg-background text-[8px] font-bold shadow-sm z-10 hover:z-20 transition-all hover:scale-110">
-                              {getStudentAvatar(peer)}
-                              <div className="absolute -bottom-1 -right-1 bg-red-500 rounded-full w-2.5 h-2.5 flex items-center justify-center border border-background">
-                                <XCircle className="w-2 h-2 text-white" />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Câu hỏi</p>
+                      <p className="text-base font-semibold text-foreground/80 leading-relaxed">Chọn từ đúng cho "{c.meaning}"</p>
                     </div>
                   )}
                 </div>
@@ -247,25 +208,6 @@ export function TestBlock({
                   <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-sm">
                     <span className="text-red-400 font-medium">Đáp án đúng:</span> 
                     <span className="font-bold font-mono text-foreground">{c.word}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Peer Failure Avatars */}
-              {uniqueFailedPeers.length > 0 && (
-                <div className="pl-0 md:pl-12">
-                  <div className="flex items-center gap-1.5 flex-wrap bg-red-500/5 w-fit px-2 py-1 rounded-md border border-red-500/10">
-                    <span className="text-[10px] text-red-400/80 uppercase font-semibold">Các bạn đã sai câu này:</span>
-                    <div className="flex -space-x-1">
-                      {uniqueFailedPeers.map(peer => (
-                        <div key={peer} title={`${peer} đã làm sai câu này`} className="relative w-5 h-5 rounded-full border border-red-500/50 flex items-center justify-center bg-background text-[8px] font-bold shadow-sm z-10 hover:z-20 transition-all hover:scale-110">
-                          {getStudentAvatar(peer)}
-                          <div className="absolute -bottom-1 -right-1 bg-red-500 rounded-full w-2.5 h-2.5 flex items-center justify-center border border-background">
-                            <XCircle className="w-2 h-2 text-white" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 </div>
               )}

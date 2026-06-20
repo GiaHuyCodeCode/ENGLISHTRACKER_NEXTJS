@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { getAssignment, submitDictation, getSubmissions, getStudentColors, getStudentAvatar, DictationResult, DictationSentence, isFuzzyMatch, Submission } from '@/lib/local-store';
 import { RaceTrackLeaderboard } from '@/components/ui/RaceTrackLeaderboard';
 import { ArrowLeft, Volume2, CheckCircle2, X, ChevronRight, Headphones, RotateCcw, AlertCircle, Trophy, Star, Clock, XCircle } from 'lucide-react';
+import { ExerciseTimer } from '@/components/ui/ExerciseTimer';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -297,9 +298,12 @@ export default function DictationExercisePage() {
                   <Headphones className="h-6 w-6 text-sky-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-xl font-bold font-heading gradient-text truncate">
-                    {assignment.title}
-                  </h1>
+                  <div className="flex items-center justify-between mb-1">
+                    <h1 className="text-xl font-bold font-heading gradient-text truncate">
+                      {assignment.title}
+                    </h1>
+                    <ExerciseTimer isRunning={!showDone} />
+                  </div>
                   <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
                     <span>Câu {currentIdx + 1} / {sentences.length}</span>
                     <span>•</span>
