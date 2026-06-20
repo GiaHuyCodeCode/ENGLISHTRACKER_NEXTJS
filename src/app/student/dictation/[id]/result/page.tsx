@@ -134,6 +134,7 @@ export default function DictationResultPage() {
             {score >= 80 ? <><Trophy className="h-4 w-4" /> Xuất Sắc!</>
              : score >= 50 ? <><TrendingUp className="h-4 w-4" /> Khá Tốt</>
              : <><AlertCircle className="h-4 w-4" /> Cần Luyện Thêm</>}
+          </div>
           <p className="text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
             {results.length} câu · {submission.studentName} {submission.durationMs && <>· <Clock className="h-3.5 w-3.5" /> {formatDuration(submission.durationMs)}</>}
           </p>

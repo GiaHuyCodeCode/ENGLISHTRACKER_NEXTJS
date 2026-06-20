@@ -239,3 +239,4 @@ Import trace for requested module:
  ✓ Compiled in 772ms (1780 modules)
    Reload env: .env.local
  ✓ Compiled in 727ms (1780 modules)
+ ✓ Compiled in 3s (894 modules)
