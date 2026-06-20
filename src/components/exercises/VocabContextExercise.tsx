@@ -9,6 +9,7 @@ interface Props {
   keywords: VocabKeyword[];
   onSubmit: (answers: { word: string; studentAnswer: string }[], overriddenWords?: string[]) => void;
   isSubmitting?: boolean;
+  result?: VocabAnswerResult[];
   score?: number;
   durationMs?: number;
   allSubmissions?: Submission[];
