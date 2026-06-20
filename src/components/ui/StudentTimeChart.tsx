@@ -112,7 +112,7 @@ export function StudentTimeChart({ submissions, trackings = [] }: Props) {
             contentStyle={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
             itemStyle={{ fontWeight: 'bold' }}
             cursor={{ stroke: '#ffffff20', strokeWidth: 2 }}
-            formatter={(value: number) => [`${value} phút`, 'Thời gian học']}
+            formatter={(value: any) => [`${value} phút`, 'Thời gian học']}
           />
           <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
           
