@@ -200,7 +200,7 @@ export function TestBlock({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-0 md:pl-12">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {opts.map((opt, oi) => {
                   let cls = 'border-white/10 bg-white/5 hover:border-primary/50 hover:bg-primary/10 text-foreground';
                   
@@ -225,7 +225,7 @@ export function TestBlock({
                         onAnswerChange(c.id, opt);
                         setMcRevealed(prev => ({ ...prev, [c.id]: true }));
                       }} 
-                      className={`p-4 rounded-2xl border text-base font-bold transition-all duration-300 text-center sm:text-left flex items-center justify-between group ${cls} ${!revealed && !isSubmitted ? 'hover-lift' : ''}`}
+                      className={`p-3 md:p-4 rounded-2xl border text-sm md:text-base font-bold transition-all duration-300 text-center sm:text-left flex items-center justify-between group ${cls} ${!revealed && !isSubmitted ? 'hover-lift' : ''}`}
                     >
                       <span>{opt}</span>
                       {revealed && opt === c.word && <CheckCircle2 className="h-5 w-5 text-emerald-400" strokeWidth={1.5} />}
@@ -236,7 +236,7 @@ export function TestBlock({
               </div>
 
               {revealed && (
-                <div className="pl-0 md:pl-12 slide-up space-y-3 pt-4 border-t border-white/5">
+                <div className="slide-up space-y-3 pt-4 border-t border-white/5">
                   <div className="flex flex-wrap gap-4 text-sm">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
                       <span className="text-muted-foreground">Lựa chọn của bạn:</span> 

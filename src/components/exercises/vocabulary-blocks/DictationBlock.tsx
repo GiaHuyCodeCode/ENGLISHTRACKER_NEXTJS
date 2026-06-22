@@ -1,15 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { VocabCard, Submission, getStudentAvatar } from '@/lib/local-store';
-import { Volume2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, ArrowRight, RotateCcw } from 'lucide-react';
+import { Volume2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, ArrowRight, RotateCcw, TrendingDown } from 'lucide-react';
 
 interface DictationBlockProps {
   vocabCards: VocabCard[];
   answers: Record<string, string>;
+  attemptsRecord?: Record<string, number>;
   onAnswerChange: (word: string, val: string) => void;
   handleSpeak: (text: string) => void;
   isSubmitted: boolean;
   isRequirementWorkflow?: boolean;
-  onFinishDictation?: (score: number, answers: Record<string, string>) => void;
+  onFinishDictation?: (score: number, answers: Record<string, string>, attempts?: Record<string, number>) => void;
   onProgressUpdate?: (stats: {
     completed: number;
     incorrect: number;
@@ -26,6 +27,7 @@ interface DictationBlockProps {
 export function DictationBlock({ 
   vocabCards, 
   answers, 
+  attemptsRecord,
   onAnswerChange, 
   handleSpeak, 
   isSubmitted,
@@ -52,6 +54,50 @@ export function DictationBlock({
 
   const [hasCorrectedLocally, setHasCorrectedLocally] = useState<Record<string, boolean>>({});
   const [isWordWrongFirstTime, setIsWordWrongFirstTime] = useState<Record<string, boolean>>({});
+  const [showEndScreen, setShowEndScreen] = useState(false);
+
+  // Thống kê số học sinh sai theo từng từ (dùng cho trang xem kết quả)
+  const dictationRepeatStats = useMemo(() => {
+    if (!isSubmitted) return [];
+
+    // Đếm số học sinh sai từng từ từ allSubmissions
+    const errorCounts: Record<string, number> = {};
+    vocabCards.forEach(c => errorCounts[c.word] = 0);
+
+    const subsToScan = allSubmissions && allSubmissions.length > 0 ? allSubmissions : [];
+    subsToScan.forEach(sub => {
+      if (sub.assignmentType !== 'vocabulary') return;
+      let answersArray: any[] = [];
+      if (Array.isArray(sub.vocabAnswers)) {
+        answersArray = sub.vocabAnswers;
+      } else if (sub.vocabAnswers && typeof sub.vocabAnswers === 'object') {
+        answersArray = Object.keys(sub.vocabAnswers).map(k => ({
+          word: k, correctAnswer: k,
+          isCorrect: ((sub.vocabAnswers as any)[k] || '').trim().toLowerCase() === k.toLowerCase()
+        }));
+      } else if (Array.isArray((sub as any).details)) {
+        answersArray = (sub as any).details;
+      }
+      answersArray.forEach((ans: any) => {
+        const w = ans.word || ans.correctAnswer;
+        if (w && !ans.isCorrect && errorCounts[w] !== undefined) errorCounts[w]++;
+      });
+    });
+
+    // Build final list: include all words, sort by error count desc, then alpha
+    return vocabCards
+      .map(c => ({
+        word: c.word,
+        meaning: c.meaning,
+        myAnswer: (answers[c.word] || '').trim(),
+        isCorrect: (answers[c.word] || '').trim().toLowerCase() === c.word.toLowerCase(),
+        myErrors: Math.max(0, (attemptsRecord?.[c.word] || 1) - 1),
+        classErrors: errorCounts[c.word] ?? 0,
+      }))
+      .sort((a, b) => b.classErrors - a.classErrors || a.word.localeCompare(b.word));
+  }, [isSubmitted, allSubmissions, vocabCards, answers, attemptsRecord]);
+
+  const classErrorStats = dictationRepeatStats; // keep backward compat alias
 
   // Đồng bộ và RANDOM danh sách từ khi mount/change
   useEffect(() => {
@@ -64,6 +110,7 @@ export function DictationBlock({
     setRoundCorrectWords({});
     setAttempts({});
     setIsFinished(false);
+    setShowEndScreen(false);
     setCalculatedScore(0);
     setFeedback({});
     setShowWrongFeedback(false);
@@ -117,11 +164,11 @@ export function DictationBlock({
       let status: 'correct' | 'incorrect' | 'pending' | 'active' = 'pending';
       const isActive = currentCard && card.id === currentCard.id;
 
-      if (isActive) {
-        status = 'active';
-      } else if (isCorrect) {
+      if (isCorrect) {
         status = 'correct';
         completed++;
+      } else if (isActive) {
+        status = 'active';
       } else if (isWrong) {
         status = 'incorrect';
         incorrect++;
@@ -172,6 +219,8 @@ export function DictationBlock({
     }
   }, [currentIdx, currentCard, isSubmitted, isFinished, handleSpeak, wrongTimerActive, speakMode]);
 
+  // Removed isRoundEnded useEffect since it is now explicitly handled in handleCheckSpelling
+
   // Hotkey Ctrl to play audio manually (only available in 'before' mode)
   useEffect(() => {
     if (!currentCard || isSubmitted || isFinished || speakMode !== 'before') return;
@@ -213,11 +262,14 @@ export function DictationBlock({
       }));
       handleSpeak(word);
       
-      if (isRequirementWorkflow) {
-        // Tự động qua từ tiếp theo sau 1.2s
+      // Nếu là từ cuối cùng, hiển thị màn hình kết thúc ngay lập tức
+      if (currentIdx === roundWords.length - 1) {
+        setShowEndScreen(true);
+      } else {
+        // Tự động qua từ tiếp theo sau 1s
         setTimeout(() => {
           handleGoToNext();
-        }, 1200);
+        }, 1000);
       }
     } else {
       setShake(true);
@@ -269,39 +321,87 @@ export function DictationBlock({
     setCurrentRound(prev => prev + 1);
     setRoundCorrectWords({});
     setFeedback({});
+    setShowEndScreen(false);
     setShowWrongFeedback(false);
     setHasCorrectedLocally({});
     setIsWordWrongFirstTime({});
   };
 
   const handleFinishAndProceed = () => {
-    onFinishDictation?.(calculatedScore, answers);
+    onFinishDictation?.(calculatedScore, answers, attempts);
   };
 
-  if (roundWords.length === 0) return null;
-  if (!currentCard && !isFinished) return null;
-
-  const isRoundEnded = !isSubmitted && currentIdx === roundWords.length - 1 && 
-    feedback[currentCard?.word]?.show && 
-    (feedback[currentCard?.word]?.isCorrect || hasCorrectedLocally[currentCard?.word]);
-  
   const wrongCountInRound = roundWords.filter(w => !roundCorrectWords[w.word]).length;
 
-  if (!isSubmitted && isRequirementWorkflow && isRoundEnded && wrongCountInRound === 0 && !isFinished) {
-    const N = vocabCards.length;
-    let totalAttempts = 0;
-    vocabCards.forEach(c => {
-      totalAttempts += attempts[c.word] || 1;
-    });
-    if (totalAttempts < N) totalAttempts = N;
+  useEffect(() => {
+    if (!isSubmitted && showEndScreen && wrongCountInRound === 0 && !isFinished) {
+      const N = vocabCards.length;
+      let totalAttempts = 0;
+      vocabCards.forEach(c => {
+        totalAttempts += attempts[c.word] || 1;
+      });
+      if (totalAttempts < N) totalAttempts = N;
 
-    const score = Math.max(0, Math.round((N / totalAttempts) * 100));
-    setCalculatedScore(score);
-    setIsFinished(true);
+      const score = Math.max(0, Math.round((N / totalAttempts) * 100));
+      setCalculatedScore(score);
+      setIsFinished(true);
+    }
+  }, [isSubmitted, showEndScreen, wrongCountInRound, isFinished, vocabCards, attempts]);
+
+  // === REVIEW MODE: Hiển thị toàn bộ đoạn Script + Phát âm ===
+  if (isSubmitted) {
+    return (
+      <div className="space-y-4 max-w-4xl mx-auto w-full slide-up">
+        <h3 className="text-lg font-bold font-heading mb-4 text-foreground flex items-center gap-2">
+          <Headphones className="w-5 h-5 text-sky-400" /> Script Nghe Chép & Phát Âm
+        </h3>
+        <div className="grid gap-3">
+          {vocabCards.map((card, idx) => {
+            const studentAns = (answers[card.word] || '').trim();
+            const isCorrect = studentAns.toLowerCase() === card.word.toLowerCase();
+            return (
+              <div key={card.id} className="glass-strong rounded-2xl p-4 md:p-5 border border-white/5 flex flex-col md:flex-row gap-4 items-start md:items-center">
+                {/* Play Button */}
+                <button 
+                  onClick={() => handleSpeak(card.word)}
+                  className="shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full bg-[#0071e3]/10 border border-[#0071e3]/20 hover:bg-[#0071e3] hover:text-white text-[#0071e3] flex items-center justify-center transition-all shadow-sm hover-lift"
+                >
+                  <Volume2 className="w-5 h-5 md:w-6 md:h-6" />
+                </button>
+                
+                {/* Content */}
+                <div className="flex-1 min-w-0 space-y-1.5 w-full">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                    <span className="font-extrabold text-lg md:text-xl text-foreground">{card.word}</span>
+                    <span className="text-sm md:text-base text-muted-foreground italic truncate">- {card.meaning}</span>
+                  </div>
+                  
+                  {/* Answers */}
+                  <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm mt-2 bg-black/20 p-2 rounded-xl w-fit">
+                    <span className="text-muted-foreground uppercase font-bold text-[10px] md:text-xs tracking-widest">Lựa chọn:</span>
+                    <span className={`font-semibold ${isCorrect ? 'text-emerald-400' : 'text-red-400 line-through'}`}>
+                      {studentAns || 'Chưa điền'}
+                    </span>
+                    {!isCorrect && (
+                      <>
+                        <span className="text-muted-foreground mx-1">→</span>
+                        <span className="text-emerald-400 font-extrabold">{card.word}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   }
 
+  if (!currentCard && !isFinished) return null;
+
   // Finished Screen
-  if (!isSubmitted && isRequirementWorkflow && isFinished) {
+  if (!isSubmitted && isFinished) {
     const N = vocabCards.length;
     let totalAttempts = 0;
     vocabCards.forEach(c => {
@@ -313,40 +413,49 @@ export function DictationBlock({
           <CheckCircle2 className="w-8 h-8" strokeWidth={1.5} />
         </div>
         <div className="space-y-2">
-          <h3 className="text-2xl font-bold font-heading">Hoàn Thành Phần Nghe Chép!</h3>
+          <h3 className="text-xl md:text-2xl font-bold font-heading">Hoàn Thành Phần Nghe Chép!</h3>
           <p className="text-sm text-muted-foreground">Bạn đã viết chính xác toàn bộ {N} từ vựng.</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4 bg-white/5 p-5 rounded-2xl border border-white/5">
           <div>
             <span className="text-xs text-muted-foreground uppercase font-bold block">Điểm Nghe Chép</span>
-            <span className="text-3xl font-extrabold text-primary">{calculatedScore}đ</span>
+            <span className="text-2xl md:text-3xl font-extrabold text-primary">{calculatedScore}đ</span>
           </div>
           <div>
             <span className="text-xs text-muted-foreground uppercase font-bold block">Tổng số lần thử</span>
-            <span className="text-3xl font-extrabold text-foreground">{totalAttempts} lần</span>
+            <span className="text-2xl md:text-3xl font-extrabold text-foreground">{totalAttempts} lần</span>
           </div>
         </div>
 
-        <button 
-          onClick={handleFinishAndProceed}
-          className="w-full py-4 bg-[#0071e3] hover:bg-[#0071e3]/90 text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-2 hover-lift"
-        >
-          Tiếp tục sang phần Trắc Nghiệm <ArrowRight className="w-5 h-5" strokeWidth={1.5} />
-        </button>
+        {isRequirementWorkflow ? (
+          <button 
+            onClick={handleFinishAndProceed}
+            className="w-full py-4 bg-[#0071e3] hover:bg-[#0071e3]/90 text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-2 hover-lift"
+          >
+            Tiếp tục sang phần Trắc Nghiệm <ArrowRight className="w-5 h-5" strokeWidth={1.5} />
+          </button>
+        ) : (
+          <button 
+            onClick={handleFinishAndProceed}
+            className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-2 hover-lift"
+          >
+            Hoàn Thành Nghe Chép <CheckCircle2 className="w-5 h-5" strokeWidth={1.5} />
+          </button>
+        )}
       </div>
     );
   }
 
   // Round Ended (Needs correction round)
-  if (!isSubmitted && isRequirementWorkflow && isRoundEnded && wrongCountInRound > 0) {
+  if (!isSubmitted && showEndScreen && wrongCountInRound > 0) {
     return (
       <div className="glass-strong rounded-3xl border border-amber-500/30 p-8 text-center max-w-xl mx-auto space-y-6 slide-up">
         <div className="w-16 h-16 bg-amber-500/10 text-amber-400 rounded-full flex items-center justify-center mx-auto border border-amber-500/20 animate-bounce">
           <RotateCcw className="w-8 h-8" strokeWidth={1.5} />
         </div>
         <div className="space-y-2">
-          <h3 className="text-2xl font-bold font-heading">Kết thúc Vòng {currentRound}!</h3>
+          <h3 className="text-xl md:text-2xl font-bold font-heading">Kết thúc Vòng {currentRound}!</h3>
           <p className="text-sm text-muted-foreground">
             Bạn đã đi qua toàn bộ từ trong vòng này. Có <span className="text-amber-400 font-bold">{wrongCountInRound} từ</span> chưa chính xác.
           </p>
@@ -375,27 +484,55 @@ export function DictationBlock({
   const currentFeedback = feedback[currentCard.word];
 
   const failedPeers = allSubmissions?.filter(sub => {
-    const answersArray = sub.vocabAnswers || (sub as any).details;
-    if (sub.assignmentType !== 'vocabulary' || !answersArray) return false;
-    const ans = answersArray.find((a: any) => a.correctAnswer === currentCard.word);
+    if (sub.assignmentType !== 'vocabulary') return false;
+    let answersArray: any[] = [];
+    if (Array.isArray(sub.vocabAnswers)) {
+      answersArray = sub.vocabAnswers;
+    } else if (sub.vocabAnswers && typeof sub.vocabAnswers === 'object') {
+      answersArray = Object.keys(sub.vocabAnswers).map(k => ({
+        word: k, correctAnswer: k,
+        isCorrect: ((sub.vocabAnswers as any)[k] || '').trim().toLowerCase() === k.toLowerCase()
+      }));
+    } else if (Array.isArray((sub as any).details)) {
+      answersArray = (sub as any).details;
+    }
+    if (answersArray.length === 0) return false;
+    const ans = answersArray.find((a: any) => (a.word || a.correctAnswer) === currentCard.word);
     return ans && !ans.isCorrect;
   }).map(sub => sub.studentName) || [];
   const uniqueFailedPeers = Array.from(new Set(failedPeers));
 
   return (
     <div className={`space-y-6 max-w-3xl mx-auto w-full slide-up ${shake ? 'animate-shake' : ''} px-1 md:px-0`}>
+      {/* Class Statistics Board */}
+      {isSubmitted && classErrorStats.length > 0 && (
+        <div className="glass-strong rounded-3xl p-6 border border-red-500/20 bg-red-500/5 mb-8 slide-up">
+          <h3 className="text-lg font-bold font-heading text-red-400 mb-4 flex items-center gap-2">
+            <XCircle className="w-5 h-5" strokeWidth={1.5} /> Bảng thống kê các từ sai nhiều nhất (Cả lớp)
+          </h3>
+          <div className="flex flex-wrap gap-3">
+            {classErrorStats.map((stat) => (
+              <div key={stat.word} className="px-4 py-2 rounded-xl bg-background/50 border border-red-500/10 flex items-center gap-3 hover:border-red-500/30 transition-colors group cursor-default">
+                <span className="text-sm font-bold text-foreground group-hover:text-red-400 transition-colors">{stat.word}</span>
+                <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-bold tracking-widest">{stat.count} lỗi</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Exercise Workspace Card */}
       <div className={`glass-strong rounded-3xl border p-6 md:p-10 flex flex-col items-center justify-center text-center space-y-8 transition-all duration-300 relative ${shake ? 'animate-shake border-red-500/50' : currentFeedback?.isCorrect ? 'border-emerald-500/30' : 'border-white/5'}`}>
-        
+
         {/* Play Audio Button (Larger for better tap targets on phone) */}
         <div className="relative">
           <div className="absolute inset-0 bg-[#0071e3]/20 rounded-full blur-xl pulse-dot"></div>
           <button 
             onClick={() => handleSpeak(currentCard.word)} 
             disabled={wrongTimerActive}
-            className="relative w-24 h-24 rounded-full bg-[#0071e3]/10 border border-[#0071e3]/20 hover:bg-[#0071e3] hover:text-white text-[#0071e3] flex items-center justify-center transition-all shadow-md hover-lift disabled:opacity-50"
+            className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-[#0071e3]/10 border border-[#0071e3]/20 hover:bg-[#0071e3] hover:text-white text-[#0071e3] flex items-center justify-center transition-all shadow-md hover-lift disabled:opacity-50"
           >
-            <Volume2 className="h-12 w-12" strokeWidth={1.5} />
+            <Volume2 className="h-10 w-10 md:h-12 md:w-12" strokeWidth={1.5} />
           </button>
         </div>
 
@@ -416,7 +553,7 @@ export function DictationBlock({
               disabled={isSubmitted || wrongTimerActive}
               onKeyDown={e => e.key === 'Enter' && handleCheckSpelling()}
               placeholder="Nghe và gõ lại từ vựng..."
-              className={`input-field flex-1 text-center font-bold tracking-wider text-xl h-16 transition-all ${
+              className={`input-field flex-1 text-center font-bold tracking-wider text-lg md:text-xl h-14 md:h-16 transition-all ${
                 isSubmitted
                   ? (answers[currentCard.word] || '').trim().toLowerCase() === currentCard.word.toLowerCase()
                     ? 'border-emerald-500 ring-1 ring-emerald-500/50 text-emerald-400 bg-emerald-500/5'
@@ -446,7 +583,7 @@ export function DictationBlock({
             {!isSubmitted && !isRequirementWorkflow && (
               <button 
                 onClick={handleCheckSpelling} 
-                className="px-6 h-16 bg-white/5 text-foreground hover:bg-white/10 font-semibold rounded-xl text-sm transition-all hover-lift"
+                className="px-4 md:px-6 h-14 md:h-16 bg-white/5 text-foreground hover:bg-white/10 font-semibold rounded-xl text-sm transition-all hover-lift"
               >
                 Kiểm tra
               </button>
@@ -454,7 +591,7 @@ export function DictationBlock({
             {!isSubmitted && isRequirementWorkflow && !wrongTimerActive && !currentFeedback?.isCorrect && (
               <button 
                 onClick={handleCheckSpelling} 
-                className="px-6 h-16 bg-[#0071e3] text-white font-bold rounded-xl text-sm transition-all hover-lift"
+                className="px-4 md:px-6 h-14 md:h-16 bg-[#0071e3] text-white font-bold rounded-xl text-sm transition-all hover-lift"
               >
                 Kiểm tra
               </button>

@@ -72,14 +72,18 @@ export default function LessonDetailPage() {
       const list = answers;
       let score = customScore !== undefined ? customScore : (list.filter(a => a.isCorrect).length / list.length) * 100;
       
-      const sub = submitVocabularyAssignment({
+      // Tạo mock submission thay vì lưu vào lịch sử
+      const mockSub: Submission = {
+        id: 'mock-' + Date.now(),
         assignmentId: id,
         studentName,
+        assignmentType: 'vocabulary',
         score: Math.round(score),
-        answers: list,
+        vocabAnswers: list,
+        createdAt: new Date().toISOString(),
         durationMs: 0,
-      });
-      setResult(sub);
+      };
+      setResult(mockSub);
     } finally {
       setIsSubmitting(false);
     }
@@ -88,14 +92,14 @@ export default function LessonDetailPage() {
   if (activeMode) {
     return (
       <div className="max-w-7xl mx-auto space-y-6 relative pb-10">
-        <div className="flex items-center justify-between sticky top-4 z-50 bg-background/80 backdrop-blur-xl p-4 -mx-4 md:mx-0 md:-mt-4 rounded-2xl border border-white/10 shadow-2xl">
+        <div className="flex items-center justify-between sticky top-20 md:top-4 z-50 bg-background/80 backdrop-blur-xl p-4 -mx-4 md:mx-0 md:-mt-4 rounded-2xl border border-white/10 shadow-2xl">
           <button
             onClick={() => setActiveMode(null)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-sm transition-all shadow-lg hover-lift"
+            className="flex items-center gap-1.5 px-3 py-2 md:px-4 md:py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs md:text-sm transition-all shadow-lg hover-lift"
           >
-            <ArrowLeft className="w-4 h-4" /> Quay lại bài học
+            <ArrowLeft className="w-4 h-4" /> <span className="hidden sm:inline">Quay lại bài học</span><span className="sm:hidden">Quay lại</span>
           </button>
-          <div className="text-sm font-bold text-muted-foreground uppercase tracking-widest px-3 py-1 bg-white/5 rounded-lg">
+          <div className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest px-2 md:px-3 py-1 bg-white/5 rounded-lg">
             {activeMode === 'flashcard' ? 'Lướt Flashcard' :
              activeMode === 'synonym' ? 'Đồng Nghĩa' :
              activeMode === 'test' ? 'Trắc Nghiệm' :
@@ -107,12 +111,18 @@ export default function LessonDetailPage() {
           vocabCards={vocabCards}
           initialMode={activeMode as any}
           isRequirementWorkflow={false}
-          hideTabs={true}
+          hideTabs={false}
           onSubmit={handleVocabularySubmit}
           isSubmitting={isSubmitting}
           result={result?.vocabAnswers}
           score={result?.score}
           durationMs={result?.durationMs}
+          isPracticeOnly={true}
+          onRetry={() => setResult(null)}
+          onTabChange={(mode) => {
+            setActiveMode(mode);
+            setResult(null);
+          }}
         />
       </div>
     );
@@ -134,7 +144,7 @@ export default function LessonDetailPage() {
               Thư mục Từ Vựng
             </span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold font-heading gradient-text leading-tight">{assignment.title}</h1>
+          <h1 className="text-xl md:text-3xl font-bold font-heading gradient-text leading-tight">{assignment.title}</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Tổng cộng: {vocabCards.length} từ vựng
           </p>
@@ -239,7 +249,7 @@ export default function LessonDetailPage() {
                   <div className="px-5 pb-0 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-xl font-bold text-foreground">{c.word}</h3>
+                        <h3 className="text-lg md:text-xl font-bold text-foreground">{c.word}</h3>
                         <button 
                           onClick={() => handleSpeak(c.word)} 
                           className={`p-1 rounded-full transition-all duration-200 ${

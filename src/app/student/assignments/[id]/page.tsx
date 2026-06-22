@@ -159,9 +159,9 @@ export default function ExercisePage() {
     else setShowModal(true);
   };
 
-  const handleVocabularySubmit = (answers: { word: string; studentAnswer: string; isCorrect: boolean }[], customScore?: number) => {
-    setPendingAnswers({ answers, customScore });
-    if (currentStudent) doSubmitVocabulary(currentStudent, { answers, customScore });
+  const handleVocabularySubmit = (answers: { word: string; studentAnswer: string; isCorrect: boolean }[], customScore?: number, dictationScore?: number) => {
+    setPendingAnswers({ answers, customScore, dictationScore });
+    if (currentStudent) doSubmitVocabulary(currentStudent, { answers, customScore, dictationScore });
     else setShowModal(true);
   };
 
@@ -190,7 +190,7 @@ export default function ExercisePage() {
     localStorage.setItem('et_current_student', name);
     setCurrentStudent(name);
     try {
-      const { answers, customScore } = pending;
+      const { answers, customScore, dictationScore } = pending;
       const list = answers as { word: string; studentAnswer: string; isCorrect: boolean }[];
       let score = 0;
       if (customScore !== undefined) {
@@ -203,6 +203,7 @@ export default function ExercisePage() {
         assignmentId: id,
         studentName: name,
         score,
+        dictationScore,
         answers: list,
         durationMs: Date.now() - startTimeRef.current,
       });

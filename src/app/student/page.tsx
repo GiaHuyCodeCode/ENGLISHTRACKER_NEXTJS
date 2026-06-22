@@ -183,9 +183,10 @@ export default function StudentDashboard() {
     const classScores = { Vocab: [] as number[], Grammar: [] as number[], Reading: [] as number[], Listening: [] as number[], Writing: [] as number[] };
 
     submissions.forEach(s => {
-      if (s.assignmentType === 'vocab_context') scores.Vocab.push(s.score);
+      if (s.assignmentType === 'vocab_context' || s.assignmentType === 'vocabulary') scores.Vocab.push(s.score);
       else if (s.assignmentType === 'multiple_choice') scores.Grammar.push(s.score);
       else if (s.assignmentType === 'rewrite_vocab') scores.Writing.push(s.score);
+      else if (s.assignmentType === 'dictation') scores.Listening.push(s.score);
     });
 
     trackings.forEach(t => {
@@ -200,9 +201,10 @@ export default function StudentDashboard() {
     const allTrackings = getDailyTrackings();
 
     allSubmissions.forEach(s => {
-      if (s.assignmentType === 'vocab_context') classScores.Vocab.push(s.score);
+      if (s.assignmentType === 'vocab_context' || s.assignmentType === 'vocabulary') classScores.Vocab.push(s.score);
       else if (s.assignmentType === 'multiple_choice') classScores.Grammar.push(s.score);
       else if (s.assignmentType === 'rewrite_vocab') classScores.Writing.push(s.score);
+      else if (s.assignmentType === 'dictation') classScores.Listening.push(s.score);
     });
 
     allTrackings.forEach(t => {
@@ -285,9 +287,10 @@ export default function StudentDashboard() {
 
   const skillFocusData = skillData.map(s => {
     const count = submissions.filter(sub => {
-      if (s.key === 'Vocab' && sub.assignmentType === 'vocab_context') return true;
+      if (s.key === 'Vocab' && (sub.assignmentType === 'vocab_context' || sub.assignmentType === 'vocabulary')) return true;
       if (s.key === 'Grammar' && sub.assignmentType === 'multiple_choice') return true;
       if (s.key === 'Writing' && sub.assignmentType === 'rewrite_vocab') return true;
+      if (s.key === 'Listening' && sub.assignmentType === 'dictation') return true;
       return false;
     }).length + trackings.filter(t => {
       if (s.key === 'Listening' && (t.category === 'Dictation' || t.category === 'Listening')) return true;

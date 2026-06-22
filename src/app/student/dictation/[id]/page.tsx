@@ -465,7 +465,7 @@ export default function DictationExercisePage() {
           </div>
 
           {/* Sidebar Tracking */}
-          <div className="lg:col-span-1 mt-6 lg:mt-0 space-y-6 sticky top-6">
+          <div className="lg:col-span-1 mt-6 lg:mt-0 space-y-6 lg:sticky lg:top-6">
             <div className="glass-strong rounded-3xl border border-white/5 p-6 space-y-6">
               <div>
                 <h3 className="font-bold font-heading text-lg flex items-center gap-2">

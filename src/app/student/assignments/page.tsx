@@ -197,7 +197,7 @@ export default function StudentAssignmentsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'Đã hoàn thành', value: done.length, total: assignments.length, color: 'text-teal-400', bg: 'border-white/5' },
           { label: 'Điểm Trung Bình', value: myAvgScore !== null ? `${myAvgScore}đ` : '—', color: 'text-[#0071e3]', bg: 'border-white/5' },

@@ -54,7 +54,7 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
     <div className={hideSidebar ? "space-y-5" : "grid grid-cols-1 lg:grid-cols-4 gap-6 items-start"}>
       {/* Left Sidebar */}
       {!hideSidebar && (
-        <div className="lg:col-span-1 sticky top-4 z-30 space-y-4 self-start">
+        <div className="lg:col-span-1 lg:sticky lg:top-4 z-30 space-y-4 self-start order-last lg:order-first">
           {!isSubmitted && (
             <div className="glass-strong rounded-3xl border border-white/10 p-5 shadow-xl">
               <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-3 text-center">Thời gian làm bài</div>
@@ -120,7 +120,7 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
       )}
 
       {/* Right Content */}
-      <div className={hideSidebar ? "space-y-5" : "lg:col-span-3 space-y-5 w-full"}>
+      <div className={hideSidebar ? "space-y-5" : "lg:col-span-3 space-y-5 w-full order-first lg:order-last"}>
       {/* Score banner */}
       {isSubmitted && score !== undefined && (
         <div className={`rounded-2xl p-5 text-center border-2 score-pop ${

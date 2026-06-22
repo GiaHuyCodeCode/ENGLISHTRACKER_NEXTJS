@@ -57,7 +57,7 @@ export default function NewAssignmentPage() {
         </div>
       )}
 
-      <div className="max-w-3xl space-y-6">
+      <div className="max-w-5xl mx-auto space-y-6">
         {/* Type tabs */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {([

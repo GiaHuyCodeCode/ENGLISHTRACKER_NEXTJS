@@ -77,6 +77,7 @@ export interface Assignment {
 
 export interface VocabAnswerResult {
   word: string; studentAnswer: string; isCorrect: boolean; correctAnswer: string;
+  attempts?: number; // Số lần thử trong phần nghe chép
 }
 export interface QuizAnswerResult {
   questionId: number; studentAnswer: string; isCorrect: boolean;
@@ -670,6 +671,7 @@ export function submitVocabularyAssignment(payload: {
   assignmentId: string;
   studentName: string;
   score: number;
+  dictationScore?: number;
   answers: { word: string; studentAnswer: string; isCorrect: boolean }[];
   durationMs?: number;
 }): Submission {
@@ -696,6 +698,23 @@ export function submitVocabularyAssignment(payload: {
   // Save the submission
   write(KEYS.submissions, [...getSubmissions(), sub]);
   syncSubmissionToSheet(sub);
+
+  // If there's a dictation score from a requirement workflow, save it as a Daily Tracking
+  if (payload.dictationScore !== undefined) {
+    const trackingRecord: DailyTracking = {
+      id: crypto.randomUUID(),
+      studentName: payload.studentName,
+      category: 'Dictation',
+      score: payload.dictationScore,
+      submittedAt: new Date().toISOString(),
+    };
+    write(KEYS.dailyTracking, [...getDailyTrackings(), trackingRecord]);
+    syncSubmissionToSheet({
+      ...trackingRecord,
+      type: 'daily_tracking',
+      imageBase64: ''
+    });
+  }
 
   // Seed into global vocabulary library if not present
   const currentCards = getVocabularyCards();

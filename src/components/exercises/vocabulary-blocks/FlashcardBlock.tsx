@@ -68,7 +68,7 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
       {/* 3D Flashcard */}
       <div 
         onClick={() => setIsFlipped(!isFlipped)} 
-        className="relative h-72 w-full cursor-pointer perspective group"
+        className="relative h-64 md:h-72 w-full cursor-pointer perspective group"
       >
         <div className={`w-full h-full duration-700 preserve-3d relative transition-transform ${isFlipped ? 'rotate-y-180' : ''}`}>
           

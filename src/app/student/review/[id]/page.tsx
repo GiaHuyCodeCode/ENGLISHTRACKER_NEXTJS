@@ -137,7 +137,26 @@ export default function StudentReviewPage() {
 
     if (assignment.type === 'vocabulary' && assignment.vocabCards) {
       return assignment.vocabCards.map((c, idx) => {
-        const ans = submission.vocabAnswers?.find(r => r.word.toLowerCase() === c.word.toLowerCase());
+        let answersList: any[] = [];
+        if (Array.isArray(submission.vocabAnswers)) {
+          answersList = submission.vocabAnswers;
+        } else if (submission.vocabAnswers && typeof submission.vocabAnswers === 'object') {
+          answersList = Object.keys(submission.vocabAnswers).map(key => ({
+            word: key,
+            correctAnswer: key,
+            studentAnswer: (submission.vocabAnswers as any)[key],
+            isCorrect: typeof (submission.vocabAnswers as any)[key] === 'string'
+              ? ((submission.vocabAnswers as any)[key] || '').trim().toLowerCase() === key.toLowerCase()
+              : false
+          }));
+        } else if (Array.isArray((submission as any).details)) {
+          answersList = (submission as any).details;
+        }
+
+        const ans = answersList.find((r: any) => {
+          const w = r?.word || r?.correctAnswer;
+          return w && c.word && w.toLowerCase() === c.word.toLowerCase();
+        });
         const isCorrect = ans ? ans.isCorrect : false;
         return {
           id: `vocab-word-${idx}`,
@@ -155,7 +174,26 @@ export default function StudentReviewPage() {
 
     if (assignment.type === 'vocab_context' && assignment.keywords) {
       return assignment.keywords.map((k, idx) => {
-        const ans = submission.vocabAnswers?.find(r => r.word.toLowerCase() === k.word.toLowerCase());
+        let answersList: any[] = [];
+        if (Array.isArray(submission.vocabAnswers)) {
+          answersList = submission.vocabAnswers;
+        } else if (submission.vocabAnswers && typeof submission.vocabAnswers === 'object') {
+          answersList = Object.keys(submission.vocabAnswers).map(key => ({
+            word: key,
+            correctAnswer: key,
+            studentAnswer: (submission.vocabAnswers as any)[key],
+            isCorrect: typeof (submission.vocabAnswers as any)[key] === 'string'
+              ? ((submission.vocabAnswers as any)[key] || '').trim().toLowerCase() === key.toLowerCase()
+              : false
+          }));
+        } else if (Array.isArray((submission as any).details)) {
+          answersList = (submission as any).details;
+        }
+
+        const ans = answersList.find((r: any) => {
+          const w = r?.word || r?.correctAnswer;
+          return w && k.word && w.toLowerCase() === k.word.toLowerCase();
+        });
         const isCorrect = ans ? ans.isCorrect : false;
         return {
           id: `ctx-word-${k.word.toLowerCase()}`,
@@ -196,8 +234,30 @@ export default function StudentReviewPage() {
   };
 
   const questionMap = getQuestionMap();
-  const correctCount = questionMap.filter(q => q.isCorrect).length;
-  const totalCount = questionMap.length;
+
+  // Fallback: nếu vocabAnswers là Record<string,string> thay vì array,
+  // hoặc nếu questionMap trả về toàn bộ sai dù điểm > 0,
+  // thì tính correctCount từ answers gốc
+  let correctCount = questionMap.filter(q => q.isCorrect).length;
+  let totalCount = questionMap.length;
+
+  if (
+    (assignment.type === 'vocabulary' || assignment.type === 'vocab_context') &&
+    correctCount === 0 && submission.score > 0 &&
+    totalCount > 0
+  ) {
+    // Thử tính lại từ vocabAnswers dạng object
+    const rawAnswers = submission.vocabAnswers as any;
+    if (rawAnswers && !Array.isArray(rawAnswers) && typeof rawAnswers === 'object') {
+      const words = assignment.type === 'vocabulary'
+        ? (assignment.vocabCards || []).map((c: any) => c.word)
+        : (assignment.keywords || []).map((k: any) => k.word);
+      correctCount = words.filter((w: string) => {
+        const ans = rawAnswers[w] || '';
+        return ans.trim().toLowerCase() === w.toLowerCase();
+      }).length;
+    }
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -257,8 +317,8 @@ export default function StudentReviewPage() {
       {/* Main Grid Layout: Left Sidebar + Right Content */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         {/* Left Sticky Sidebar: Sơ đồ câu hỏi */}
-        {questionMap.length > 0 && (
-          <div className="lg:col-span-1 sticky top-4 z-30 space-y-4 self-start">
+        {questionMap.length > 0 && assignment.type !== 'vocabulary' && (
+          <div className="lg:col-span-1 lg:sticky lg:top-4 z-30 space-y-4 self-start order-last lg:order-first">
             <div className="glass-strong rounded-3xl border border-white/10 p-5 md:p-6 shadow-xl space-y-4 max-h-[calc(100vh-140px)] overflow-y-auto">
               <div className="flex justify-between items-center text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
                 <span>Sơ đồ câu hỏi</span>
@@ -287,7 +347,7 @@ export default function StudentReviewPage() {
         )}
 
         {/* Right Column: Exercise Content Area - Read only mode */}
-        <div id="vocab-exercise-container" className={`${questionMap.length > 0 ? 'lg:col-span-3' : 'lg:col-span-4'} w-full space-y-6`}>
+        <div id="vocab-exercise-container" className={`${questionMap.length > 0 && assignment.type !== 'vocabulary' ? 'lg:col-span-3' : 'lg:col-span-4'} w-full space-y-6 order-first lg:order-last`}>
           {/* Teacher feedback panel if available */}
           {submission.feedback && (
             <div className="glass rounded-2xl p-5 border border-amber-500/20 bg-amber-500/5 space-y-2">
