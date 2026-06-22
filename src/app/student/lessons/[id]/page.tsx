@@ -72,15 +72,18 @@ export default function LessonDetailPage() {
       const list = answers;
       let score = customScore !== undefined ? customScore : (list.filter(a => a.isCorrect).length / list.length) * 100;
       
+      const mappedList = list.map(a => ({ ...a, correctAnswer: a.word }));
+      
       // Tạo mock submission thay vì lưu vào lịch sử
       const mockSub: Submission = {
         id: 'mock-' + Date.now(),
         assignmentId: id,
+        assignmentTitle: assignment.title,
         studentName,
         assignmentType: 'vocabulary',
         score: Math.round(score),
-        vocabAnswers: list,
-        createdAt: new Date().toISOString(),
+        vocabAnswers: mappedList,
+        submittedAt: new Date().toISOString(),
         durationMs: 0,
       };
       setResult(mockSub);

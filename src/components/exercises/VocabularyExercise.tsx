@@ -201,7 +201,7 @@ export function VocabularyExercise({
     });
 
     const finalScore = calculateScore();
-    onSubmit(finalAnswers, finalScore, dictationScore);
+    onSubmit(finalAnswers, finalScore, dictationScore ?? undefined);
   };
 
   // Pre-fill answers if already submitted

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { VocabCard, Submission, getStudentAvatar } from '@/lib/local-store';
-import { Volume2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, ArrowRight, RotateCcw, TrendingDown } from 'lucide-react';
+import { Volume2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, ArrowRight, RotateCcw, TrendingDown, Headphones } from 'lucide-react';
 
 interface DictationBlockProps {
   vocabCards: VocabCard[];
@@ -514,7 +514,7 @@ export function DictationBlock({
             {classErrorStats.map((stat) => (
               <div key={stat.word} className="px-4 py-2 rounded-xl bg-background/50 border border-red-500/10 flex items-center gap-3 hover:border-red-500/30 transition-colors group cursor-default">
                 <span className="text-sm font-bold text-foreground group-hover:text-red-400 transition-colors">{stat.word}</span>
-                <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-bold tracking-widest">{stat.count} lỗi</span>
+                <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-bold tracking-widest">{stat.classErrors} lỗi</span>
               </div>
             ))}
           </div>
