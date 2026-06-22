@@ -154,8 +154,14 @@ export default function StudentAssignmentsPage() {
     return `${s} giây`;
   };
 
-  const done = assignments.filter(a => getSubmission(a.id));
-  const todo = assignments.filter(a => !getSubmission(a.id));
+  const now = new Date();
+  const visibleAssignments = assignments.filter(a => {
+    if (!a.createdAt) return true;
+    return new Date(a.createdAt) <= now;
+  });
+
+  const done = visibleAssignments.filter(a => getSubmission(a.id));
+  const todo = visibleAssignments.filter(a => !getSubmission(a.id));
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">

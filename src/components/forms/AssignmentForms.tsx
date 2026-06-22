@@ -592,23 +592,6 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
           placeholder="VD: Vocabulary Unit 5 – Technology Words" />
       </div>
 
-      {/* Drag Drop File */}
-      <div
-        onClick={() => fileRef.current?.click()}
-        className="border-2 border-dashed border-border/50 rounded-xl p-8 text-center cursor-pointer hover:border-violet-500/50 hover:bg-violet-500/5 transition-all group">
-        <FileJson className="h-10 w-10 mx-auto mb-3 text-muted-foreground group-hover:text-violet-400 transition-colors" />
-        <p className="text-sm text-muted-foreground">
-          Kéo thả hoặc <span className="text-violet-400 font-medium">click để upload file .json từ vựng</span>
-        </p>
-        <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleFile} />
-      </div>
-
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-px bg-border/50" />
-        <span className="text-xs text-muted-foreground">hoặc dán nội dung JSON</span>
-        <div className="flex-1 h-px bg-border/50" />
-      </div>
-
       {/* Input text */}
       <textarea value={jsonText}
         onChange={e => { setJsonText(e.target.value); if (e.target.value.trim()) parseJson(e.target.value); }}

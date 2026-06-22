@@ -20,10 +20,17 @@ export default function NewAssignmentPage() {
   const [tab, setTab] = useState<Tab>('vocab_context');
   const [isSaving, setIsSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [createdAtDate, setCreatedAtDate] = useState(() => {
+    const local = new Date();
+    const offset = local.getTimezoneOffset();
+    const localDate = new Date(local.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+  });
 
   const handleSave = (data: Omit<Parameters<typeof saveAssignment>[0], 'type'>, type: Tab) => {
     setIsSaving(true);
-    saveAssignment({ ...data, type } as any);
+    const createdAtISO = new Date(createdAtDate + 'T00:00:00').toISOString();
+    saveAssignment({ ...data, type, createdAt: createdAtISO } as any);
     setTimeout(() => { setSuccess(true); setTimeout(() => router.push('/'), 1200); }, 300);
     setIsSaving(false);
   };
@@ -57,7 +64,7 @@ export default function NewAssignmentPage() {
               { key: 'vocab_context' as Tab, icon: BookOpen, label: 'Điền Chuyện Chêm', desc: 'Điền nghĩa tiếng Việt', color: 'violet' },
               { key: 'multiple_choice' as Tab, icon: ListChecks, label: 'Trắc Nghiệm', desc: 'Chọn 1 trong 4 đáp án', color: 'teal' },
               { key: 'rewrite_vocab' as Tab, icon: PenTool, label: 'Viết Chuyện Chêm', desc: 'Học viên tự viết đoạn văn', color: 'amber' },
-              { key: 'dictation' as Tab, icon: Headphones, label: 'Dictation YouTube', desc: 'Nghe video & gõ lại câu', color: 'sky' },
+              { key: 'dictation' as Tab, icon: Headphones, label: 'Dictation', desc: 'Nghe video & gõ lại câu', color: 'sky' },
               { key: 'vocabulary' as Tab, icon: FileJson, label: 'Học Từ Vựng', desc: 'Flashcard, Quiz, Chính tả', color: 'indigo' },
             ]).map(({ key, icon: Icon, label, desc, color }) => (
               <button key={key} onClick={() => setTab(key)}
@@ -90,6 +97,23 @@ export default function NewAssignmentPage() {
               </button>
             ))}
           </div>
+
+        {/* Date Scheduler */}
+        <div className="glass rounded-2xl border border-border p-6 space-y-3">
+          <label className="text-sm font-semibold text-foreground/80 flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" />
+            Ngày giao bài tập (Scheduled Date)
+          </label>
+          <input
+            type="date"
+            value={createdAtDate}
+            onChange={e => setCreatedAtDate(e.target.value)}
+            className="input-field max-w-xs"
+          />
+          <p className="text-xs text-muted-foreground">
+            Bài tập sẽ chỉ hiển thị ở phía học sinh kể từ ngày được chọn này.
+          </p>
+        </div>
 
         {/* Form */}
         <div className="glass rounded-2xl border border-border p-6">

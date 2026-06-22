@@ -129,6 +129,10 @@ export default function DictationExercisePage() {
 
     const a = getAssignment(assignmentId);
     if (!a || a.type !== 'dictation') { router.push('/student/assignments'); return; }
+    if (a.createdAt && new Date(a.createdAt) > new Date()) {
+      router.push('/student/assignments');
+      return;
+    }
     setAssignment(a);
 
     // If assignment already has sentences embedded (or safely tucked in the passage field)

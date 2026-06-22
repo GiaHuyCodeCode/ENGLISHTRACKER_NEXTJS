@@ -105,7 +105,11 @@ export default function StudentDashboard() {
     setStudyDay(Math.max(1, dates.size));
 
     // Calculate assignments due today (vocabulary type with at least 1 due word)
-    const allAssignments = getAssignments().filter(a => a.type === 'vocabulary' && a.vocabCards && a.vocabCards.length > 0);
+    const allAssignments = getAssignments().filter(a => {
+      if (a.type !== 'vocabulary' || !a.vocabCards || a.vocabCards.length === 0) return false;
+      if (!a.createdAt) return true;
+      return new Date(a.createdAt) <= now;
+    });
     const dueAssigns = allAssignments.filter(assignment => {
       return (assignment.vocabCards || []).some(card => {
         const prog = progressMap.get(card.id);
@@ -181,8 +185,13 @@ export default function StudentDashboard() {
 
   const totalScores = [...submissions.map(s => s.score), ...trackings.map(t => t.score)];
   const avg = totalScores.length ? Math.round(totalScores.reduce((a, b) => a + b, 0) / totalScores.length) : null;
+  const nowVal = new Date();
+  const visibleAssignments = assignments.filter(a => {
+    if (!a.createdAt) return true;
+    return new Date(a.createdAt) <= nowVal;
+  });
   const doneIds = new Set(submissions.map(s => s.assignmentId));
-  const todo = assignments.filter(a => !doneIds.has(a.id));
+  const todo = visibleAssignments.filter(a => !doneIds.has(a.id));
 
   const totalDurationMs = submissions.reduce((sum, s) => sum + (s.durationMs || 0), 0);
   const formatTotalTime = (ms: number) => {
@@ -330,7 +339,7 @@ export default function StudentDashboard() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                   { label: 'Điểm Trung Bình', value: avg !== null ? `${avg}đ` : '—', icon: Trophy, color: 'text-amber-400' },
-                  { label: 'Đã Hoàn Thành', value: `${submissions.length}/${assignments.length}`, icon: CheckCircle2, color: 'text-emerald-400' },
+                   { label: 'Đã Hoàn Thành', value: `${submissions.length}/${visibleAssignments.length}`, icon: CheckCircle2, color: 'text-emerald-400' },
                   { label: 'Cần Làm', value: todo.length, icon: BookOpen, color: 'text-[#0071e3]' },
                   { label: 'Thời Gian Học', value: formatTotalTime(totalDurationMs), icon: Clock, color: 'text-violet-400' },
                 ].map(({ label, value, icon: Icon, color }) => (

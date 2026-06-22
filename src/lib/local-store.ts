@@ -394,13 +394,55 @@ export function getAssignment(id: string): Assignment | undefined {
   return getAssignments().find(a => a.id === id);
 }
 
-export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'>): Assignment {
+export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { createdAt?: string }): Assignment {
   const all = getAssignments();
-  const a: Assignment = { ...data, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+  const a: Assignment = { ...data, id: crypto.randomUUID(), createdAt: data.createdAt || new Date().toISOString() };
   write(KEYS.assignments, [...all, a]);
 
   // Đồng bộ lên Google Sheets (Chạy ngầm)
   syncAssignmentToSheet(a);
+
+  // Đẩy từ vựng vào thư viện chung nếu là bài tập từ vựng
+  if (a.type === 'vocabulary' && a.vocabCards) {
+    const currentCards = getVocabularyCards();
+    const updatedCards = [...currentCards];
+    let hasNewCards = false;
+    a.vocabCards.forEach(c => {
+      if (!updatedCards.some(curr => curr.word.toLowerCase() === c.word.toLowerCase())) {
+        updatedCards.push({
+          ...c,
+          id: c.id || crypto.randomUUID(),
+          createdAt: c.createdAt || new Date().toISOString()
+        });
+        hasNewCards = true;
+      }
+    });
+    if (hasNewCards) {
+      saveVocabularyCards(updatedCards);
+    }
+  }
+
+  // Tự động tạo bài tập Viết chuyện chêm từ Điền chuyện chêm (vocab_context)
+  if (a.type === 'vocab_context' && a.keywords && a.keywords.length > 0) {
+    const rewriteTitle = `Viết chuyện chêm: ${a.title}`;
+    const rewriteData = {
+      title: rewriteTitle,
+      passage: 'Viết một đoạn văn ngắn (chuyện chêm) bằng tiếng Việt, có sử dụng các từ khóa tiếng Anh dưới đây.',
+      keywords: a.keywords.map((k: any) => ({ word: k.word, answer: '' })),
+      createdAt: a.createdAt,
+      vocabCards: []
+    };
+    const rewriteAssignment: Assignment = {
+      ...rewriteData,
+      id: crypto.randomUUID(),
+      type: 'rewrite_vocab'
+    };
+    
+    // Đọc lại danh sách mới nhất bao gồm bài tập vừa thêm
+    const updatedAll = getAssignments();
+    write(KEYS.assignments, [...updatedAll, rewriteAssignment]);
+    syncAssignmentToSheet(rewriteAssignment);
+  }
 
   return a;
 }
@@ -463,6 +505,25 @@ export function updateAssignment(id: string, partial: Partial<Assignment>) {
     current[index] = { ...current[index], ...partial };
     write(KEYS.assignments, current);
     syncAssignmentToSheet(current[index], 'update_assignment');
+
+    if (current[index].type === 'vocabulary' && current[index].vocabCards) {
+      const currentCards = getVocabularyCards();
+      const updatedCards = [...currentCards];
+      let hasNewCards = false;
+      current[index].vocabCards!.forEach(c => {
+        if (!updatedCards.some(curr => curr.word.toLowerCase() === c.word.toLowerCase())) {
+          updatedCards.push({
+            ...c,
+            id: c.id || crypto.randomUUID(),
+            createdAt: c.createdAt || new Date().toISOString()
+          });
+          hasNewCards = true;
+        }
+      });
+      if (hasNewCards) {
+        saveVocabularyCards(updatedCards);
+      }
+    }
   }
 }
 

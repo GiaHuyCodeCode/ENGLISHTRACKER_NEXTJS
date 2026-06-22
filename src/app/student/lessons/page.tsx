@@ -10,7 +10,12 @@ export default function LessonsPage() {
   const [lessons, setLessons] = useState<Assignment[]>([]);
 
   useEffect(() => {
-    const all = getAssignments().filter(a => a.type === 'vocabulary' && (a.vocabCards?.length || 0) > 0);
+    const now = new Date();
+    const all = getAssignments().filter(a => {
+      if (a.type !== 'vocabulary' || (a.vocabCards?.length || 0) === 0) return false;
+      if (!a.createdAt) return true;
+      return new Date(a.createdAt) <= now;
+    });
     setLessons(all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
   }, []);
 

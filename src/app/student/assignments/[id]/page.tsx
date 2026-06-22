@@ -85,6 +85,10 @@ export default function ExercisePage() {
     seedIfEmpty();
     const a = getAssignment(id);
     if (!a) { router.replace('/student/assignments'); return; }
+    if (a.createdAt && new Date(a.createdAt) > new Date()) {
+      router.replace('/student/assignments');
+      return;
+    }
     setAssignment(a);
 
     const saved = localStorage.getItem('et_current_student');

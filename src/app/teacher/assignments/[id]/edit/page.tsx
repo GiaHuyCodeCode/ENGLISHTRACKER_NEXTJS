@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { getAssignment, updateAssignment } from '@/lib/local-store';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock } from 'lucide-react';
 import { VocabForm, QuizForm, RewriteVocabForm, DictationForm, VocabularyForm } from '@/components/forms/AssignmentForms';
 
 export default function EditAssignmentPage() {
@@ -13,6 +13,7 @@ export default function EditAssignmentPage() {
   const [assignment, setAssignment] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [createdAtDate, setCreatedAtDate] = useState('');
 
   useEffect(() => {
     const a = getAssignment(assignmentId);
@@ -20,12 +21,21 @@ export default function EditAssignmentPage() {
       router.push('/');
     } else {
       setAssignment(a);
+      if (a.createdAt) {
+        setCreatedAtDate(new Date(a.createdAt).toISOString().split('T')[0]);
+      } else {
+        const local = new Date();
+        const offset = local.getTimezoneOffset();
+        const localDate = new Date(local.getTime() - (offset * 60 * 1000));
+        setCreatedAtDate(localDate.toISOString().split('T')[0]);
+      }
     }
   }, [assignmentId, router]);
 
   const handleSave = (data: any) => {
     setIsSaving(true);
-    updateAssignment(assignmentId, data);
+    const createdAtISO = new Date(createdAtDate + 'T00:00:00').toISOString();
+    updateAssignment(assignmentId, { ...data, createdAt: createdAtISO });
     setTimeout(() => { 
       setSuccess(true); 
       setTimeout(() => router.push('/'), 1200); 
@@ -58,6 +68,24 @@ export default function EditAssignmentPage() {
       )}
 
       <div className="max-w-3xl space-y-6">
+        {/* Date Scheduler */}
+        <div className="glass rounded-2xl border border-border p-6 space-y-3">
+          <label className="text-sm font-semibold text-foreground/80 flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" />
+            Ngày giao bài tập (Scheduled Date)
+          </label>
+          <input
+            type="date"
+            value={createdAtDate}
+            onChange={e => setCreatedAtDate(e.target.value)}
+            className="input-field max-w-xs"
+          />
+          <p className="text-xs text-muted-foreground">
+            Bài tập sẽ chỉ hiển thị ở phía học sinh kể từ ngày được chọn này.
+          </p>
+        </div>
+
+        {/* Form */}
         <div className="glass rounded-2xl border border-border p-6">
           {assignment.type === 'vocab_context' && <VocabForm onSave={handleSave} isSaving={isSaving} initialData={assignment} />}
           {assignment.type === 'multiple_choice' && <QuizForm onSave={handleSave} isSaving={isSaving} initialData={assignment} />}

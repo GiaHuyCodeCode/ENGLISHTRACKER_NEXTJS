@@ -142,7 +142,12 @@ export default function StudentVocabularyPage() {
 
     const loadedCards = getVocabularyCards();
     setCards(loadedCards);
-    setLessons(getAssignments().filter(a => a.type === 'vocabulary'));
+    const now = new Date();
+    setLessons(getAssignments().filter(a => {
+      if (a.type !== 'vocabulary') return false;
+      if (!a.createdAt) return true;
+      return new Date(a.createdAt) <= now;
+    }));
   }, []);
 
   useEffect(() => {
