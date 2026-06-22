@@ -17,46 +17,48 @@ export function extractYoutubeId(url: string): string | null {
   return null;
 }
 
-// ── Vocab Form ────────────────────────────────────────────────────────────────
-
+// ── Vocab Form ──────────────────────────────────────────────────────────────
 export function VocabForm({ onSave, isSaving, initialData }: {
   onSave: (d: { title: string; passage: string; keywords: VocabKeyword[]; imageUrl?: string }) => void;
   isSaving: boolean;
   initialData?: any;
 }) {
+  const [parsedData, setParsedData] = useState<{ title: string; passage: string; keywords: VocabKeyword[] } | null>(
+    initialData ? { title: initialData.title || '', passage: initialData.passage || '', keywords: initialData.keywords || [] } : null
+  );
+  
   const [jsonText, setJsonText] = useState(() => {
     if (initialData) return JSON.stringify(initialData, null, 2);
     return '';
   });
   const [error, setError] = useState('');
 
-  const handleSave = () => {
-    if (!jsonText.trim()) { setError('Vui lòng nhập JSON'); return; }
+  const parseJson = (raw: string) => {
     try {
-      const parsed = JSON.parse(jsonText);
-      if (!parsed.title) { setError('JSON thiếu trường "title"'); return; }
-      if (!parsed.passage) { setError('JSON thiếu trường "passage"'); return; }
-      if (!Array.isArray(parsed.keywords) || !parsed.keywords.length) { setError('JSON thiếu mảng "keywords" hợp lệ'); return; }
-      
-      const keywords = parsed.keywords.map((k: any) => ({
-        word: k.word || '',
-        answer: k.answer || ''
-      }));
-
-      if (keywords.some((k: VocabKeyword) => !k.word || !k.answer)) {
-        setError('Tất cả keywords phải có đủ "word" và "answer"');
-        return;
+      const parsed = JSON.parse(raw);
+      if (!parsed.title || !parsed.passage || !Array.isArray(parsed.keywords)) {
+        throw new Error('JSON thiếu title, passage hoặc mảng keywords');
       }
-
-      setError('');
-      onSave({ 
-        title: parsed.title, 
-        passage: parsed.passage, 
-        keywords
+      setParsedData({
+        title: parsed.title,
+        passage: parsed.passage,
+        keywords: parsed.keywords.map((k: any) => ({ word: k.word || '', answer: k.answer || '' }))
       });
+      setError('');
     } catch (e: unknown) {
       setError(`JSON không hợp lệ: ${e instanceof Error ? e.message : 'lỗi không xác định'}`);
+      setParsedData(null);
     }
+  };
+
+  const handleSave = () => {
+    if (!parsedData) { setError('Vui lòng nhập JSON hợp lệ trước khi lưu'); return; }
+    if (parsedData.keywords.some(k => !k.word || !k.answer)) {
+      setError('Tất cả keywords phải có đủ "word" và "answer"');
+      return;
+    }
+    setError('');
+    onSave(parsedData);
   };
 
   const jsonTemplate = `{
@@ -84,12 +86,12 @@ export function VocabForm({ onSave, isSaving, initialData }: {
       <div className="space-y-2">
         <label className="text-sm font-medium text-foreground/80 flex items-center justify-between">
           <span>Dán JSON vào đây</span>
-          <span className="text-xs text-muted-foreground font-normal">Mọi thay đổi sẽ được lưu tự động khi nhấn Lưu</span>
+          <span className="text-xs text-muted-foreground font-normal">Sẽ tự động sinh ra bảng Preview bên dưới</span>
         </label>
         <textarea 
           value={jsonText} 
-          onChange={e => setJsonText(e.target.value)} 
-          rows={10} 
+          onChange={e => { setJsonText(e.target.value); if (e.target.value.trim()) parseJson(e.target.value); }} 
+          rows={6} 
           className="input-field resize-y font-mono text-xs w-full p-4"
           placeholder={'Dán cấu trúc JSON chứa bài tập vào đây...'} 
         />
@@ -102,8 +104,67 @@ export function VocabForm({ onSave, isSaving, initialData }: {
         </div>
       )}
 
-      <button onClick={handleSave} disabled={isSaving}
-        className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 transition-all glow-primary flex items-center justify-center gap-2">
+      {parsedData && (
+        <div className="space-y-4 p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground">Tiêu đề bài học</label>
+            <input 
+              className="input-field text-sm w-full font-bold text-violet-400"
+              value={parsedData.title}
+              onChange={e => setParsedData(p => p ? { ...p, title: e.target.value } : null)}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground">Đoạn văn (passage)</label>
+            <textarea 
+              className="input-field text-sm w-full resize-y"
+              rows={3}
+              value={parsedData.passage}
+              onChange={e => setParsedData(p => p ? { ...p, passage: e.target.value } : null)}
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground">Từ khóa (Có thể sửa trực tiếp)</label>
+            <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              {parsedData.keywords.map((k, i) => (
+                <div key={i} className="flex flex-col gap-1 p-2 rounded-lg bg-black/20 border border-white/5 relative group">
+                  <button 
+                    onClick={() => setParsedData(p => p ? { ...p, keywords: p.keywords.filter((_, idx) => idx !== i) } : null)}
+                    className="absolute top-1 right-1 p-1 text-muted-foreground hover:text-red-400 rounded opacity-0 group-hover:opacity-100 transition-all z-10"
+                    title="Xóa"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                  <input 
+                    className="bg-transparent border-b border-white/10 focus:border-violet-400 outline-none w-full text-sm font-semibold pb-1 pr-6"
+                    value={k.word}
+                    placeholder="Từ tiếng Anh"
+                    onChange={e => {
+                      const newKw = [...parsedData.keywords];
+                      newKw[i] = { ...k, word: e.target.value };
+                      setParsedData(p => p ? { ...p, keywords: newKw } : null);
+                    }}
+                  />
+                  <input 
+                    className="bg-transparent outline-none w-full text-xs text-muted-foreground focus:text-foreground mt-1"
+                    value={k.answer}
+                    placeholder="Nghĩa tiếng Việt"
+                    onChange={e => {
+                      const newKw = [...parsedData.keywords];
+                      newKw[i] = { ...k, answer: e.target.value };
+                      setParsedData(p => p ? { ...p, keywords: newKw } : null);
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <button onClick={handleSave} disabled={isSaving || !parsedData}
+        className="w-full py-3.5 rounded-xl bg-violet-500 text-white font-semibold text-sm hover:bg-violet-400 disabled:opacity-50 transition-all shadow-[0_0_20px_rgba(139,92,246,0.25)] flex items-center justify-center gap-2">
         <CheckCircle2 className="h-4 w-4" />
         {isSaving ? 'Đang lưu...' : 'Lưu Bài Tập Vocab'}
       </button>
@@ -214,17 +275,96 @@ export function QuizForm({ onSave, isSaving, initialData }: {
       )}
 
       {questions && (
-        <div className="p-4 rounded-xl bg-teal-500/8 border border-teal-500/25 space-y-2">
-          <div className="flex items-center gap-2 text-teal-400 text-sm font-medium">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-teal-400 text-sm font-medium px-2">
             <CheckCircle2 className="h-4 w-4" />
-            Preview: {questions.length} câu hỏi hợp lệ
+            Preview: {questions.length} câu hỏi (Có thể chỉnh sửa trực tiếp)
           </div>
-          {questions.slice(0, 2).map((q, i) => (
-            <p key={i} className="text-xs text-muted-foreground pl-6 truncate">
-              <span className="text-foreground font-medium">{i + 1}.</span> {q.question}
-            </p>
-          ))}
-          {questions.length > 2 && <p className="text-xs text-muted-foreground pl-6">...và {questions.length - 2} câu nữa</p>}
+          <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+            {questions.map((q, i) => (
+              <div key={i} className="p-4 rounded-xl bg-teal-500/5 border border-teal-500/20 space-y-3 relative group">
+                <button 
+                  onClick={() => setQuestions(qs => qs!.filter((_, idx) => idx !== i))}
+                  className="absolute top-3 right-3 p-1.5 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                  title="Xóa câu hỏi này"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <div className="pr-8">
+                  <label className="text-xs text-muted-foreground mb-1 block">Câu hỏi {i + 1}</label>
+                  <textarea 
+                    className="input-field w-full text-sm font-medium resize-y"
+                    rows={2}
+                    value={q.question}
+                    onChange={e => {
+                      const newQs = [...questions];
+                      newQs[i] = { ...q, question: e.target.value };
+                      setQuestions(newQs);
+                    }}
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {q.options.map((opt, optIdx) => (
+                    <div key={optIdx} className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-muted-foreground w-4 flex-shrink-0 text-center">{['A', 'B', 'C', 'D'][optIdx]}</span>
+                      <input 
+                        className="input-field w-full text-xs py-1.5"
+                        value={opt}
+                        onChange={e => {
+                          const newQs = [...questions];
+                          const newOpts = [...q.options];
+                          newOpts[optIdx] = e.target.value;
+                          newQs[i] = { ...q, options: newOpts };
+                          setQuestions(newQs);
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Đáp án đúng (A/B/C/D)</label>
+                    <input 
+                      className="input-field w-full text-xs py-1.5 font-bold text-teal-400 uppercase"
+                      value={q.answer}
+                      maxLength={1}
+                      onChange={e => {
+                        const newQs = [...questions];
+                        newQs[i] = { ...q, answer: e.target.value.toUpperCase() };
+                        setQuestions(newQs);
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Mảng kiến thức</label>
+                    <input 
+                      className="input-field w-full text-xs py-1.5"
+                      value={q.knowledgeArea || ''}
+                      placeholder="VD: Phrasal Verbs"
+                      onChange={e => {
+                        const newQs = [...questions];
+                        newQs[i] = { ...q, knowledgeArea: e.target.value };
+                        setQuestions(newQs);
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-3">
+                    <label className="text-xs text-muted-foreground">Giải thích / Gợi ý</label>
+                    <textarea 
+                      className="input-field w-full text-xs py-1.5 resize-y"
+                      rows={2}
+                      value={q.explanation || q.hint || ''}
+                      onChange={e => {
+                        const newQs = [...questions];
+                        newQs[i] = { ...q, explanation: e.target.value, hint: e.target.value };
+                        setQuestions(newQs);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -626,31 +766,73 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
               <tbody className="divide-y divide-white/5 bg-secondary/10">
                 {vocabCards.map((c, idx) => (
                   <tr key={idx} className="hover:bg-white/5 transition-colors">
-                    <td className="p-3 font-bold text-foreground text-sm">{c.word}</td>
+                    <td className="p-3 font-bold text-foreground text-sm">
+                      <input 
+                        className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1"
+                        value={c.word}
+                        onChange={(e) => {
+                          const newCards = [...vocabCards];
+                          newCards[idx] = { ...newCards[idx], word: e.target.value };
+                          setVocabCards(newCards);
+                        }}
+                      />
+                    </td>
                     <td className="p-3 font-mono text-primary flex items-center gap-1.5">
-                      <span>{c.phonetic || '--'}</span>
+                      <input 
+                        className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1"
+                        value={c.phonetic || ''}
+                        onChange={(e) => {
+                          const newCards = [...vocabCards];
+                          newCards[idx] = { ...newCards[idx], phonetic: e.target.value };
+                          setVocabCards(newCards);
+                        }}
+                        placeholder="Phiên âm"
+                      />
                       <button 
                         type="button"
                         onClick={() => handleSpeak(c.word)}
-                        className="p-1 rounded bg-secondary hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all"
+                        className="p-1 rounded bg-secondary hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all flex-shrink-0"
                         title="Nghe phát âm"
                       >
                         <Volume2 className="h-3 w-3" />
                       </button>
                     </td>
                     <td className="p-3">
-                      <div className="flex flex-wrap gap-1">
-                        {c.synonyms.length > 0 ? (
-                          c.synonyms.map((s: string, i: number) => (
-                            <span key={i} className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-300 text-[10px]">{s}</span>
-                          ))
-                        ) : (
-                          <span className="text-muted-foreground">--</span>
-                        )}
-                      </div>
+                      <input 
+                        className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1 text-[11px]"
+                        value={c.synonyms.join(', ')}
+                        onChange={(e) => {
+                          const newCards = [...vocabCards];
+                          newCards[idx] = { ...newCards[idx], synonyms: e.target.value.split(',').map(s => s.trim()).filter(Boolean) };
+                          setVocabCards(newCards);
+                        }}
+                        placeholder="syn1, syn2..."
+                      />
                     </td>
-                    <td className="p-3 text-muted-foreground max-w-[150px] truncate" title={c.meaning}>{c.meaning}</td>
-                    <td className="p-3 italic text-muted-foreground max-w-[200px] truncate" title={c.example}>{c.example || '--'}</td>
+                    <td className="p-3 text-muted-foreground">
+                      <input 
+                        className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1 text-xs"
+                        value={c.meaning}
+                        onChange={(e) => {
+                          const newCards = [...vocabCards];
+                          newCards[idx] = { ...newCards[idx], meaning: e.target.value };
+                          setVocabCards(newCards);
+                        }}
+                      />
+                    </td>
+                    <td className="p-3 italic text-muted-foreground">
+                      <textarea 
+                        className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full text-xs resize-y"
+                        rows={1}
+                        value={c.example || ''}
+                        onChange={(e) => {
+                          const newCards = [...vocabCards];
+                          newCards[idx] = { ...newCards[idx], example: e.target.value };
+                          setVocabCards(newCards);
+                        }}
+                        placeholder="Ví dụ"
+                      />
+                    </td>
                     <td className="p-3 text-center">
                       <button 
                         type="button"

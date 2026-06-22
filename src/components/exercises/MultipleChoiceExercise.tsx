@@ -102,9 +102,21 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                     : 'bg-secondary text-muted-foreground border-border'
                 }`}>{idx + 1}</span>
                 <div className="flex-1 min-w-0">
+                  {q.knowledgeArea && (
+                    <div className="mb-1.5">
+                      <span className="inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-teal-400 bg-teal-500/10 border border-teal-500/20 rounded-md">
+                        {q.knowledgeArea}
+                      </span>
+                    </div>
+                  )}
                   <p className="font-medium text-sm leading-relaxed">
                     {q.question}
                   </p>
+                  {showAnswer && q.explanation && (
+                    <div className="mt-2 text-xs text-emerald-400 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
+                      💡 <strong>Giải thích:</strong> {q.explanation}
+                    </div>
+                  )}
                 </div>
                 {showAnswer && (
                   isCorrect
