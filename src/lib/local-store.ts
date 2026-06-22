@@ -25,6 +25,17 @@ export function isFuzzyMatch(student: string, correct: string, threshold = 0.8):
   return maxLen === 0 ? true : 1 - levenshtein(a, b) / maxLen >= threshold;
 }
 
+// Stage config: label, color classes, bar color, interval info
+export const STAGE_CONFIG = [
+  { label: 'Chưa học',           bar: 'bg-slate-400',   badge: 'bg-slate-500/10 text-slate-400 border-slate-500/20',   interval: '—'         },
+  { label: 'Stage 1',            bar: 'bg-red-400',     badge: 'bg-red-500/10 text-red-400 border-red-500/20',         interval: '1 ngày'    },
+  { label: 'Stage 2',            bar: 'bg-amber-400',   badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20',   interval: '3 ngày'    },
+  { label: 'Stage 3',            bar: 'bg-yellow-400',  badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',interval: '7 ngày'    },
+  { label: 'Stage 4',            bar: 'bg-indigo-400',  badge: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',interval: '14 ngày'   },
+  { label: 'Stage 5',            bar: 'bg-sky-400',     badge: 'bg-sky-500/10 text-sky-400 border-sky-400/20',         interval: '30 ngày'   },
+  { label: '🏆 Master',          bar: 'bg-emerald-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', interval: '60 ngày'},
+];
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface VocabKeyword { word: string; answer: string; }
@@ -90,6 +101,7 @@ export interface Submission {
   feedback?: string;
   durationMs?: number;
   submittedAt: string;
+  details?: string;
 }
 
 export interface DailyTracking {

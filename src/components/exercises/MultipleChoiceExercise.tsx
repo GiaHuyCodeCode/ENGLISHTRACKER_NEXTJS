@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { QuizQuestion, QuizAnswerResult, Submission, getStudentAvatar } from '@/lib/local-store';
 import { CheckCircle2, XCircle, Send } from 'lucide-react';
+import { ExerciseTimer } from '@/components/ui/ExerciseTimer';
 
 interface Props {
   questions: QuizQuestion[];
@@ -14,17 +15,26 @@ interface Props {
   allowHints?: boolean;
   feedback?: string;
   allSubmissions?: Submission[];
+  hideSidebar?: boolean;
 }
 
 const LABELS = ['A', 'B', 'C', 'D'];
 
-export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, result, score, durationMs, feedback }: Props) {
+export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, result, score, durationMs, feedback, allSubmissions, allowHints, hideSidebar }: Props) {
   const [selected, setSelected] = useState<Record<number, string>>({});
+  const [revealedHints, setRevealedHints] = useState<Set<number>>(new Set());
   const isSubmitted = !!result;
   const answered = Object.keys(selected).length;
   const remaining = questions.length - answered;
 
-  const getResult = (qid: number) => result?.find(r => r.questionId === qid);
+  const getResult = (qid: number) => result?.find(r => String(r.questionId) === String(qid));
+
+  const cleanOptionText = (opt: string, label: string) => {
+    if (!opt) return '';
+    const trimmed = opt.trim();
+    const regex = new RegExp(`^${label}\\s*([\\.\\-\\/\\):])\\s*`, 'i');
+    return trimmed.replace(regex, '');
+  };
 
   const handleSubmit = () => {
     onSubmit(questions.map(q => ({ questionId: q.id, studentAnswer: selected[q.id] || '' })));
@@ -41,7 +51,76 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
   };
 
   return (
-    <div className="space-y-5">
+    <div className={hideSidebar ? "space-y-5" : "grid grid-cols-1 lg:grid-cols-4 gap-6 items-start"}>
+      {/* Left Sidebar */}
+      {!hideSidebar && (
+        <div className="lg:col-span-1 sticky top-4 z-30 space-y-4 self-start">
+          {!isSubmitted && (
+            <div className="glass-strong rounded-3xl border border-white/10 p-5 shadow-xl">
+              <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-3 text-center">Thời gian làm bài</div>
+              <ExerciseTimer isRunning={true} className="w-full justify-center py-3 text-lg font-bold" />
+            </div>
+          )}
+          <div className="glass-strong rounded-3xl border border-white/10 p-5 shadow-xl space-y-4 max-h-[calc(100vh-140px)] overflow-y-auto custom-scrollbar">
+            <div className="flex justify-between items-center text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
+              <span>Sơ đồ câu hỏi</span>
+              <span>{answered}/{questions.length}</span>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {questions.map((q, idx) => {
+                const isAnswered = !!selected[q.id];
+                const qResult = getResult(q.id);
+                const isCorrect = qResult?.isCorrect;
+                
+                let btnClass = 'bg-secondary text-muted-foreground border-border hover:bg-secondary/80';
+                if (isSubmitted) {
+                  btnClass = isCorrect ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-red-500/20 text-red-400 border-red-500/40';
+                } else if (isAnswered) {
+                  btnClass = 'bg-primary/20 text-primary border-primary/40';
+                }
+
+                return (
+                  <button
+                    key={q.id}
+                    onClick={() => {
+                      const el = document.getElementById(`mc-question-${idx}`);
+                      if (el) {
+                        const y = el.getBoundingClientRect().top + window.scrollY - 24;
+                        window.scrollTo({ top: y, behavior: 'smooth' });
+                      }
+                    }}
+                    className={`aspect-square rounded-lg text-xs font-bold flex items-center justify-center border transition-all hover:scale-110 active:scale-95 ${btnClass}`}
+                  >
+                    {idx + 1}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          
+          {/* Submit Button in Sidebar */}
+          {!isSubmitted && (
+            <div className="pt-2">
+              <button
+                onClick={handleSubmit}
+                disabled={isSubmitting || answered === 0}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 disabled:opacity-40 transition-all glow-primary shadow-xl"
+              >
+                <Send className="h-4 w-4" />
+                {isSubmitting ? 'Đang chấm...' : answered < questions.length ? `Nộp bài (${answered}/${questions.length})` : 'Nộp Bài'}
+              </button>
+              {remaining > 0 && (
+                <p className="text-[10.5px] text-amber-400 text-center mt-2.5 font-semibold">
+                  Còn {remaining} câu chưa làm
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Right Content */}
+      <div className={hideSidebar ? "space-y-5" : "lg:col-span-3 space-y-5 w-full"}>
       {/* Score banner */}
       {isSubmitted && score !== undefined && (
         <div className={`rounded-2xl p-5 text-center border-2 score-pop ${
@@ -75,6 +154,7 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
         </div>
       )}
 
+
       {/* Questions */}
       {questions.map((q, idx) => {
         const qResult = getResult(q.id);
@@ -83,8 +163,16 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
         const isCorrect = isSubmitted ? qResult?.isCorrect : localIsCorrect;
         const showAnswer = isSubmitted || hasAnsweredLocal;
 
+        const failedPeersForQuestion = allSubmissions?.filter(sub => {
+          const answersArray = sub.quizAnswers || (sub as any).details;
+          if (!answersArray) return false;
+          const ans = answersArray.find((a: any) => String(a.questionId) === String(q.id));
+          return ans && !ans.isCorrect;
+        }).map(sub => sub.studentName) || [];
+        const uniqueFailedPeersForQuestion = Array.from(new Set(failedPeersForQuestion));
+
         return (
-          <div key={q.id} className={`glass rounded-2xl border transition-all overflow-hidden ${
+          <div key={q.id} id={`mc-question-${idx}`} className={`glass rounded-2xl border transition-all overflow-hidden ${
             showAnswer
               ? isCorrect
                 ? 'border-emerald-500/30 bg-emerald-500/5'
@@ -109,12 +197,31 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                       </span>
                     </div>
                   )}
+                  {uniqueFailedPeersForQuestion.length > 0 && (
+                    <div className="mb-2">
+                      <span className="inline-flex items-center gap-1 bg-red-500/5 px-2 py-0.5 rounded-md border border-red-500/10 align-middle">
+                        <span className="text-[9px] text-red-400/80 uppercase font-semibold">Vài con gà đã ngã xuống:</span>
+                        <span className="flex -space-x-1">
+                          {uniqueFailedPeersForQuestion.map(peer => (
+                            <span key={peer || 'unknown'} title={`${peer} đã làm sai câu này`} className="relative w-4 h-4 rounded-full border border-red-500/50 flex items-center justify-center bg-background text-[7px] font-bold shadow-sm z-10 hover:z-20 transition-all hover:scale-110">
+                              {getStudentAvatar(peer || 'Unknown')}
+                              <span className="absolute -bottom-0.5 -right-0.5 bg-red-500 rounded-full w-2 h-2 flex items-center justify-center border border-background">
+                                <XCircle className="w-1.5 h-1.5 text-white" />
+                              </span>
+                            </span>
+                          ))}
+                        </span>
+                      </span>
+                    </div>
+                  )}
                   <p className="font-medium text-sm leading-relaxed">
                     {q.question}
                   </p>
-                  {showAnswer && q.explanation && (
-                    <div className="mt-2 text-xs text-emerald-400 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
-                      💡 <strong>Giải thích:</strong> {q.explanation}
+                  {/* Nội dung gợi ý — chỉ hiện khi học sinh đã click icon 💡 */}
+                  {allowHints && q.hint && !showAnswer && revealedHints.has(q.id) && (
+                    <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-400/80 bg-amber-500/5 border border-amber-500/15 rounded-lg px-2.5 py-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <span className="flex-shrink-0">💡</span>
+                      <span>{q.hint}</span>
                     </div>
                   )}
                 </div>
@@ -123,6 +230,24 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                     ? <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />
                     : <XCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
                 )}
+                {/* Icon gợi ý — chỉ hiện khi giáo viên bật allowHints và câu có hint và chưa chọn */}
+                {allowHints && q.hint && !showAnswer && (
+                  <button
+                    onClick={() => setRevealedHints(prev => {
+                      const next = new Set(prev);
+                      if (next.has(q.id)) next.delete(q.id); else next.add(q.id);
+                      return next;
+                    })}
+                    title={revealedHints.has(q.id) ? 'Ẩn gợi ý' : 'Xem gợi ý'}
+                    className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all hover:scale-110 active:scale-95 border ${
+                      revealedHints.has(q.id)
+                        ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                        : 'bg-white/5 border-white/10 text-muted-foreground hover:border-amber-500/40 hover:text-amber-400'
+                    }`}
+                  >
+                    💡
+                  </button>
+                )}
               </div>
             </div>
 
@@ -130,7 +255,9 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
             <div className="px-5 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
               {q.options.map((opt, optIdx) => {
                 const label = LABELS[optIdx];
-                const isChosen = selected[q.id] === label;
+                const isChosen = isSubmitted 
+                  ? String(qResult?.studentAnswer).trim().toUpperCase() === String(label).trim().toUpperCase() 
+                  : selected[q.id] === label;
                 const isCorrectOpt = showAnswer && q.answer.toUpperCase() === label;
 
                 let cls = 'border border-border/60 text-foreground/70 hover:border-primary/40 hover:bg-primary/5 hover:text-foreground cursor-pointer';
@@ -149,32 +276,38 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                     <span className="w-6 h-6 rounded-full border-current border flex items-center justify-center text-[11px] font-bold flex-shrink-0">
                       {label}
                     </span>
-                    <span className="leading-tight">{opt}</span>
+                    <span className="leading-tight">{cleanOptionText(opt, label)}</span>
                   </button>
                 );
               })}
             </div>
+
+            {showAnswer && (
+              <div className="mx-5 mb-5 p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2 text-xs">
+                <div>
+                  <span className="text-muted-foreground">Đáp án đúng: </span>
+                  <span className="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                    {q.answer.toUpperCase()}. {cleanOptionText(q.options[LABELS.indexOf(q.answer.toUpperCase())] || '', q.answer.toUpperCase())}
+                  </span>
+                </div>
+                {q.explanation && (
+                  <div className="pt-2 border-t border-white/5 text-muted-foreground">
+                    <span className="font-semibold text-foreground">📝 Giải thích: </span>
+                    {q.explanation}
+                  </div>
+                )}
+                {q.hint && (
+                  <div className="pt-2 border-t border-white/5">
+                    <span className="font-semibold text-amber-400">💡 Gợi ý: </span>
+                    <span className="text-muted-foreground">{q.hint}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       })}
-
-      {/* Submit */}
-      {!isSubmitted && (
-        <div className="space-y-3 pt-1">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Đã trả lời: {answered}/{questions.length}</span>
-            {remaining > 0 && <span className="text-amber-400">Còn {remaining} câu chưa chọn</span>}
-          </div>
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting || answered === 0}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 disabled:opacity-40 transition-all glow-primary"
-          >
-            <Send className="h-4 w-4" />
-            {isSubmitting ? 'Đang chấm...' : answered < questions.length ? `Nộp bài (${answered}/${questions.length} câu)` : 'Nộp Bài'}
-          </button>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -56,8 +56,8 @@ export function DictationBlock({
   // Đồng bộ và RANDOM danh sách từ khi mount/change
   useEffect(() => {
     if (vocabCards.length === 0) return;
-    // Xáo trộn ngẫu nhiên danh sách từ vựng
-    const shuffled = [...vocabCards].sort(() => Math.random() - 0.5);
+    // Xáo trộn ngẫu nhiên danh sách từ vựng (không xáo trộn nếu là xem lại bài đã nộp)
+    const shuffled = isSubmitted ? [...vocabCards] : [...vocabCards].sort(() => Math.random() - 0.5);
     setRoundWords(shuffled);
     setCurrentIdx(0);
     setCurrentRound(1);
@@ -70,7 +70,24 @@ export function DictationBlock({
     setWrongTimerActive(false);
     setHasCorrectedLocally({});
     setIsWordWrongFirstTime({});
-  }, [vocabCards]);
+  }, [vocabCards, isSubmitted]);
+
+  // Listen to top status bar jump event
+  useEffect(() => {
+    const handleJump = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const targetIdx = customEvent.detail?.index;
+      if (typeof targetIdx === 'number' && targetIdx >= 0 && targetIdx < vocabCards.length) {
+        const targetWord = vocabCards[targetIdx];
+        const matchIdx = roundWords.findIndex(w => w.id === targetWord?.id);
+        if (matchIdx !== -1) {
+          setCurrentIdx(matchIdx);
+        }
+      }
+    };
+    window.addEventListener('vocab-jump', handleJump);
+    return () => window.removeEventListener('vocab-jump', handleJump);
+  }, [vocabCards, roundWords]);
 
   const currentCard = roundWords[currentIdx];
 
@@ -85,8 +102,17 @@ export function DictationBlock({
 
     vocabCards.forEach((card) => {
       const word = card.word;
-      const isCorrect = roundCorrectWords[word] || hasCorrectedLocally[word];
-      const isWrong = isWordWrongFirstTime[word] && !isCorrect;
+      let isCorrect = false;
+      let isWrong = false;
+
+      if (isSubmitted) {
+        const studentAns = (answers[word] || '').trim();
+        isCorrect = studentAns.toLowerCase() === word.toLowerCase();
+        isWrong = !isCorrect;
+      } else {
+        isCorrect = !!(roundCorrectWords[word] || hasCorrectedLocally[word]);
+        isWrong = !!(isWordWrongFirstTime[word] && !isCorrect);
+      }
 
       let status: 'correct' | 'incorrect' | 'pending' | 'active' = 'pending';
       const isActive = currentCard && card.id === currentCard.id;
@@ -114,7 +140,7 @@ export function DictationBlock({
       currentIdx: vocabCards.findIndex(c => c.id === currentCard?.id),
       roundWords: vocabCards,
       onJumpToQuestion: (idx: number) => {
-        if (!wrongTimerActive && !isFinished) {
+        if (isSubmitted || (!wrongTimerActive && !isFinished)) {
           const targetCard = vocabCards[idx];
           const roundIdx = roundWords.findIndex(c => c.id === targetCard?.id);
           if (roundIdx !== -1) {
@@ -132,6 +158,8 @@ export function DictationBlock({
     isWordWrongFirstTime,
     wrongTimerActive,
     isFinished,
+    isSubmitted,
+    answers,
     onProgressUpdate
   ]);
 
@@ -253,13 +281,13 @@ export function DictationBlock({
   if (roundWords.length === 0) return null;
   if (!currentCard && !isFinished) return null;
 
-  const isRoundEnded = currentIdx === roundWords.length - 1 && 
+  const isRoundEnded = !isSubmitted && currentIdx === roundWords.length - 1 && 
     feedback[currentCard?.word]?.show && 
     (feedback[currentCard?.word]?.isCorrect || hasCorrectedLocally[currentCard?.word]);
   
   const wrongCountInRound = roundWords.filter(w => !roundCorrectWords[w.word]).length;
 
-  if (isRequirementWorkflow && isRoundEnded && wrongCountInRound === 0 && !isFinished) {
+  if (!isSubmitted && isRequirementWorkflow && isRoundEnded && wrongCountInRound === 0 && !isFinished) {
     const N = vocabCards.length;
     let totalAttempts = 0;
     vocabCards.forEach(c => {
@@ -273,7 +301,7 @@ export function DictationBlock({
   }
 
   // Finished Screen
-  if (isRequirementWorkflow && isFinished) {
+  if (!isSubmitted && isRequirementWorkflow && isFinished) {
     const N = vocabCards.length;
     let totalAttempts = 0;
     vocabCards.forEach(c => {
@@ -311,7 +339,7 @@ export function DictationBlock({
   }
 
   // Round Ended (Needs correction round)
-  if (isRequirementWorkflow && isRoundEnded && wrongCountInRound > 0) {
+  if (!isSubmitted && isRequirementWorkflow && isRoundEnded && wrongCountInRound > 0) {
     return (
       <div className="glass-strong rounded-3xl border border-amber-500/30 p-8 text-center max-w-xl mx-auto space-y-6 slide-up">
         <div className="w-16 h-16 bg-amber-500/10 text-amber-400 rounded-full flex items-center justify-center mx-auto border border-amber-500/20 animate-bounce">
@@ -347,8 +375,9 @@ export function DictationBlock({
   const currentFeedback = feedback[currentCard.word];
 
   const failedPeers = allSubmissions?.filter(sub => {
-    if (sub.assignmentType !== 'vocabulary' || !sub.vocabAnswers) return false;
-    const ans = sub.vocabAnswers.find(a => a.correctAnswer === currentCard.word);
+    const answersArray = sub.vocabAnswers || (sub as any).details;
+    if (sub.assignmentType !== 'vocabulary' || !answersArray) return false;
+    const ans = answersArray.find((a: any) => a.correctAnswer === currentCard.word);
     return ans && !ans.isCorrect;
   }).map(sub => sub.studentName) || [];
   const uniqueFailedPeers = Array.from(new Set(failedPeers));
@@ -388,9 +417,13 @@ export function DictationBlock({
               onKeyDown={e => e.key === 'Enter' && handleCheckSpelling()}
               placeholder="Nghe và gõ lại từ vựng..."
               className={`input-field flex-1 text-center font-bold tracking-wider text-xl h-16 transition-all ${
-                currentFeedback?.isCorrect ? 'border-emerald-500 ring-1 ring-emerald-500/50 text-emerald-400' 
-                : (isWordWrongFirstTime[currentCard.word] && !currentFeedback?.isCorrect) ? 'border-red-500 ring-1 ring-red-500/50 text-red-400' 
-                : ''}`}
+                isSubmitted
+                  ? (answers[currentCard.word] || '').trim().toLowerCase() === currentCard.word.toLowerCase()
+                    ? 'border-emerald-500 ring-1 ring-emerald-500/50 text-emerald-400 bg-emerald-500/5'
+                    : 'border-red-500 ring-1 ring-red-500/50 text-red-400 bg-red-500/5'
+                  : currentFeedback?.isCorrect ? 'border-emerald-500 ring-1 ring-emerald-500/50 text-emerald-400' 
+                  : (isWordWrongFirstTime[currentCard.word] && !currentFeedback?.isCorrect) ? 'border-red-500 ring-1 ring-red-500/50 text-red-400' 
+                  : ''}`}
               autoFocus
             />
             
@@ -429,7 +462,7 @@ export function DictationBlock({
           </div>
 
           {/* Free Mode Feedback */}
-          {!isRequirementWorkflow && currentFeedback?.show && (
+          {!isSubmitted && !isRequirementWorkflow && currentFeedback?.show && (
             <div className={`p-3.5 rounded-xl border flex items-center justify-center gap-2 text-sm font-bold slide-up ${
               currentFeedback.isCorrect 
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 glow-success' 
@@ -443,8 +476,44 @@ export function DictationBlock({
             </div>
           )}
 
+          {/* Submitted/Review Mode Feedback */}
+          {isSubmitted && (
+            <div className="w-full space-y-4 pt-4 border-t border-white/5">
+              <div className="flex flex-wrap gap-4 text-sm justify-center">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
+                  <span className="text-muted-foreground">Lựa chọn của bạn:</span> 
+                  <span className={`font-bold ${(answers[currentCard.word] || '').trim().toLowerCase() === currentCard.word.toLowerCase() ? 'text-emerald-400' : 'text-red-400 line-through'}`}>
+                    {answers[currentCard.word] || 'Chưa điền'}
+                  </span>
+                </div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                  <span className="text-emerald-400 font-medium">Đáp án đúng:</span> 
+                  <span className="font-bold text-emerald-300">{currentCard.word}</span>
+                </div>
+              </div>
+              <div className="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2 text-xs text-left max-w-md mx-auto text-muted-foreground animate-fade-in">
+                <div>
+                  <span className="font-semibold text-foreground">💡 Nghĩa của từ: </span>
+                  {currentCard.meaning}
+                </div>
+                {currentCard.synonyms && currentCard.synonyms.length > 0 && (
+                  <div>
+                    <span className="font-semibold text-foreground">🔗 Đồng nghĩa: </span>
+                    {Array.isArray(currentCard.synonyms) ? currentCard.synonyms.join(', ') : currentCard.synonyms}
+                  </div>
+                )}
+                {currentCard.example && (
+                  <div>
+                    <span className="font-semibold text-foreground">📝 Ví dụ: </span>
+                    <span className="italic">"{currentCard.example}"</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Required Mode: Wrong feedback (shows correct answer for 2.5s) */}
-          {isRequirementWorkflow && showWrongFeedback && (
+          {!isSubmitted && isRequirementWorkflow && showWrongFeedback && (
             <div className="p-3.5 rounded-xl border bg-red-500/10 border-red-500/30 text-red-400 glow-error text-sm font-bold slide-up flex flex-col items-center gap-1.5 animate-pulse">
               <div className="flex items-center gap-2">
                 <XCircle className="h-5 w-5" strokeWidth={1.5} /> Sai rồi! Hãy ghi nhớ từ đúng dưới đây:
@@ -459,7 +528,7 @@ export function DictationBlock({
           )}
 
           {/* Required Mode: Repeat prompt for errors */}
-          {isRequirementWorkflow && !showWrongFeedback && currentFeedback?.show && !currentFeedback.isCorrect && (
+          {!isSubmitted && isRequirementWorkflow && !showWrongFeedback && currentFeedback?.show && !currentFeedback.isCorrect && (
             <div className="p-3.5 rounded-xl border bg-red-500/10 border-red-500/30 text-red-400 glow-error text-sm font-bold slide-up flex flex-col items-center gap-1">
               <div className="flex items-center gap-2">
                 <XCircle className="h-5 w-5" strokeWidth={1.5} /> Vẫn chưa chính xác! Hãy gõ đúng từ:
@@ -471,7 +540,7 @@ export function DictationBlock({
           )}
 
           {/* Required Mode: Correct success block */}
-          {isRequirementWorkflow && currentFeedback?.show && currentFeedback.isCorrect && (
+          {!isSubmitted && isRequirementWorkflow && currentFeedback?.show && currentFeedback.isCorrect && (
             <div className="p-3.5 rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 glow-success text-sm font-bold slide-up flex items-center justify-center gap-2">
               <CheckCircle2 className="h-5 w-5 animate-bounce" strokeWidth={1.5} /> Tuyệt vời! Bạn đã gõ chính xác.
             </div>
@@ -480,7 +549,7 @@ export function DictationBlock({
       </div>
 
       {/* Free Mode Navigation Controls */}
-      {!isRequirementWorkflow && (
+      {(!isRequirementWorkflow || isSubmitted) && (
         <div className="flex justify-between items-center gap-4">
           <button 
             onClick={() => { setCurrentIdx(prev => Math.max(0, prev - 1)); setFeedback({}); }} 

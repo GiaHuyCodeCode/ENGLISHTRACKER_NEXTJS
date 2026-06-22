@@ -46,7 +46,8 @@ export function VocabularyExercise({
   const [isDictationFinished, setIsDictationFinished] = useState(false);
   
   // Shared states for different modes
-  const [textAnswers, setTextAnswers] = useState<Record<string, string>>({}); // for dictation & synonym
+  const [textAnswers, setTextAnswers] = useState<Record<string, string>>({}); // for dictation
+  const [synonymAnswers, setSynonymAnswers] = useState<Record<string, string>>({}); // for synonym
   const [mcAnswers, setMcAnswers] = useState<Record<string, string>>({}); // for test
   const [gameMatchedIds, setGameMatchedIds] = useState<string[]>([]); // for game match
 
@@ -87,12 +88,16 @@ export function VocabularyExercise({
   }, []);
 
   const handleTextAnswerChange = (word: string, val: string) => {
-    if (isSubmitted) return;
+    if (isSubmitted && (activeMode === 'dictation' || activeMode === 'test')) return;
     setTextAnswers(prev => ({ ...prev, [word]: val }));
   };
 
+  const handleSynonymAnswerChange = (word: string, val: string) => {
+    setSynonymAnswers(prev => ({ ...prev, [word]: val }));
+  };
+
   const handleMcAnswerChange = (wordId: string, val: string) => {
-    if (isSubmitted) return;
+    if (isSubmitted && (activeMode === 'dictation' || activeMode === 'test')) return;
     setMcAnswers(prev => ({ ...prev, [wordId]: val }));
   };
 
@@ -144,6 +149,9 @@ export function VocabularyExercise({
       } else if (activeMode === 'flashcard') {
         studentAnswer = 'Viewed';
         isCorrect = true;
+      } else if (activeMode === 'synonym') {
+        studentAnswer = (synonymAnswers[c.word] || '').trim();
+        isCorrect = studentAnswer.toLowerCase() === c.word.toLowerCase();
       } else {
         studentAnswer = (textAnswers[c.word] || '').trim();
         isCorrect = studentAnswer.toLowerCase() === c.word.toLowerCase();
@@ -160,16 +168,24 @@ export function VocabularyExercise({
   useEffect(() => {
     if (result) {
       const prefilledAnswers: Record<string, string> = {};
+      const prefilledMcAnswers: Record<string, string> = {};
+      
       result.forEach(r => {
         prefilledAnswers[r.word] = r.studentAnswer;
+        
+        const card = vocabCards.find(c => c.word.toLowerCase() === r.word.toLowerCase());
+        if (card) {
+          prefilledMcAnswers[card.id] = r.studentAnswer;
+        }
       });
       setTextAnswers(prefilledAnswers);
+      setMcAnswers(prefilledMcAnswers);
       
       if (initialMode === 'flashcard' && !isRequirementWorkflow) {
         setActiveMode('test');
       }
     }
-  }, [result, initialMode, isRequirementWorkflow]);
+  }, [result, vocabCards, initialMode, isRequirementWorkflow]);
 
   // Handler callback nhận dữ liệu tiến độ từ block con
   const handleProgressUpdate = useCallback((stats: any) => {
@@ -190,10 +206,13 @@ export function VocabularyExercise({
     return m > 0 ? `${m} phút ${s} giây` : `${s} giây`;
   };
 
+  const isPracticeMode = activeMode === 'flashcard' || activeMode === 'synonym' || activeMode === 'game_match';
+  const showScoreBanner = isSubmitted && score !== undefined && !isPracticeMode;
+
   return (
     <div className="space-y-6 fade-in w-full">
       {/* Result Score */}
-      {isSubmitted && score !== undefined && (
+      {showScoreBanner && (
         <div className={`rounded-3xl p-8 text-center border-2 score-pop relative overflow-hidden ${
           score >= 80 ? 'border-emerald-500/40 bg-emerald-500/10 glow-success' :
           score >= 50 ? 'border-amber-500/40 bg-amber-500/10' :
@@ -233,8 +252,8 @@ export function VocabularyExercise({
         </div>
       )}
 
-      {/* Mode Switcher Tabs (Chỉ hiện trong chế độ học tự do) */}
-      {!isSubmitted && !isRequirementWorkflow && !hideTabs && (
+      {/* Mode Switcher Tabs */}
+      {(!isRequirementWorkflow || isSubmitted) && !hideTabs && (
         <div className="flex flex-wrap bg-white/5 p-2 rounded-2xl border border-white/5 gap-2 backdrop-blur-sm">
           <button 
             onClick={() => { setActiveMode('flashcard'); setProgressStats(null); }} 
@@ -327,22 +346,22 @@ export function VocabularyExercise({
                 </div>
               </div>
 
-              {/* Real-time Jump Map (Ẩn đối với bài nghe từ vựng và trắc nghiệm theo yêu cầu) */}
-              {/* 
-              {activeMode === 'dictation' && (
-                <div className="space-y-2.5">
+              {/* Sơ đồ câu hỏi trong chế độ xem lại hoặc tự học */}
+              {(isSubmitted || !isRequirementWorkflow) && (activeMode === 'dictation' || activeMode === 'test') && (
+                <div className="space-y-2.5 pt-4 border-t border-white/5">
                   <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Sơ đồ câu hỏi</p>
                   <div className="grid grid-cols-5 gap-2">
                     {progressStats.roundWords.map((card, idx) => {
                       const status = progressStats.statusMap[card.id] || 'pending';
+                      const isActive = idx === progressStats.currentIdx;
                       
                       let bgCls = 'bg-white/5 text-muted-foreground border-white/5';
                       if (status === 'correct') {
-                        bgCls = 'bg-emerald-500 text-black border-emerald-500';
+                        bgCls = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30';
                       } else if (status === 'incorrect') {
-                        bgCls = 'bg-red-500 text-white border-red-500 glow-error';
-                      } else if (status === 'active') {
-                        bgCls = 'bg-[#0071e3] text-white border-[#0071e3] scale-110';
+                        bgCls = 'bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30 glow-error';
+                      } else if (status === 'active' || isActive) {
+                        bgCls = 'bg-[#0071e3]/20 text-[#0071e3] border-[#0071e3] scale-110';
                       }
 
                       return (
@@ -350,7 +369,7 @@ export function VocabularyExercise({
                           key={card.id}
                           onClick={() => progressStats.onJumpToQuestion?.(idx)}
                           title={card.word}
-                          className={`w-full aspect-square flex items-center justify-center text-xs font-bold rounded-lg border transition-all duration-300 hover-lift ${bgCls}`}
+                          className={`w-full aspect-square flex items-center justify-center text-xs font-bold rounded-lg border transition-all duration-300 ${bgCls} ${isActive ? 'ring-1 ring-[#0071e3]' : ''}`}
                         >
                           {idx + 1}
                         </button>
@@ -359,7 +378,6 @@ export function VocabularyExercise({
                   </div>
                 </div>
               )}
-              */}
 
               {/* Chế độ nghe Dictation (thay cho Speed Settings) */}
               {activeMode === 'dictation' && (
@@ -413,11 +431,11 @@ export function VocabularyExercise({
         <div className="lg:col-span-3 order-first lg:order-last space-y-6">
           <div className="w-full">
             {activeMode === 'flashcard' && (
-              <FlashcardBlock vocabCards={vocabCards} handleSpeak={handleSpeak} isSubmitted={isSubmitted} />
+              <FlashcardBlock vocabCards={vocabCards} handleSpeak={handleSpeak} isSubmitted={false} />
             )}
             
             {activeMode === 'synonym' && (
-              <SynonymBlock vocabCards={vocabCards} answers={textAnswers} onAnswerChange={handleTextAnswerChange} handleSpeak={handleSpeak} isSubmitted={isSubmitted} />
+              <SynonymBlock vocabCards={vocabCards} answers={synonymAnswers} onAnswerChange={handleSynonymAnswerChange} handleSpeak={handleSpeak} isSubmitted={false} />
             )}
             
             {activeMode === 'dictation' && (
@@ -447,7 +465,7 @@ export function VocabularyExercise({
             )}
 
             {activeMode === 'game_match' && (
-              <MatchGameBlock vocabCards={vocabCards} gameMatchedIds={gameMatchedIds} setGameMatchedIds={setGameMatchedIds} handleSpeak={handleSpeak} isSubmitted={isSubmitted} />
+              <MatchGameBlock vocabCards={vocabCards} gameMatchedIds={gameMatchedIds} setGameMatchedIds={setGameMatchedIds} handleSpeak={handleSpeak} isSubmitted={false} />
             )}
           </div>
         </div>

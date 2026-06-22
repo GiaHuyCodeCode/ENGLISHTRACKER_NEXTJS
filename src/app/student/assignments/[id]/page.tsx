@@ -89,13 +89,54 @@ export default function ExercisePage() {
       router.replace('/student/assignments');
       return;
     }
-    setAssignment(a);
+    
+    // Safely parse properties because Google Sheets sync may save arrays/objects as stringified JSON
+    const parsed: Assignment = { ...a };
+    
+    const parseJsonSafely = (val: any) => {
+      if (typeof val === 'string') {
+        const trimmed = val.trim();
+        if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+          try {
+            return JSON.parse(val);
+          } catch {
+            return val;
+          }
+        }
+      }
+      return val;
+    };
+    
+    if (parsed.keywords) parsed.keywords = parseJsonSafely(parsed.keywords);
+    if (parsed.questions) parsed.questions = parseJsonSafely(parsed.questions);
+    if (parsed.vocabCards) parsed.vocabCards = parseJsonSafely(parsed.vocabCards);
+    if (parsed.sentences) parsed.sentences = parseJsonSafely(parsed.sentences);
+    
+    setAssignment(parsed);
 
     const saved = localStorage.getItem('et_current_student');
     if (saved && getStudentNames().includes(saved)) {
       setCurrentStudent(saved);
       const existing = getStudentSubmission(id, saved);
-      if (existing) setExistingResult(existing);
+      if (existing) {
+        const parsedExisting = { ...existing };
+        if (parsedExisting.details) {
+          const detailsParsed = parseJsonSafely(parsedExisting.details);
+          if (parsedExisting.assignmentType === 'multiple_choice') {
+            parsedExisting.quizAnswers = detailsParsed;
+          } else if (parsedExisting.assignmentType === 'vocab_context' || parsedExisting.assignmentType === 'vocabulary') {
+            parsedExisting.vocabAnswers = detailsParsed;
+          } else if (parsedExisting.assignmentType === 'rewrite_vocab') {
+            parsedExisting.rewriteAnswers = detailsParsed;
+          }
+        } else {
+          if (parsedExisting.rewriteAnswers) parsedExisting.rewriteAnswers = parseJsonSafely(parsedExisting.rewriteAnswers);
+          if (parsedExisting.quizAnswers) parsedExisting.quizAnswers = parseJsonSafely(parsedExisting.quizAnswers);
+          if (parsedExisting.vocabAnswers) parsedExisting.vocabAnswers = parseJsonSafely(parsedExisting.vocabAnswers);
+        }
+        
+        setExistingResult(parsedExisting);
+      }
     }
   }, [id, router]);
 
@@ -258,7 +299,7 @@ export default function ExercisePage() {
             </div>
             <div className="flex items-center justify-between">
               <h1 className="text-xl font-bold font-heading gradient-text leading-tight">{assignment.title}</h1>
-              {(!result && !isReview) && <ExerciseTimer isRunning={true} />}
+              {(!result && !isReview && assignment.type !== 'multiple_choice') && <ExerciseTimer isRunning={true} />}
             </div>
             {currentStudent && (
               <p className="text-xs text-muted-foreground mt-1">Học viên: <span className="text-foreground font-medium">{currentStudent}</span></p>
@@ -327,10 +368,10 @@ export default function ExercisePage() {
             </div>
           )}
 
-          {assignment.type === 'rewrite_vocab' && assignment.passage && assignment.keywords && (
+          {assignment.type === 'rewrite_vocab' && assignment.keywords && (
             <div className="glass rounded-3xl border border-white/5 p-6 md:p-8">
               <RewriteVocabExercise
-                passage={assignment.passage}
+                passage={assignment.passage || 'Viết một đoạn văn ngắn (chuyện chêm) bằng tiếng Việt, có sử dụng các từ khóa tiếng Anh dưới đây.'}
                 keywords={assignment.keywords}
                 onSubmit={handleRewriteSubmit}
                 isSubmitting={isSubmitting}
@@ -351,6 +392,7 @@ export default function ExercisePage() {
               durationMs={displayResult?.durationMs}
               initialMode={initialMode}
               isRequirementWorkflow={true}
+              allSubmissions={getSubmissions().filter(s => s.assignmentId === id)}
             />
           )}
         </div>

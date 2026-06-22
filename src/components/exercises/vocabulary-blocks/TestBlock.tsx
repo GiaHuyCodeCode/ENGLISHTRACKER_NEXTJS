@@ -19,13 +19,28 @@ interface TestBlockProps {
   allSubmissions?: Submission[];
 }
 
-function generateOptions(correct: VocabCard, allCards: VocabCard[]): string[] {
-  const distractors = allCards
-    .filter(c => c.id !== correct.id)
+function generateOptions(correct: VocabCard, allCards: VocabCard[], chosen?: string): string[] {
+  const correctWord = correct.word;
+  let list = [correctWord];
+  
+  if (chosen && chosen !== correctWord) {
+    list.push(chosen);
+  }
+  
+  // Get other distractors
+  const remainingDistractors = allCards
+    .filter(c => c.id !== correct.id && c.word !== chosen)
     .sort(() => Math.random() - 0.5)
-    .slice(0, 3)
     .map(c => c.word);
-  return [...distractors, correct.word].sort(() => Math.random() - 0.5);
+    
+  // Add distractors until we have 4 options
+  while (list.length < 4 && remainingDistractors.length > 0) {
+    const next = remainingDistractors.pop();
+    if (next) list.push(next);
+  }
+  
+  // Shuffle options
+  return list.sort(() => Math.random() - 0.5);
 }
 
 export function TestBlock({ 
@@ -55,7 +70,7 @@ export function TestBlock({
     if (shuffledCards.length < 1) return;
     const opts: Record<string, string[]> = {};
     shuffledCards.forEach(card => { 
-      opts[card.id] = generateOptions(card, shuffledCards); 
+      opts[card.id] = generateOptions(card, shuffledCards, answers[card.id]); 
     });
     setMcOptions(opts);
   }, [shuffledCards]);
@@ -67,6 +82,23 @@ export function TestBlock({
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
+
+  // Listen to top status bar jump event
+  useEffect(() => {
+    const handleJump = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const targetIdx = customEvent.detail?.index;
+      if (typeof targetIdx === 'number' && targetIdx >= 0 && targetIdx < vocabCards.length) {
+        const targetWord = vocabCards[targetIdx];
+        const matchIdx = shuffledCards.findIndex(c => c.id === targetWord?.id);
+        if (matchIdx !== -1) {
+          handleJumpToQuestion(matchIdx);
+        }
+      }
+    };
+    window.addEventListener('vocab-jump', handleJump);
+    return () => window.removeEventListener('vocab-jump', handleJump);
+  }, [vocabCards, shuffledCards]);
 
   // Report progress changes back to parent Sidebar
   useEffect(() => {
@@ -203,11 +235,37 @@ export function TestBlock({
                 })}
               </div>
 
-              {revealed && chosen !== c.word && (
-                <div className="pl-0 md:pl-12 slide-up space-y-3">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-sm">
-                    <span className="text-red-400 font-medium">Đáp án đúng:</span> 
-                    <span className="font-bold font-mono text-foreground">{c.word}</span>
+              {revealed && (
+                <div className="pl-0 md:pl-12 slide-up space-y-3 pt-4 border-t border-white/5">
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
+                      <span className="text-muted-foreground">Lựa chọn của bạn:</span> 
+                      <span className={`font-bold ${chosen === c.word ? 'text-emerald-400' : 'text-red-400 line-through'}`}>
+                        {chosen || 'Chưa chọn'}
+                      </span>
+                    </div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                      <span className="text-emerald-400 font-medium">Đáp án đúng:</span> 
+                      <span className="font-bold text-emerald-300">{c.word}</span>
+                    </div>
+                  </div>
+                  <div className="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2 text-xs text-muted-foreground">
+                    <div>
+                      <span className="font-semibold text-foreground">💡 Nghĩa của từ: </span>
+                      {c.meaning}
+                    </div>
+                    {c.synonyms && c.synonyms.length > 0 && (
+                      <div>
+                        <span className="font-semibold text-foreground">🔗 Đồng nghĩa: </span>
+                        {Array.isArray(c.synonyms) ? c.synonyms.join(', ') : c.synonyms}
+                      </div>
+                    )}
+                    {c.example && (
+                      <div>
+                        <span className="font-semibold text-foreground">📝 Ví dụ: </span>
+                        <span className="italic">"{c.example}"</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

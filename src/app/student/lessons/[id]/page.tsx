@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getAssignment, Assignment, submitVocabularyAssignment, Submission, getStudentNames, getStudentSubmission } from '@/lib/local-store';
+import { getAssignment, Assignment, submitVocabularyAssignment, Submission, getStudentNames, getStudentSubmission, getStudentVocabProgress, STAGE_CONFIG } from '@/lib/local-store';
 import { 
   ArrowLeft, BookOpen, Search, Volume2, 
   Layers, Headphones, FileText, LayoutGrid, X
@@ -21,6 +21,8 @@ export default function LessonDetailPage() {
   const [activeMode, setActiveMode] = useState<string | null>(null);
   const [result, setResult] = useState<Submission | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [progressList, setProgressList] = useState<any[]>([]);
+  const [studentName, setStudentName] = useState<string>('');
 
   useEffect(() => {
     const a = getAssignment(id);
@@ -28,10 +30,12 @@ export default function LessonDetailPage() {
     setAssignment(a);
     
     // Check if there is an existing result for the current user
-    const saved = localStorage.getItem('et_current_student');
+    const saved = localStorage.getItem('et_current_student') || '';
+    setStudentName(saved);
     if (saved) {
       const existing = getStudentSubmission(id, saved);
       if (existing) setResult(existing);
+      setProgressList(getStudentVocabProgress(saved));
     }
   }, [id, router]);
 
@@ -209,47 +213,84 @@ export default function LessonDetailPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 max-h-[500px] overflow-y-auto pr-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2">
           {filteredCards.length === 0 ? (
-            <div className="text-center p-8 border border-white/5 rounded-2xl text-muted-foreground">
+            <div className="text-center p-8 border border-white/5 rounded-2xl text-muted-foreground col-span-2">
               Không tìm thấy từ vựng nào.
             </div>
           ) : (
-            filteredCards.map((c, i) => (
-              <div key={i} className="glass p-4 rounded-2xl border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold text-foreground">{c.word}</span>
-                    {c.phonetic && <span className="text-sm font-mono text-primary/80">{c.phonetic}</span>}
-                    <button 
-                      onClick={() => handleSpeak(c.word)} 
-                      className={`p-1 rounded-full transition-all duration-200 ${
-                        speakingWord === c.word 
-                          ? 'bg-primary/20 text-primary animate-pulse' 
-                          : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
-                      } ml-1`}
-                    >
-                      <Volume2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <p className="text-sm text-foreground/80 font-medium">{c.meaning}</p>
-                  {c.synonyms && c.synonyms.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {c.synonyms.map(syn => (
-                        <span key={syn} className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 text-[10px] font-semibold">
-                          {syn}
+            filteredCards.map((c) => {
+              const progress = progressList.find(p => p.wordId === c.id);
+              const stage = progress ? progress.stage : 0;
+              const cfg = STAGE_CONFIG[stage] || STAGE_CONFIG[0];
+              const nextReview = progress ? new Date(progress.nextReviewDate) : null;
+              const isDue = nextReview ? nextReview <= new Date() : true;
+
+              return (
+                <div
+                  key={c.id}
+                  className={`glass hover-lift rounded-3xl border flex flex-col justify-between space-y-4 overflow-hidden ${
+                    isDue ? 'border-amber-500/30' : 'border-white/5'
+                  }`}
+                >
+                  {/* Stage color bar on top */}
+                  <div className={`h-1 w-full ${cfg.bar}`} />
+
+                  <div className="px-5 pb-0 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xl font-bold text-foreground">{c.word}</h3>
+                        <button 
+                          onClick={() => handleSpeak(c.word)} 
+                          className={`p-1 rounded-full transition-all duration-200 ${
+                            speakingWord === c.word 
+                              ? 'bg-sky-500/20 text-sky-400' 
+                              : 'bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          <Volume2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+                        </button>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${cfg.badge}`}>
+                          {cfg.label}
                         </span>
-                      ))}
+                        {isDue && stage > 0 && (
+                          <span className="text-[10px] text-amber-400 font-semibold">⏰ Cần ôn hôm nay</span>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-                {c.example && (
-                  <div className="flex-1 bg-secondary/30 p-3 rounded-xl border border-white/5 hidden md:block">
-                    <p className="text-xs text-muted-foreground italic">&quot;{c.example}&quot;</p>
+
+                    {c.phonetic && <p className="text-xs text-primary/80 font-mono">{c.phonetic}</p>}
+                    <p className="text-sm font-medium leading-relaxed">{c.meaning}</p>
+
+                    {c.synonyms && c.synonyms.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {c.synonyms.map(syn => (
+                          <span key={syn} className="px-2 py-0.5 rounded bg-violet-500/5 text-violet-400 text-xs font-semibold border border-violet-500/10">
+                            {syn}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {c.example && (
+                      <p className="text-xs text-muted-foreground italic bg-secondary/20 p-2.5 rounded-xl">
+                        &quot;{c.example}&quot;
+                      </p>
+                    )}
                   </div>
-                )}
-              </div>
-            ))
+
+                  {/* Footer */}
+                  <div className="px-5 pb-4 flex items-center justify-between border-t border-white/5 pt-3 text-xs text-muted-foreground">
+                    <span>Lần cuối ôn: {progress ? new Date(progress.lastReviewed).toLocaleDateString('vi-VN') : 'Chưa ôn'}</span>
+                    <span className={`text-[10px] font-semibold ${cfg.badge.split(' ')[1]}`}>
+                      {cfg.interval !== '—' ? `Ôn sau ${cfg.interval}` : 'Chưa bắt đầu'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       </div>

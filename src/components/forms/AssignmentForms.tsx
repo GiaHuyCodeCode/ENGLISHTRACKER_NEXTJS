@@ -349,14 +349,29 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                     />
                   </div>
                   <div className="space-y-1 sm:col-span-3">
-                    <label className="text-xs text-muted-foreground">Giải thích / Gợi ý</label>
+                    <label className="text-xs text-amber-400 flex items-center gap-1">💡 Gợi ý (hint) — hiện trước khi chọn đáp án</label>
+                    <textarea 
+                      className="input-field w-full text-xs py-1.5 resize-y border-amber-500/30 focus:border-amber-400"
+                      rows={1}
+                      placeholder="Gợi ý để học viên suy nghĩ trước khi chọn..."
+                      value={q.hint || ''}
+                      onChange={e => {
+                        const newQs = [...questions];
+                        newQs[i] = { ...q, hint: e.target.value };
+                        setQuestions(newQs);
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-3">
+                    <label className="text-xs text-teal-400 flex items-center gap-1">📝 Giải thích (explanation) — hiện sau khi chọn đáp án</label>
                     <textarea 
                       className="input-field w-full text-xs py-1.5 resize-y"
                       rows={2}
-                      value={q.explanation || q.hint || ''}
+                      placeholder="Giải thích đáp án đúng sau khi học viên đã chọn..."
+                      value={q.explanation || ''}
                       onChange={e => {
                         const newQs = [...questions];
-                        newQs[i] = { ...q, explanation: e.target.value, hint: e.target.value };
+                        newQs[i] = { ...q, explanation: e.target.value };
                         setQuestions(newQs);
                       }}
                     />

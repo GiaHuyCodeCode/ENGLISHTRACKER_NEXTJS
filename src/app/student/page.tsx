@@ -2,16 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   getSubmissions, getAssignments, seedIfEmpty, getDailyTrackings,
   getStudentNames, getStudentColors, getStudentAvatar,
   Submission, Assignment, DailyTracking,
   getGamificationProfiles, GamificationProfile, getBadges,
-  getVocabularyCards, getStudentVocabProgress
+  getVocabularyCards, getStudentVocabProgress, syncAllFromCloud
 } from '@/lib/local-store';
 
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
-import { Trophy, BookOpen, CheckCircle2, TrendingUp, User, ChevronRight, PenTool, ListChecks, Target, Brain, AlertCircle, Flame, Calendar, Clock } from 'lucide-react';
+import { Trophy, BookOpen, CheckCircle2, TrendingUp, User, ChevronRight, PenTool, ListChecks, Target, Brain, AlertCircle, Flame, Calendar, Clock, Loader2, RefreshCw, Headphones, FileJson } from 'lucide-react';
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell
@@ -52,6 +53,81 @@ export default function StudentDashboard() {
   const [todayVocabCount, setTodayVocabCount] = useState<number>(0);
   const [studyDay, setStudyDay] = useState<number>(1);
   const [dueAssignments, setDueAssignments] = useState<Assignment[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const calculateStats = (student: string) => {
+    const subs = getSubmissions().filter(s => s.studentName === student);
+    const trks = getDailyTrackings().filter(t => t.studentName === student);
+    setSubmissions(subs);
+    setTrackings(trks);
+    setProfile(getGamificationProfiles().find(p => p.studentName === student) || null);
+
+    // Calculate due vocabulary count
+    const allCards = getVocabularyCards();
+    const studentProgress = getStudentVocabProgress(student);
+    const progressMap = new Map<string, any>();
+    studentProgress.forEach(p => progressMap.set(p.wordId, p));
+    const now = new Date();
+    const dueCount = allCards.filter(card => {
+      const prog = progressMap.get(card.id);
+      if (!prog) return true;
+      return new Date(prog.nextReviewDate) <= now;
+    }).length;
+    setDueVocabCount(dueCount);
+
+    // Calculate words created today
+    const todayStr = now.toISOString().split('T')[0];
+    const createdToday = allCards.filter(c => c.createdAt && c.createdAt.startsWith(todayStr)).length;
+    setTodayVocabCount(createdToday);
+
+    // Calculate Study Day
+    const dates = new Set([
+      ...subs.map(s => s.submittedAt.split('T')[0]),
+      ...trks.map(t => t.submittedAt.split('T')[0])
+    ]);
+    setStudyDay(Math.max(1, dates.size));
+
+    // Calculate assignments due today (vocabulary type with at least 1 due word)
+    const allAssignments = getAssignments().filter(a => {
+      if (a.type !== 'vocabulary' || !a.vocabCards || a.vocabCards.length === 0) return false;
+      if (!a.createdAt) return true;
+      return new Date(a.createdAt) <= now;
+    });
+    const dueAssigns = allAssignments.filter(assignment => {
+      return (assignment.vocabCards || []).some(card => {
+        const prog = progressMap.get(card.id);
+        if (!prog) return true; // Never reviewed
+        return new Date(prog.nextReviewDate) <= now;
+      });
+    });
+    setDueAssignments(dueAssigns);
+  };
+
+  const refreshData = async () => {
+    setAssignments(getAssignments());
+    if (selectedStudent) {
+      calculateStats(selectedStudent);
+    }
+
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/assignments');
+      if (res.ok) {
+        const cloudData = await res.json();
+        const hasChanges = syncAllFromCloud(cloudData);
+        if (hasChanges) {
+          setAssignments(getAssignments());
+          if (selectedStudent) {
+            calculateStats(selectedStudent);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Lỗi khi đồng bộ dữ liệu:', e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   useEffect(() => {
     seedIfEmpty();
@@ -73,52 +149,21 @@ export default function StudentDashboard() {
     if (user?.role !== 'student') {
       localStorage.setItem('et_current_student', selectedStudent);
     }
-    setSubmissions(getSubmissions().filter(s => s.studentName === selectedStudent));
-    setTrackings(getDailyTrackings().filter(t => t.studentName === selectedStudent));
-    setProfile(getGamificationProfiles().find(p => p.studentName === selectedStudent) || null);
+    calculateStats(selectedStudent);
 
-    // Calculate due vocabulary count
-    const allCards = getVocabularyCards();
-    const studentProgress = getStudentVocabProgress(selectedStudent);
-    const progressMap = new Map<string, any>();
-    studentProgress.forEach(p => progressMap.set(p.wordId, p));
-    const now = new Date();
-    const dueCount = allCards.filter(card => {
-      const prog = progressMap.get(card.id);
-      if (!prog) return true;
-      return new Date(prog.nextReviewDate) <= now;
-    }).length;
-    setDueVocabCount(dueCount);
-
-    // Calculate words created today
-    const todayStr = now.toISOString().split('T')[0];
-    const createdToday = allCards.filter(c => c.createdAt && c.createdAt.startsWith(todayStr)).length;
-    setTodayVocabCount(createdToday);
-
-    // Calculate Study Day
-    const mySubmissions = getSubmissions().filter(s => s.studentName === selectedStudent);
-    const myTrackings = getDailyTrackings().filter(t => t.studentName === selectedStudent);
-    const dates = new Set([
-      ...mySubmissions.map(s => s.submittedAt.split('T')[0]),
-      ...myTrackings.map(t => t.submittedAt.split('T')[0])
-    ]);
-    setStudyDay(Math.max(1, dates.size));
-
-    // Calculate assignments due today (vocabulary type with at least 1 due word)
-    const allAssignments = getAssignments().filter(a => {
-      if (a.type !== 'vocabulary' || !a.vocabCards || a.vocabCards.length === 0) return false;
-      if (!a.createdAt) return true;
-      return new Date(a.createdAt) <= now;
-    });
-    const dueAssigns = allAssignments.filter(assignment => {
-      return (assignment.vocabCards || []).some(card => {
-        const prog = progressMap.get(card.id);
-        if (!prog) return true; // Never reviewed
-        return new Date(prog.nextReviewDate) <= now;
-      });
-    });
-    setDueAssignments(dueAssigns);
-
+    // Sync from cloud once student is resolved
+    setIsSyncing(true);
+    fetch('/api/assignments')
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(cloudData => {
+        const hasChanges = syncAllFromCloud(cloudData);
+        if (hasChanges) {
+          setAssignments(getAssignments());
+          calculateStats(selectedStudent);
+        }
+      })
+      .catch(e => console.error('Lỗi khi đồng bộ dữ liệu:', e))
+      .finally(() => setIsSyncing(false));
   }, [selectedStudent, user]);
 
   const formatDuration = (ms?: number) => {
@@ -261,11 +306,26 @@ export default function StudentDashboard() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
-      <div className="fade-in stagger-1">
-        <h1 className="text-3xl font-bold font-heading gradient-text">Dashboard Học Viên</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          {user?.role === 'student' ? 'Tổng quan tiến độ học tập của bạn' : 'Chọn tên học viên để xem tiến độ'}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="fade-in stagger-1">
+          <h1 className="text-3xl font-bold font-heading gradient-text flex items-center gap-2">
+            Dashboard Học Viên
+            {isSyncing && <Loader2 className="h-6 w-6 text-primary animate-spin" />}
+          </h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            {user?.role === 'student' ? 'Tổng quan tiến độ học tập của bạn' : 'Chọn tên học viên để xem tiến độ'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 self-start sm:self-center">
+          <button
+            onClick={() => refreshData()}
+            disabled={isSyncing}
+            className="p-2 rounded-xl glass hover-lift border border-border text-muted-foreground hover:text-primary transition-all disabled:opacity-50"
+            title="Đồng bộ dữ liệu"
+          >
+            <RefreshCw className={`h-5 w-5 ${isSyncing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Student Picker (Only for Admin) */}
@@ -691,35 +751,46 @@ export default function StudentDashboard() {
                 </h2>
                 <div className="glass-strong rounded-3xl border border-white/5 overflow-hidden">
                   <div className="divide-y divide-white/5">
-                    {submissions.slice(0, 5).map(s => (
-                      <div key={s.id} className="flex items-center gap-4 px-6 py-4 hover:bg-white/5 transition-colors">
-                        <div className={`p-2 rounded-lg ${s.assignmentType === 'vocab_context' ? 'bg-violet-500/10' :
+                    {submissions.slice(0, 5).map(s => {
+                      const href = `/student/review/${s.id}`;
+                      return (
+                        <Link key={s.id} href={href} className="flex items-center gap-4 px-6 py-4 hover:bg-white/5 transition-colors cursor-pointer group w-full">
+                          <div className={`p-2 rounded-lg ${
+                            s.assignmentType === 'vocab_context' ? 'bg-violet-500/10' :
                             s.assignmentType === 'multiple_choice' ? 'bg-teal-500/10' :
-                              'bg-amber-500/10'
+                            s.assignmentType === 'dictation' ? 'bg-sky-500/10' :
+                            s.assignmentType === 'vocabulary' ? 'bg-indigo-500/10' :
+                            'bg-amber-500/10'
                           }`}>
-                          {s.assignmentType === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-400" /> :
-                            s.assignmentType === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-400" /> :
-                              <PenTool className="h-4 w-4 text-amber-400" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{s.assignmentTitle}</p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-2">
-                            <span>{new Date(s.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-                            {s.durationMs && (
-                              <span className="text-[10px] text-sky-400 font-medium flex items-center gap-1">
-                                • <Clock className="w-3 h-3" /> {formatDuration(s.durationMs)}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <span className={`px-3 py-1 rounded-full border text-sm font-bold ${s.score >= 80 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                            : s.score >= 50 ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                              : 'bg-red-500/15 text-red-400 border-red-500/30'
-                          }`}>
-                          {s.score}/100
-                        </span>
-                      </div>
-                    ))}
+                            {s.assignmentType === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-400" /> :
+                             s.assignmentType === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-400" /> :
+                             s.assignmentType === 'dictation' ? <Headphones className="h-4 w-4 text-sky-400" /> :
+                             s.assignmentType === 'vocabulary' ? <FileJson className="h-4 w-4 text-indigo-400" /> :
+                             <PenTool className="h-4 w-4 text-amber-400" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">{s.assignmentTitle}</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-2">
+                              <span>{new Date(s.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                              {s.durationMs && (
+                                <span className="text-[10px] text-sky-400 font-medium flex items-center gap-1">
+                                  • <Clock className="w-3 h-3" /> {formatDuration(s.durationMs)}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className={`px-3 py-1 rounded-full border text-sm font-bold ${s.score >= 80 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                : s.score >= 50 ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                  : 'bg-red-500/15 text-red-400 border-red-500/30'
+                              }`}>
+                              {s.score}/100
+                            </span>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                          </div>
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

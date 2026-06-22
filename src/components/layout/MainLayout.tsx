@@ -20,7 +20,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Sidebar />
-      <div className="flex-1 flex flex-col min-h-screen md:ml-64 overflow-x-hidden pt-14 md:pt-0">
+      <div className="flex-1 flex flex-col min-h-screen md:ml-64 overflow-x-clip pt-14 md:pt-0">
         <main className="flex-1 p-4 md:p-8">
           {children}
         </main>

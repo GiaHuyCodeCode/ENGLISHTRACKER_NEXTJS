@@ -23,8 +23,9 @@ export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting
     if (isSubmitted) return;
     const lowerText = text.toLowerCase();
     const used = new Set<string>();
-    keywords.forEach(k => {
-      if (lowerText.includes(k.word.toLowerCase())) {
+    const kwList = Array.isArray(keywords) ? keywords : [];
+    kwList.forEach(k => {
+      if (k && k.word && lowerText.includes(k.word.toLowerCase())) {
         used.add(k.word);
       }
     });
@@ -38,7 +39,7 @@ export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting
 
   const getResultIcon = (word: string) => {
     if (!result) return null;
-    const isFound = result.foundKeywords.includes(word);
+    const isFound = Array.isArray(result.foundKeywords) && result.foundKeywords.includes(word);
     return isFound ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <XCircle className="h-4 w-4 text-red-400" />;
   };
 
@@ -49,6 +50,8 @@ export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting
     const s = totalSeconds % 60;
     return m > 0 ? `${m} phút ${s} giây` : `${s} giây`;
   };
+
+  const kwList = Array.isArray(keywords) ? keywords : [];
 
   return (
     <div className="space-y-6">
@@ -63,18 +66,18 @@ export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting
       {/* Required Keywords List */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground/80">
-          <PenTool className="h-4 w-4" /> Từ khóa yêu cầu ({isSubmitted ? result?.foundKeywords.length : usedKeywords.size}/{keywords.length})
+          <PenTool className="h-4 w-4" /> Từ khóa yêu cầu ({isSubmitted ? (result?.foundKeywords || []).length : usedKeywords.size}/{kwList.length})
         </h3>
         <div className="flex flex-wrap gap-2">
-          {keywords.map((k, i) => {
+          {kwList.map((k, i) => {
             const isUsed = isSubmitted 
-              ? result?.foundKeywords.includes(k.word)
+              ? Array.isArray(result?.foundKeywords) && result.foundKeywords.includes(k.word)
               : usedKeywords.has(k.word);
             
-            const isMissing = isSubmitted && result?.missingKeywords.includes(k.word);
+            const isMissing = isSubmitted && Array.isArray(result?.missingKeywords) && result.missingKeywords.includes(k.word);
 
             return (
-              <span key={i} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+              <span key={i} id={`rw-keyword-${k.word.toLowerCase()}`} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
                 isUsed 
                   ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' 
                   : isMissing

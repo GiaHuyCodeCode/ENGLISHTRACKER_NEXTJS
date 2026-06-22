@@ -89,14 +89,15 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
             const matchKeyword = keywords.find(k => k.word.toLowerCase() === word.toLowerCase());
 
             const failedPeers = allSubmissions?.filter(sub => {
-              if (!sub.vocabAnswers) return false;
-              const ans = sub.vocabAnswers.find(a => a.word.toLowerCase() === word.toLowerCase());
+              const answersArray = sub.vocabAnswers || (sub as any).details;
+              if (!answersArray) return false;
+              const ans = answersArray.find((a: any) => a.word.toLowerCase() === word.toLowerCase());
               return ans && !ans.isCorrect;
             }).map(sub => sub.studentName) || [];
             const uniqueFailedPeers = Array.from(new Set(failedPeers));
 
             return (
-              <span key={i} className="inline-flex items-center gap-1.5 mx-1 my-1">
+              <span key={i} id={`ctx-word-${word.toLowerCase()}`} className="inline-flex items-center gap-1.5 mx-1 my-1">
                 {/* Keyword badge */}
                 <span className="inline-flex items-center gap-1 bg-violet-500/20 border border-violet-500/40 text-violet-300 font-bold px-2.5 py-1 rounded-lg text-xs">
                   {word}

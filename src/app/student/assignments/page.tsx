@@ -291,8 +291,9 @@ export default function StudentAssignmentsPage() {
             <div className="divide-y divide-white/5">
               {done.map(a => {
                 const sub = getSubmission(a.id)!;
+                const href = sub ? `/student/review/${sub.id}` : `/student/assignments/${a.id}`;
                 return (
-                  <div key={a.id} className="flex items-center gap-4 px-6 py-4 hover:bg-white/5 transition-colors">
+                  <Link key={a.id} href={href} className="flex items-center gap-4 px-6 py-4 hover:bg-white/5 transition-colors cursor-pointer group">
                     <div className={`p-2 rounded-lg ${
                       a.type === 'vocab_context' ? 'bg-violet-500/10' :
                       a.type === 'multiple_choice' ? 'bg-teal-500/10' :
@@ -307,7 +308,7 @@ export default function StudentAssignmentsPage() {
                        <PenTool className="h-4 w-4 text-amber-400" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{a.title}</p>
+                      <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">{a.title}</p>
                       <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
                         <span>{new Date(sub.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                         {sub.durationMs ? (
@@ -317,8 +318,11 @@ export default function StudentAssignmentsPage() {
                         ) : null}
                       </p>
                     </div>
-                    <ScorePill score={sub.score} />
-                  </div>
+                    <div className="flex items-center gap-3">
+                      <ScorePill score={sub.score} />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                    </div>
+                  </Link>
                 );
               })}
             </div>
