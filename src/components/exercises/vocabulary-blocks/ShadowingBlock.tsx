@@ -13,7 +13,7 @@ interface ShadowingWordResult {
 
 interface ShadowingBlockProps {
   vocabCards: VocabCard[];
-  handleSpeak: (text: string) => void;
+  handleSpeak: (text: string, rate?: number) => void;
   isSubmitted: boolean;
   onShadowingResult?: (word: string, result: { recognized: string; accuracy: number; attempts: number }) => void;
   onProgressUpdate?: (stats: {
@@ -58,6 +58,7 @@ export function ShadowingBlock({
   const [attempts, setAttempts] = useState<Record<string, number>>({});
   const [isFinished, setIsFinished] = useState(false);
   const [shake, setShake] = useState(false);
+  const [speed, setSpeed] = useState(1.0);
 
   // Refs to avoid stale closures inside start() callbacks
   const phaseRef = useRef(phase);
@@ -81,9 +82,9 @@ export function ShadowingBlock({
   useEffect(() => {
     if (!currentCard || isSubmitted || isFinished) return;
     setPhase('ready');
-    const t = setTimeout(() => handleSpeak(currentCard.word), 400);
+    const t = setTimeout(() => handleSpeak(currentCard.word, speed), 400);
     return () => clearTimeout(t);
-  }, [currentIdx, isSubmitted, isFinished, handleSpeak, currentCard]);
+  }, [currentIdx, isSubmitted, isFinished, handleSpeak, currentCard, speed]);
 
   // Report progress to sidebar
   useEffect(() => {
@@ -184,11 +185,13 @@ export function ShadowingBlock({
         if (!isFinished) goToNext();
       } else if (e.key === 'ArrowLeft') {
         if (!isFinished) goToPrev();
+      } else if (e.key === 'Control' && !isFinished && currentCard) {
+        handleSpeak(currentCard.word, speed);
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [isSubmitted, isFinished, handleRecord, goToNext, goToPrev]);
+  }, [isSubmitted, isFinished, handleRecord, goToNext, goToPrev, currentCard, handleSpeak, speed]);
 
   // ── FINISHED SCREEN ──────────────────────────────────────────────────────
   if (isFinished) {
@@ -273,15 +276,25 @@ export function ShadowingBlock({
       }`}>
 
         {/* TTS play button */}
-        <div className="relative">
-          <div className="absolute inset-0 bg-emerald-500/15 rounded-full blur-xl" />
-          <button
-            onClick={() => handleSpeak(currentCard.word)}
-            disabled={isListening}
-            className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white text-emerald-400 flex items-center justify-center transition-all shadow-md hover-lift disabled:opacity-50"
-          >
-            <Volume2 className="h-10 w-10 md:h-12 md:w-12" strokeWidth={1.5} />
-          </button>
+        <div className="relative w-full flex justify-center py-4">
+          <div className="absolute top-0 right-0">
+            <select value={speed} onChange={e => setSpeed(Number(e.target.value))} className="bg-secondary/50 border border-white/10 rounded-lg text-xs py-1 px-2 text-muted-foreground hover:text-foreground outline-none">
+              <option value={0.75}>0.75x</option>
+              <option value={1.0}>1.0x (Chuẩn)</option>
+              <option value={1.25}>1.25x</option>
+              <option value={1.5}>1.5x</option>
+            </select>
+          </div>
+          <div className="relative">
+            <div className="absolute inset-0 bg-emerald-500/15 rounded-full blur-xl" />
+            <button
+              onClick={() => handleSpeak(currentCard.word, speed)}
+              disabled={isListening}
+              className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white text-emerald-400 flex items-center justify-center transition-all shadow-md hover-lift disabled:opacity-50 mx-auto"
+            >
+              <Volume2 className="h-10 w-10 md:h-12 md:w-12" strokeWidth={1.5} />
+            </button>
+          </div>
         </div>
 
         {/* Word info */}
@@ -379,6 +392,23 @@ export function ShadowingBlock({
                 : `Lỗi nhận diện: ${speechError}`}
             </p>
           )}
+        </div>
+      </div>
+
+      {/* Keyboard Shortcuts Hint */}
+      <div className="hidden md:flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground/60">
+        <div className="flex items-center gap-2">
+          <kbd className="px-2 py-1 rounded bg-secondary border border-white/10 font-mono font-bold text-[10px] text-muted-foreground">Ctrl</kbd>
+          <span>Nghe lại</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <kbd className="px-2 py-1 rounded bg-secondary border border-white/10 font-mono font-bold text-[10px] text-muted-foreground">Space</kbd>
+          <span>Ghi âm</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <kbd className="px-2 py-1 rounded bg-secondary border border-white/10 font-mono font-bold text-[10px] text-muted-foreground">←</kbd>
+          <kbd className="px-2 py-1 rounded bg-secondary border border-white/10 font-mono font-bold text-[10px] text-muted-foreground">→</kbd>
+          <span>Chuyển từ</span>
         </div>
       </div>
 

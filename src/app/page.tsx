@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   getAssignments, getSubmissions, getDailyTrackings, deleteAssignment,
   updateSubmissionScore, updateTrackingScore, deleteSubmission, deleteTracking, clearAllData,
@@ -56,6 +56,19 @@ export default function TeacherDashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [mgmtDateFilter, setMgmtDateFilter] = useState<string>('');
   const [mgmtSkillFilter, setMgmtSkillFilter] = useState<string>('all');
+
+  // Inject virtual shadowing assignments derived from dictation
+  const allAssignments = useMemo(() => {
+    const dictations = assignments.filter(a => a.type === 'dictation');
+    const virtualShadowing = dictations.map(a => ({
+      ...a,
+      id: `shadowing_${a.id}`,
+      title: `Shadowing: ${a.title}`,
+      type: 'shadowing' as const,
+      skill: 'Speaking' as const,
+    }));
+    return [...assignments, ...virtualShadowing];
+  }, [assignments]);
 
   useEffect(() => {
     if (tabParam === 'assignments_mgmt' || tabParam === 'overview' || tabParam === 'analytics' || tabParam === 'vocabulary') {
@@ -134,6 +147,20 @@ export default function TeacherDashboard() {
   };
 
   const handleDelete = (id: string) => {
+    if (id.startsWith('shadowing_')) {
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Xóa bài tập',
+        message: 'Đây là bài tập Shadowing được tạo tự động từ bài Nghe chép. Xóa bài này sẽ xóa luôn bài Nghe chép gốc. Bạn có chắc chắn muốn xóa không?',
+        action: () => {
+          deleteAssignment(id.replace('shadowing_', ''));
+          refreshData();
+          setConfirmDialog(null);
+        }
+      });
+      return;
+    }
+
     setConfirmDialog({
       isOpen: true,
       title: 'Xóa bài tập',
@@ -186,7 +213,7 @@ export default function TeacherDashboard() {
   const endOfDay = new Date(_edy, _edm - 1, _edd, 23, 59, 59, 999).toISOString();
   const filteredSubmissions = submissions.filter(s => s.submittedAt <= endOfDay);
   const filteredTrackings = trackings.filter(t => t.submittedAt <= endOfDay);
-  const filteredAssignments = assignments.filter(a => a.createdAt ? a.createdAt <= endOfDay : true);
+  const filteredAssignments = allAssignments.filter(a => a.createdAt ? a.createdAt <= endOfDay : true);
 
   const formatDuration = (ms?: number) => {
     if (!ms) return '0 giây';
@@ -303,7 +330,7 @@ export default function TeacherDashboard() {
   };
 
   const assignmentMap = new Map<string, Assignment>();
-  assignments.forEach(a => assignmentMap.set(a.id, a));
+  allAssignments.forEach(a => assignmentMap.set(a.id, a));
 
   const classTrendData = last7Days.map(date => {
     const dSubs = submissions.filter(s => toLocalDateString(s.submittedAt) === date);
@@ -839,7 +866,7 @@ export default function TeacherDashboard() {
 
           {/* Assignments list */}
           {(() => {
-            const filteredMgmtAssignments = assignments.filter(a => {
+            const filteredMgmtAssignments = allAssignments.filter(a => {
               if (mgmtSkillFilter !== 'all') {
                 const skill = a.skill || 'Vocab';
                 if (skill.toLowerCase() !== mgmtSkillFilter.toLowerCase()) return false;
@@ -871,7 +898,7 @@ export default function TeacherDashboard() {
                   const skill = a.skill || 'Vocab';
                   return (
                     <div key={a.id} className="flex items-start justify-between gap-4 p-5 rounded-2xl bg-white/5 border border-white/5 hover:border-primary/30 transition-all group">
-                      <Link href={`/teacher/assignments/${a.id}/edit`} className="flex-1 flex items-start gap-3.5 min-w-0 cursor-pointer">
+                      <Link href={a.id.startsWith('shadowing_') ? `/teacher/assignments/${a.id.replace('shadowing_', '')}/edit` : `/teacher/assignments/${a.id}/edit`} className="flex-1 flex items-start gap-3.5 min-w-0 cursor-pointer">
                         <div className={`p-3 rounded-xl flex-shrink-0 ${
                           skill === 'Vocab' ? 'bg-violet-500/10 text-violet-400' :
                           skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-400' :
@@ -906,7 +933,7 @@ export default function TeacherDashboard() {
                                a.type === 'multiple_choice' ? `${a.questions?.length || 0} câu hỏi` :
                                a.type === 'dictation' ? `${getDictationCount(a)} câu` :
                                a.type === 'vocabulary' ? `${a.vocabCards?.length || 0} từ vựng` :
-                               a.type === 'shadowing' ? `${a.sentences?.length || 0} câu` :
+                               a.type === 'shadowing' ? `${getDictationCount(a)} câu` :
                                `${a.keywords?.length || 0} từ khóa`}
                             </span>
                             {a.createdAt && (
