@@ -354,19 +354,17 @@ export default function ExercisePage() {
           )}
 
           {assignment.type === 'multiple_choice' && assignment.questions && (
-            <div className="glass rounded-3xl border border-white/5 p-6 md:p-8">
-              <MultipleChoiceExercise
-                questions={assignment.questions}
-                onSubmit={handleQuizSubmit}
-                isSubmitting={isSubmitting}
-                result={displayResult?.quizAnswers}
-                score={displayResult?.score}
-                durationMs={displayResult?.durationMs}
-                allowHints={assignment.allowHints}
-                feedback={displayResult?.feedback}
-                allSubmissions={getSubmissions().filter(s => s.assignmentId === id)}
-              />
-            </div>
+            <MultipleChoiceExercise
+              questions={assignment.questions}
+              onSubmit={handleQuizSubmit}
+              isSubmitting={isSubmitting}
+              result={displayResult?.quizAnswers}
+              score={displayResult?.score}
+              durationMs={displayResult?.durationMs}
+              allowHints={assignment.allowHints}
+              feedback={displayResult?.feedback}
+              allSubmissions={getSubmissions().filter(s => s.assignmentId === id)}
+            />
           )}
 
           {assignment.type === 'rewrite_vocab' && assignment.keywords && (

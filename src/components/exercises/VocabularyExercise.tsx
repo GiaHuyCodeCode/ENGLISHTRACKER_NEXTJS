@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { VocabCard, VocabAnswerResult, Submission } from '@/lib/local-store';
-import { Send, BookOpen, Layers, FileText, Headphones, LayoutGrid, ArrowRight, CheckCircle2, AlertTriangle, HelpCircle, RefreshCw, Star, X } from 'lucide-react';
+import { Send, BookOpen, Layers, FileText, Headphones, LayoutGrid, ArrowRight, CheckCircle2, AlertTriangle, HelpCircle, RefreshCw, Star, X, Mic } from 'lucide-react';
 
 import { FlashcardBlock } from './vocabulary-blocks/FlashcardBlock';
 import { SynonymBlock } from './vocabulary-blocks/SynonymBlock';
 import { DictationBlock } from './vocabulary-blocks/DictationBlock';
 import { TestBlock } from './vocabulary-blocks/TestBlock';
 import { MatchGameBlock } from './vocabulary-blocks/MatchGameBlock';
+import { ShadowingBlock } from './vocabulary-blocks/ShadowingBlock';
 
 interface Props {
   vocabCards: VocabCard[];
@@ -26,7 +27,7 @@ interface Props {
   onTabChange?: (mode: string) => void;
 }
 
-export type ActiveMode = 'flashcard' | 'synonym' | 'dictation' | 'test' | 'game_match';
+export type ActiveMode = 'flashcard' | 'synonym' | 'dictation' | 'test' | 'game_match' | 'shadowing';
 
 export function VocabularyExercise({ 
   vocabCards, 
@@ -57,6 +58,7 @@ export function VocabularyExercise({
   const [mcAnswers, setMcAnswers] = useState<Record<string, string>>({}); // for test
   const [gameMatchedIds, setGameMatchedIds] = useState<string[]>([]); // for game match
   const [dictationAttempts, setDictationAttempts] = useState<Record<string, number>>({});
+  const [shadowingResults, setShadowingResults] = useState<Record<string, { recognized: string; accuracy: number; attempts: number }>>({});
 
   // State nhận từ block con (Dictation hoặc Test) để cập nhật bảng Tracking Sidebar
   const [progressStats, setProgressStats] = useState<{
@@ -85,6 +87,7 @@ export function VocabularyExercise({
       setIsDictationFinished(false);
       setDictationScore(null);
       setProgressStats(null);
+      setShadowingResults({});
       if (isRequirementWorkflow) setActiveMode('dictation');
     }
   }, [result, isRequirementWorkflow]);
@@ -154,12 +157,18 @@ export function VocabularyExercise({
     }
     if (activeMode === 'flashcard') return 100;
 
+    if (activeMode === 'shadowing') {
+      if (vocabCards.length === 0) return 0;
+      const total = vocabCards.reduce((sum, c) => sum + (shadowingResults[c.word]?.accuracy ?? 0), 0);
+      return Math.round(total / vocabCards.length);
+    }
+
     let correct = 0;
     vocabCards.forEach(c => {
       if ((textAnswers[c.word] || '').trim().toLowerCase() === c.word.toLowerCase()) correct++;
     });
     return Math.round((correct / vocabCards.length) * 100);
-  }, [isRequirementWorkflow, vocabCards, mcAnswers, dictationScore, activeMode, gameMatchedIds.length, textAnswers]);
+  }, [isRequirementWorkflow, vocabCards, mcAnswers, dictationScore, activeMode, gameMatchedIds.length, textAnswers, shadowingResults]);
 
   const handleSubmitAll = useCallback(() => {
     const finalAnswers = vocabCards.map(c => {
@@ -179,6 +188,10 @@ export function VocabularyExercise({
       } else if (activeMode === 'synonym') {
         studentAnswer = (synonymAnswers[c.word] || '').trim();
         isCorrect = studentAnswer.toLowerCase() === c.word.toLowerCase();
+      } else if (activeMode === 'shadowing') {
+        const sr = shadowingResults[c.word];
+        studentAnswer = sr?.recognized || '';
+        isCorrect = (sr?.accuracy ?? 0) >= 80;
       } else {
         studentAnswer = (textAnswers[c.word] || '').trim();
         isCorrect = studentAnswer.toLowerCase() === c.word.toLowerCase();
@@ -194,7 +207,7 @@ export function VocabularyExercise({
 
     const finalScore = calculateScore();
     onSubmit(finalAnswers, finalScore, dictationScore ?? undefined);
-  }, [vocabCards, isRequirementWorkflow, activeMode, mcAnswers, gameMatchedIds, synonymAnswers, textAnswers, dictationAttempts, calculateScore, onSubmit, dictationScore]);
+  }, [vocabCards, isRequirementWorkflow, activeMode, mcAnswers, gameMatchedIds, synonymAnswers, textAnswers, shadowingResults, dictationAttempts, calculateScore, onSubmit, dictationScore]);
 
   const handleDictationFinished = (score: number, dictationAnswers: Record<string, string>, attempts?: Record<string, number>) => {
     setDictationScore(score);
@@ -275,6 +288,13 @@ export function VocabularyExercise({
     }
   }, [result, vocabCards, initialMode, isRequirementWorkflow]);
 
+  const handleShadowingResult = useCallback(
+    (word: string, result: { recognized: string; accuracy: number; attempts: number }) => {
+      setShadowingResults(prev => ({ ...prev, [word]: result }));
+    },
+    [],
+  );
+
   // Handler callback nhận dữ liệu tiến độ từ block con
   const handleProgressUpdate = useCallback((stats: any) => {
     setProgressStats(stats);
@@ -352,36 +372,42 @@ export function VocabularyExercise({
 
       {/* Exercise Mode Selection Tabs (Apple segmented control styled) */}
       {!hideTabs && !isRequirementWorkflow && (
-        <div className="flex flex-nowrap bg-white/5 border border-white/5 p-1 rounded-2xl gap-1 md:gap-1.5 w-full max-w-4xl mx-auto mb-8 overflow-x-auto select-none no-scrollbar">
+        <div className="grid grid-cols-3 md:grid-cols-6 bg-white/5 border border-white/5 p-1 rounded-2xl gap-1 md:gap-1.5 w-full max-w-4xl mx-auto mb-8 select-none">
           <button 
             onClick={() => { setActiveMode('flashcard'); setProgressStats(null); onTabChange?.('flashcard'); }} 
-            className={`flex-1 min-w-[70px] md:min-w-[100px] flex flex-col items-center justify-center gap-1 md:gap-1.5 py-2 md:py-3 rounded-xl text-[10px] md:text-xs font-bold transition-all duration-300 ${activeMode === 'flashcard' ? 'bg-[#0071e3] text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+            className={`flex flex-col items-center justify-center gap-1 md:gap-1.5 py-2 md:py-3 rounded-xl text-[10px] md:text-xs font-bold transition-all duration-300 ${activeMode === 'flashcard' ? 'bg-[#0071e3] text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
           >
             <Layers className="h-4 w-4 md:h-5 md:w-5" strokeWidth={1.5} /> Flashcard
           </button>
           <button 
             onClick={() => { setActiveMode('synonym'); setProgressStats(null); onTabChange?.('synonym'); }} 
-            className={`flex-1 min-w-[70px] md:min-w-[100px] flex flex-col items-center justify-center gap-1 md:gap-1.5 py-2 md:py-3 rounded-xl text-[10px] md:text-xs font-bold transition-all duration-300 ${activeMode === 'synonym' ? 'bg-violet-600 text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+            className={`flex flex-col items-center justify-center gap-1 md:gap-1.5 py-2 md:py-3 rounded-xl text-[10px] md:text-xs font-bold transition-all duration-300 ${activeMode === 'synonym' ? 'bg-violet-600 text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
           >
             <BookOpen className="h-4 w-4 md:h-5 md:w-5" strokeWidth={1.5} /> Đồng Nghĩa
           </button>
           <button 
             onClick={() => { setActiveMode('test'); setProgressStats(null); onTabChange?.('test'); }} 
-            className={`flex-1 min-w-[70px] md:min-w-[100px] flex flex-col items-center justify-center gap-1 md:gap-1.5 py-2 md:py-3 rounded-xl text-[10px] md:text-xs font-bold transition-all duration-300 ${activeMode === 'test' ? 'bg-amber-500 text-black shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+            className={`flex flex-col items-center justify-center gap-1 md:gap-1.5 py-2 md:py-3 rounded-xl text-[10px] md:text-xs font-bold transition-all duration-300 ${activeMode === 'test' ? 'bg-amber-500 text-black shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
           >
             <FileText className="h-4 w-4 md:h-5 md:w-5" strokeWidth={1.5} /> Trắc Nghiệm
           </button>
           <button 
             onClick={() => { setActiveMode('dictation'); setProgressStats(null); onTabChange?.('dictation'); }} 
-            className={`flex-1 min-w-[70px] md:min-w-[100px] flex flex-col items-center justify-center gap-1 md:gap-1.5 py-2 md:py-3 rounded-xl text-[10px] md:text-xs font-bold transition-all duration-300 ${activeMode === 'dictation' ? 'bg-sky-500 text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+            className={`flex flex-col items-center justify-center gap-1 md:gap-1.5 py-2 md:py-3 rounded-xl text-[10px] md:text-xs font-bold transition-all duration-300 ${activeMode === 'dictation' ? 'bg-sky-500 text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
           >
             <Headphones className="h-4 w-4 md:h-5 md:w-5" strokeWidth={1.5} /> Nghe Chép
           </button>
-          <button 
-            onClick={() => { setActiveMode('game_match'); setProgressStats(null); onTabChange?.('game_match'); }} 
-            className={`flex-1 min-w-[70px] md:min-w-[100px] flex flex-col items-center justify-center gap-1 md:gap-1.5 py-2 md:py-3 rounded-xl text-[10px] md:text-xs font-bold transition-all duration-300 ${activeMode === 'game_match' ? 'bg-rose-500 text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+          <button
+            onClick={() => { setActiveMode('game_match'); setProgressStats(null); onTabChange?.('game_match'); }}
+            className={`flex flex-col items-center justify-center gap-1 md:gap-1.5 py-2 md:py-3 rounded-xl text-[10px] md:text-xs font-bold transition-all duration-300 ${activeMode === 'game_match' ? 'bg-rose-500 text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
           >
             <LayoutGrid className="h-4 w-4 md:h-5 md:w-5" strokeWidth={1.5} /> Nối Từ
+          </button>
+          <button
+            onClick={() => { setActiveMode('shadowing'); setProgressStats(null); onTabChange?.('shadowing'); }}
+            className={`flex flex-col items-center justify-center gap-1 md:gap-1.5 py-2 md:py-3 rounded-xl text-[10px] md:text-xs font-bold transition-all duration-300 ${activeMode === 'shadowing' ? 'bg-emerald-500 text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+          >
+            <Mic className="h-4 w-4 md:h-5 md:w-5" strokeWidth={1.5} /> Shadowing
           </button>
         </div>
       )}
@@ -466,7 +492,7 @@ export function VocabularyExercise({
               </div>
 
               {/* Sơ đồ câu hỏi trong chế độ xem lại hoặc tự học */}
-              {(isSubmitted || !isRequirementWorkflow) && (activeMode === 'dictation' || activeMode === 'test') && (
+              {(isSubmitted || !isRequirementWorkflow) && (activeMode === 'dictation' || activeMode === 'test' || activeMode === 'shadowing') && (
                 <div className="space-y-2.5 pt-4 border-t border-white/5">
                   <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Sơ đồ câu hỏi</p>
                   <div className="grid grid-cols-5 gap-2">
@@ -519,13 +545,15 @@ export function VocabularyExercise({
                   {activeMode === 'flashcard' ? <Layers className="w-5 h-5" strokeWidth={1.5} /> :
                    activeMode === 'synonym' ? <BookOpen className="w-5 h-5" strokeWidth={1.5} /> :
                    activeMode === 'game_match' ? <LayoutGrid className="w-5 h-5" strokeWidth={1.5} /> :
+                   activeMode === 'shadowing' ? <Mic className="w-5 h-5 text-emerald-400" strokeWidth={1.5} /> :
                    <HelpCircle className="w-5 h-5" strokeWidth={1.5} />}
                 </div>
                 <div>
                   <p className="text-sm font-bold text-foreground">
                     {activeMode === 'flashcard' ? 'Lướt Flashcard' :
                      activeMode === 'synonym' ? 'Ôn từ đồng nghĩa' :
-                     activeMode === 'game_match' ? 'Game ghép đôi từ' : 'Đang tải...'}
+                     activeMode === 'game_match' ? 'Game ghép đôi từ' :
+                     activeMode === 'shadowing' ? 'Luyện phát âm Shadowing' : 'Đang tải...'}
                   </p>
                   <p className="text-xs text-muted-foreground">Tổng cộng {totalWordsCount} từ vựng</p>
                 </div>
@@ -604,6 +632,16 @@ export function VocabularyExercise({
                 {activeMode === 'game_match' && (
                   <MatchGameBlock vocabCards={vocabCards} gameMatchedIds={gameMatchedIds} setGameMatchedIds={setGameMatchedIds} handleSpeak={handleSpeak} isSubmitted={false} />
                 )}
+
+                {activeMode === 'shadowing' && (
+                  <ShadowingBlock
+                    vocabCards={vocabCards}
+                    handleSpeak={handleSpeak}
+                    isSubmitted={false}
+                    onShadowingResult={handleShadowingResult}
+                    onProgressUpdate={handleProgressUpdate}
+                  />
+                )}
               </>
             )}
           </div>
@@ -613,7 +651,8 @@ export function VocabularyExercise({
             <div className="pt-6 border-t border-white/5 space-y-4 max-w-3xl mx-auto w-full">
               <div className="flex justify-between items-center text-xs font-bold text-muted-foreground uppercase tracking-widest px-2">
                 <span>
-                  {activeMode === 'test' ? `Đã trả lời: ${Object.keys(mcAnswers).length} / ${vocabCards.length}` : 
+                  {activeMode === 'test' ? `Đã trả lời: ${Object.keys(mcAnswers).length} / ${vocabCards.length}` :
+                   activeMode === 'shadowing' ? `Đã shadow: ${Object.keys(shadowingResults).length} / ${vocabCards.length}` :
                    `Đã điền: ${vocabCards.filter(c => (textAnswers[c.word] || '').trim()).length} / ${vocabCards.length}`}
                 </span>
                 <span className={calculateScore() >= 80 ? 'text-emerald-400' : 'text-foreground'}>
@@ -648,8 +687,8 @@ export function VocabularyExercise({
           />
           
           {/* Drawer Panel */}
-          <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-transform duration-300 ease-out transform ${
-            isMobileMapOpen ? 'translate-y-0' : 'translate-y-full'
+          <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-all duration-300 ease-out transform ${
+            isMobileMapOpen ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-full opacity-0 pointer-events-none'
           }`}>
             <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-5" />
             
@@ -715,7 +754,7 @@ export function VocabularyExercise({
               </div>
 
               {/* Sơ đồ câu hỏi trong chế độ xem lại hoặc tự học */}
-              {(isSubmitted || !isRequirementWorkflow) && (activeMode === 'dictation' || activeMode === 'test') && (
+              {(isSubmitted || !isRequirementWorkflow) && (activeMode === 'dictation' || activeMode === 'test' || activeMode === 'shadowing') && (
                 <div className="space-y-2.5 pt-4 border-t border-white/5">
                   <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Chi tiết câu hỏi</p>
                   <div className="grid grid-cols-5 gap-2 max-w-sm mx-auto">

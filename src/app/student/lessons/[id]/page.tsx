@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { getAssignment, Assignment, submitVocabularyAssignment, Submission, getStudentNames, getStudentSubmission, getStudentVocabProgress, STAGE_CONFIG } from '@/lib/local-store';
 import { 
   ArrowLeft, BookOpen, Search, Volume2, 
-  Layers, Headphones, FileText, LayoutGrid, X
+  Layers, Headphones, FileText, LayoutGrid, X, Mic
 } from 'lucide-react';
 import { VocabularyExercise } from '@/components/exercises/VocabularyExercise';
 import { RaceTrackLeaderboard } from '@/components/ui/RaceTrackLeaderboard';
@@ -157,7 +157,7 @@ export default function LessonDetailPage() {
       {/* Action Grid (Study Modes) */}
       <div className="space-y-3 fade-in stagger-1">
         <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Các Chế Độ Học Tập</h2>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <button onClick={() => openMode('flashcard')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-emerald-500/20 hover:border-emerald-500/40 group">
             <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
               <Layers className="w-6 h-6" />
@@ -198,13 +198,23 @@ export default function LessonDetailPage() {
             </div>
           </button>
 
-          <button onClick={() => openMode('game_match')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-rose-500/20 hover:border-rose-500/40 group col-span-2 md:col-span-1">
+          <button onClick={() => openMode('game_match')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-rose-500/20 hover:border-rose-500/40 group">
             <div className="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-400 group-hover:bg-rose-500/20 transition-colors">
               <LayoutGrid className="w-6 h-6" />
             </div>
             <div>
               <p className="font-bold text-foreground text-sm">Nối Từ</p>
               <p className="text-[10px] text-muted-foreground">Minigame trí nhớ</p>
+            </div>
+          </button>
+
+          <button onClick={() => openMode('shadowing')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-emerald-500/20 hover:border-emerald-500/40 group">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
+              <Mic className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="font-bold text-foreground text-sm">Shadowing</p>
+              <p className="text-[10px] text-muted-foreground">Luyện phát âm</p>
             </div>
           </button>
         </div>

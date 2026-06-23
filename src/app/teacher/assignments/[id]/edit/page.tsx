@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { getAssignment, updateAssignment } from '@/lib/local-store';
 import { ArrowLeft, CheckCircle2, Clock, BookOpen } from 'lucide-react';
-import { VocabForm, QuizForm, RewriteVocabForm, DictationForm, VocabularyForm } from '@/components/forms/AssignmentForms';
+import { VocabForm, QuizForm, RewriteVocabForm, DictationForm, VocabularyForm, ShadowingForm } from '@/components/forms/AssignmentForms';
 
 export default function EditAssignmentPage() {
   const router = useRouter();
@@ -13,7 +13,7 @@ export default function EditAssignmentPage() {
   const [assignment, setAssignment] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [skill, setSkill] = useState<'Vocab' | 'Grammar' | 'Reading' | 'Listening' | 'Writing'>('Vocab');
+  const [skill, setSkill] = useState<'Vocab' | 'Grammar' | 'Reading' | 'Listening' | 'Writing' | 'Speaking'>('Vocab');
   const [createdAtDate, setCreatedAtDate] = useState('');
 
   useEffect(() => {
@@ -103,6 +103,7 @@ export default function EditAssignmentPage() {
               <option value="Listening">Nghe chép (Listening)</option>
               <option value="Reading">Đọc hiểu (Reading)</option>
               <option value="Writing">Viết (Writing)</option>
+              <option value="Speaking">Nói (Speaking)</option>
             </select>
             <p className="text-xs text-muted-foreground">
               Chọn nhóm kĩ năng để phân tích điểm số và biểu đồ radar cho học sinh.
@@ -117,6 +118,7 @@ export default function EditAssignmentPage() {
           {assignment.type === 'rewrite_vocab' && <RewriteVocabForm onSave={handleSave} isSaving={isSaving} initialData={assignment} />}
           {assignment.type === 'dictation' && <DictationForm onSave={handleSave} isSaving={isSaving} initialData={assignment} />}
           {assignment.type === 'vocabulary' && <VocabularyForm onSave={handleSave} isSaving={isSaving} initialData={assignment} />}
+          {assignment.type === 'shadowing' && <ShadowingForm onSave={handleSave} isSaving={isSaving} initialData={assignment} />}
         </div>
       </div>
     </div>

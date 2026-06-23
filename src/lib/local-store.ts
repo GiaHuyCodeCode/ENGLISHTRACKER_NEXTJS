@@ -61,10 +61,17 @@ export interface DictationResult {
   replayCount: number; // Số lần replay
 }
 
+export interface ShadowingResult {
+  word: string;
+  recognized: string;  // transcript từ SpeechRecognition
+  accuracy: number;    // 0–100, levenshtein word-overlap score
+  attempts: number;
+}
+
 export interface Assignment {
   id: string;
   title: string;
-  type: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary';
+  type: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary' | 'shadowing';
   passage?: string;
   keywords?: VocabKeyword[];
   questions?: QuizQuestion[];
@@ -72,8 +79,8 @@ export interface Assignment {
   imageUrl?: string;
   allowHints?: boolean;
   createdAt: string;
-  skill?: 'Vocab' | 'Grammar' | 'Reading' | 'Listening' | 'Writing';
-  // Dictation-specific fields
+  skill?: 'Vocab' | 'Grammar' | 'Reading' | 'Listening' | 'Writing' | 'Speaking';
+  // Dictation / Shadowing fields
   sentences?: DictationSentence[];
 }
 
@@ -94,13 +101,14 @@ export interface Submission {
   id: string;
   assignmentId: string;
   assignmentTitle: string;
-  assignmentType: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary';
+  assignmentType: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary' | 'shadowing';
   studentName: string;
   score: number;
   vocabAnswers?: VocabAnswerResult[];
   quizAnswers?: QuizAnswerResult[];
   rewriteAnswers?: RewriteAnswerResult;
   dictationResults?: DictationResult[];
+  shadowingResults?: ShadowingResult[];
   feedback?: string;
   durationMs?: number;
   submittedAt: string;
@@ -480,9 +488,27 @@ export function syncAllFromCloud(cloudData: any): boolean {
     hasChanges = true;
   }
 
-  // 1. Assignments (Overwrite completely to support deletions from Cloud)
+  // 1. Assignments — merge strategy:
+  //    - Cloud is authoritative for IDs it knows about, EXCEPT when cloud version
+  //      is missing critical data (e.g. GAS doesn't store `sentences` for shadowing).
+  //    - Local-only assignments (IDs not in cloud) are always preserved.
   if (Array.isArray(cloudData.assignments)) {
-    write(KEYS.assignments, cloudData.assignments);
+    const local = getAssignments();
+    const localMap = new Map(local.map(a => [a.id, a]));
+    const merged = cloudData.assignments.map((cloudA: any) => {
+      const localA = localMap.get(cloudA.id);
+      if (!localA) return cloudA; // New from cloud
+      // Prefer local for shadowing when cloud lacks sentences (GAS schema gap)
+      if ((localA.type === 'shadowing' || localA.type === 'dictation') &&
+          Array.isArray(localA.sentences) && !Array.isArray(cloudA.sentences)) {
+        return localA;
+      }
+      return cloudA; // Cloud is authoritative otherwise
+    });
+    // Preserve local-only assignments not present in cloud at all
+    const cloudIds = new Set(cloudData.assignments.map((a: any) => a.id));
+    const localOnly = local.filter(a => !cloudIds.has(a.id));
+    write(KEYS.assignments, [...merged, ...localOnly]);
     hasChanges = true;
   }
 
@@ -870,6 +896,37 @@ export function submitDictation(payload: {
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);
   syncSubmissionToSheet(sub);
+  return sub;
+}
+
+export function submitSentenceShadowing(payload: {
+  assignmentId: string;      // 'shadowing_' + dictationId OR standalone shadowingId
+  assignmentTitle: string;
+  studentName: string;
+  results: { sentenceId: number; recognized: string; accuracy: number; attempts: number }[];
+  durationMs?: number;
+}): Submission {
+  const score = payload.results.length > 0
+    ? Math.round(payload.results.reduce((sum, r) => sum + r.accuracy, 0) / payload.results.length)
+    : 0;
+
+  const sub: Submission = {
+    id: crypto.randomUUID(),
+    assignmentId: payload.assignmentId,
+    assignmentTitle: payload.assignmentTitle,
+    assignmentType: 'shadowing',
+    studentName: payload.studentName,
+    score,
+    shadowingResults: payload.results.map(r => ({
+      word: String(r.sentenceId),
+      recognized: r.recognized,
+      accuracy: r.accuracy,
+      attempts: r.attempts,
+    })),
+    durationMs: payload.durationMs,
+    submittedAt: new Date().toISOString(),
+  };
+  write(KEYS.submissions, [...getSubmissions(), sub]);
   return sub;
 }
 

@@ -261,3 +261,9 @@
 .animate-slide-in-right {
   animation: slide-in-right 0.28s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
+
+/* ── Shadowing Waveform Bars ──────────────────────────────────────────────── */
+@keyframes waveformBar {
+  from { transform: scaleY(0.25); }
+  to   { transform: scaleY(1);    }
+}

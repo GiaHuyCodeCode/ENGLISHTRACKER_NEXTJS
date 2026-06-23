@@ -207,8 +207,9 @@ export default function DictationExercisePage() {
         setFeedback(null);
         setInput('');
         setWrongWords([]);
-        if (currentIdx + 1 >= sentences.length) {
-          // All done
+        
+        if (newCompleted.size >= sentences.length) {
+          // All done — submit dictation then move to shadowing phase
           const results: DictationResult[] = sentences.map((s, i) => ({
             sentenceId: s.id,
             studentText: '',
@@ -216,15 +217,25 @@ export default function DictationExercisePage() {
             errors: [],
             replayCount: 0,
           }));
-          submitDictation({ 
-            assignmentId, 
-            studentName, 
+          submitDictation({
+            assignmentId,
+            studentName,
             results,
             durationMs: Date.now() - startTimeRef.current,
           });
           setShowDone(true);
         } else {
-          setCurrentIdx(i => i + 1);
+          let nextIdx = currentIdx + 1;
+          while (nextIdx < sentences.length && newCompleted.has(nextIdx)) {
+            nextIdx++;
+          }
+          if (nextIdx >= sentences.length) {
+            nextIdx = 0;
+            while (nextIdx < sentences.length && newCompleted.has(nextIdx)) {
+              nextIdx++;
+            }
+          }
+          setCurrentIdx(nextIdx);
         }
       }, 1200);
     } else {
@@ -257,6 +268,15 @@ export default function DictationExercisePage() {
     setFeedback(null);
     setWrongWords([]);
     setShowDone(false);
+  };
+
+  const handleJump = (i: number) => {
+    if (showDone) return;
+    setCurrentIdx(i);
+    setFeedback(null);
+    setInput('');
+    setWrongWords([]);
+    setIsMobileMapOpen(false);
   };
 
   const progress = sentences.length > 0 ? Math.round((completedIdx.size / sentences.length) * 100) : 0;
@@ -396,8 +416,8 @@ export default function DictationExercisePage() {
                       if (feedback === 'wrong') { setFeedback(null); setWrongWords([]); }
                     }
                   }}
-                  disabled={feedback === 'correct'}
-                  onKeyDown={e => { if (e.key === 'Enter' && input.trim() && feedback !== 'correct') handleCheck(); }}
+                  disabled={feedback === 'correct' || completedIdx.has(currentIdx)}
+                  onKeyDown={e => { if (e.key === 'Enter' && input.trim() && feedback !== 'correct' && !completedIdx.has(currentIdx)) handleCheck(); }}
                   placeholder="Nghe và gõ câu tiếng Anh vào đây..."
                   className={`input-field w-full text-base transition-all ${
                     feedback === 'correct' ? 'border-emerald-500/50 bg-emerald-500/5' :
@@ -461,7 +481,7 @@ export default function DictationExercisePage() {
               )}
 
               {/* Check Button */}
-              {feedback === null && (
+              {feedback === null && !completedIdx.has(currentIdx) && (
                 <button
                   onClick={handleCheck}
                   disabled={!input.trim()}
@@ -469,6 +489,11 @@ export default function DictationExercisePage() {
                 >
                   <CheckCircle2 className="h-4 w-4" /> Kiểm Tra
                 </button>
+              )}
+              {completedIdx.has(currentIdx) && (
+                 <div className="w-full py-3 rounded-xl bg-emerald-500/10 text-emerald-400 font-bold text-sm flex items-center justify-center gap-2 border border-emerald-500/20">
+                   <CheckCircle2 className="h-4 w-4" /> Đã hoàn thành câu này
+                 </div>
               )}
             </div>
 
@@ -525,13 +550,16 @@ export default function DictationExercisePage() {
                 </div>
                 <div className="grid grid-cols-5 gap-2">
                   {sentences.map((_, i) => (
-                    <div key={i} className={`aspect-square rounded-xl flex items-center justify-center text-xs font-bold transition-all ${
+                    <button 
+                      key={i} 
+                      onClick={() => handleJump(i)}
+                      className={`aspect-square rounded-xl flex items-center justify-center text-xs font-bold transition-all hover-lift ${
                       completedIdx.has(i) ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
                       i === currentIdx ? 'bg-sky-500/20 text-sky-400 border border-sky-500/50 scale-105' :
-                      'bg-secondary/40 text-muted-foreground/50 border border-white/5'
+                      'bg-secondary/40 text-muted-foreground hover:bg-white/10 hover:text-foreground border border-white/5'
                     }`}>
                       {i + 1}
-                    </div>
+                    </button>
                   ))}
                 </div>
                 
@@ -558,8 +586,8 @@ export default function DictationExercisePage() {
           />
           
           {/* Drawer Panel */}
-          <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-transform duration-300 ease-out transform ${
-            isMobileMapOpen ? 'translate-y-0' : 'translate-y-full'
+          <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-all duration-300 ease-out transform ${
+            isMobileMapOpen ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-full opacity-0 pointer-events-none'
           }`}>
             <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-5" />
             
@@ -605,16 +633,17 @@ export default function DictationExercisePage() {
                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Chi tiết các câu</p>
                 <div className="grid grid-cols-5 gap-2 max-w-sm mx-auto">
                   {sentences.map((_, i) => (
-                    <div 
+                    <button 
                       key={i} 
-                      className={`w-10 h-10 mx-auto rounded-xl flex items-center justify-center text-xs font-bold transition-all ${
+                      onClick={() => handleJump(i)}
+                      className={`w-10 h-10 mx-auto rounded-xl flex items-center justify-center text-xs font-bold transition-all hover-lift ${
                         completedIdx.has(i) ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
                         i === currentIdx ? 'bg-sky-500/20 text-sky-400 border-sky-500/50 scale-105' :
-                        'bg-secondary/40 text-muted-foreground/50 border border-white/5'
+                        'bg-secondary/40 text-muted-foreground hover:bg-white/10 hover:text-foreground border border-white/5'
                       }`}
                     >
                       {i + 1}
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>

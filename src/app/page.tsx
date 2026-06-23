@@ -14,7 +14,7 @@ import { StudentTimeChart } from '@/components/ui/StudentTimeChart';
 import { toLocalDateString } from '@/lib/utils';
 import { 
   Users, BookOpen, Clock, Target, Edit2, Save, X, XCircle,
-  Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2, Lightbulb, Settings, Loader2, RefreshCw, FileJson, Volume2, Headphones, Calendar
+  Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2, Lightbulb, Settings, Loader2, RefreshCw, FileJson, Volume2, Headphones, Calendar, Mic
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -108,6 +108,14 @@ export default function TeacherDashboard() {
     seedIfEmpty();
     refreshData();
   }, []);
+
+  // Re-read local assignments whenever switching to management tab, so newly
+  // created assignments are visible before (or if) the cloud sync responds.
+  useEffect(() => {
+    if (activeTab === 'assignments_mgmt') {
+      setAssignments(getAssignments());
+    }
+  }, [activeTab]);
 
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean, action: () => void, title: string, message: string } | null>(null);
   const [addStudentDialog, setAddStudentDialog] = useState(false);
@@ -790,6 +798,7 @@ export default function TeacherDashboard() {
                   { value: 'Reading', label: 'Đọc hiểu (Reading)' },
                   { value: 'Listening', label: 'Nghe chép (Listening)' },
                   { value: 'Writing', label: 'Viết (Writing)' },
+                  { value: 'Speaking', label: 'Nói (Speaking)' },
                 ].map(opt => (
                   <button
                     key={opt.value}
@@ -868,22 +877,25 @@ export default function TeacherDashboard() {
                           skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-400' :
                           skill === 'Reading' ? 'bg-amber-500/10 text-amber-400' :
                           skill === 'Listening' ? 'bg-sky-500/10 text-sky-400' :
+                          skill === 'Speaking' ? 'bg-teal-500/10 text-teal-400' :
                           'bg-red-500/10 text-red-400'
                         }`}>
                           {a.type === 'vocab_context' ? <BookOpen className="h-5 w-5" /> :
                            a.type === 'multiple_choice' ? <ListChecks className="h-5 w-5" /> :
                            a.type === 'dictation' ? <Headphones className="h-5 w-5" /> :
                            a.type === 'vocabulary' ? <FileJson className="h-5 w-5" /> :
+                           a.type === 'shadowing' ? <Mic className="h-5 w-5" /> :
                            <PenTool className="h-5 w-5" />}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">{a.title}</p>
                           <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                              skill === 'Vocab' ? 'bg-violet-500/10 text-violet-300 border-violet-500/20' :
-                              skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' :
-                              skill === 'Reading' ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' :
-                              skill === 'Listening' ? 'bg-sky-500/10 text-sky-300 border-sky-500/20' :
+                              skill === 'Vocab'    ? 'bg-violet-500/10 text-violet-300 border-violet-500/20' :
+                              skill === 'Grammar'  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' :
+                              skill === 'Reading'  ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' :
+                              skill === 'Listening'? 'bg-sky-500/10 text-sky-300 border-sky-500/20' :
+                              skill === 'Speaking' ? 'bg-teal-500/10 text-teal-300 border-teal-500/20' :
                               'bg-red-500/10 text-red-300 border-red-500/20'
                             }`}>
                               {skill}
@@ -894,6 +906,7 @@ export default function TeacherDashboard() {
                                a.type === 'multiple_choice' ? `${a.questions?.length || 0} câu hỏi` :
                                a.type === 'dictation' ? `${getDictationCount(a)} câu` :
                                a.type === 'vocabulary' ? `${a.vocabCards?.length || 0} từ vựng` :
+                               a.type === 'shadowing' ? `${a.sentences?.length || 0} câu` :
                                `${a.keywords?.length || 0} từ khóa`}
                             </span>
                             {a.createdAt && (

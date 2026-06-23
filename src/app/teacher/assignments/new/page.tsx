@@ -6,21 +6,19 @@ import { saveAssignment, VocabKeyword, QuizQuestion, getVocabularyCards, Dictati
 import {
   BookOpen, ListChecks, Plus, Trash2, Upload,
   CheckCircle2, AlertCircle, ArrowLeft, Eye, FileJson, PenTool,
-  Headphones, Play, Clock, ChevronDown, Volume2
+  Headphones, Play, Clock, ChevronDown, Volume2, Mic
 } from 'lucide-react';
 
-type Tab = 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary';
+type Tab = 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary' | 'shadowing';
 
-
-
-import { VocabForm, QuizForm, RewriteVocabForm, DictationForm, VocabularyForm } from '@/components/forms/AssignmentForms';
+import { VocabForm, QuizForm, RewriteVocabForm, DictationForm, VocabularyForm, ShadowingForm } from '@/components/forms/AssignmentForms';
 
 export default function NewAssignmentPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('vocab_context');
   const [isSaving, setIsSaving] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [skill, setSkill] = useState<'Vocab' | 'Grammar' | 'Reading' | 'Listening' | 'Writing'>('Vocab');
+  const [skill, setSkill] = useState<'Vocab' | 'Grammar' | 'Reading' | 'Listening' | 'Writing' | 'Speaking'>('Vocab');
   const [createdAtDate, setCreatedAtDate] = useState(() => {
     const local = new Date();
     const offset = local.getTimezoneOffset();
@@ -37,6 +35,8 @@ export default function NewAssignmentPage() {
       setSkill('Listening');
     } else if (tab === 'rewrite_vocab') {
       setSkill('Writing');
+    } else if (tab === 'shadowing') {
+      setSkill('Speaking');
     }
   }, [tab]);
 
@@ -72,44 +72,48 @@ export default function NewAssignmentPage() {
 
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Type tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {([
-              { key: 'vocab_context' as Tab, icon: BookOpen, label: 'Điền Chuyện Chêm', desc: 'Điền nghĩa tiếng Việt', color: 'violet' },
-              { key: 'multiple_choice' as Tab, icon: ListChecks, label: 'Trắc Nghiệm', desc: 'Chọn 1 trong 4 đáp án', color: 'teal' },
-              { key: 'rewrite_vocab' as Tab, icon: PenTool, label: 'Viết Chuyện Chêm', desc: 'Học viên tự viết đoạn văn', color: 'amber' },
-              { key: 'dictation' as Tab, icon: Headphones, label: 'Dictation', desc: 'Nghe video & gõ lại câu', color: 'sky' },
-              { key: 'vocabulary' as Tab, icon: FileJson, label: 'Học Từ Vựng', desc: 'Flashcard, Quiz, Chính tả', color: 'indigo' },
-            ]).map(({ key, icon: Icon, label, desc, color }) => (
-              <button key={key} onClick={() => setTab(key)}
-                className={`group glass hover-lift rounded-2xl p-5 text-left border-2 transition-all ${
-                  tab === key
-                    ? color === 'violet' ? 'border-violet-500/50 bg-violet-500/10'
-                      : color === 'teal' ? 'border-teal-500/50 bg-teal-500/10'
-                      : color === 'amber' ? 'border-amber-500/50 bg-amber-500/10'
-                      : color === 'indigo' ? 'border-indigo-500/50 bg-indigo-500/10'
-                      : 'border-sky-500/50 bg-sky-500/10'
-                    : 'border-border hover:border-border/80'
-                }`}>
-                <Icon className={`h-6 w-6 mb-3 transition-colors ${
-                  tab === key
-                    ? color === 'violet' ? 'text-violet-400'
-                      : color === 'teal' ? 'text-teal-400'
-                      : color === 'amber' ? 'text-amber-400'
-                      : color === 'indigo' ? 'text-indigo-400'
-                      : 'text-sky-400'
-                    : 'text-muted-foreground group-hover:text-foreground'
-                }`} />
-                <p className={`font-semibold text-sm ${tab === key ? (
-                  color === 'violet' ? 'text-violet-300'
-                  : color === 'teal' ? 'text-teal-300'
-                  : color === 'amber' ? 'text-amber-300'
-                  : color === 'indigo' ? 'text-indigo-300'
-                  : 'text-sky-300'
-                ) : ''}`}>{label}</p>
-                <p className="text-xs text-muted-foreground mt-1">{desc}</p>
-              </button>
-            ))}
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {([
+            { key: 'vocab_context' as Tab, icon: BookOpen,   label: 'Điền Chuyện Chêm', desc: 'Điền nghĩa tiếng Việt',          color: 'violet'  },
+            { key: 'multiple_choice' as Tab, icon: ListChecks, label: 'Trắc Nghiệm',      desc: 'Chọn 1 trong 4 đáp án',          color: 'teal'    },
+            { key: 'rewrite_vocab' as Tab,   icon: PenTool,    label: 'Viết Chuyện Chêm', desc: 'Học viên tự viết đoạn văn',      color: 'amber'   },
+            { key: 'dictation' as Tab,       icon: Headphones, label: 'Dictation',         desc: 'Nghe & gõ lại câu',              color: 'sky'     },
+            { key: 'vocabulary' as Tab,      icon: FileJson,   label: 'Học Từ Vựng',       desc: 'Flashcard, Quiz, Chính tả',      color: 'indigo'  },
+            { key: 'shadowing' as Tab,       icon: Mic,        label: 'Shadowing',          desc: 'Nghe & nhắc lại câu (Speaking)', color: 'emerald' },
+          ]).map(({ key, icon: Icon, label, desc, color }) => (
+            <button key={key} onClick={() => setTab(key)}
+              className={`group glass hover-lift rounded-2xl p-5 text-left border-2 transition-all ${
+                tab === key
+                  ? color === 'violet'  ? 'border-violet-500/50 bg-violet-500/10'
+                  : color === 'teal'    ? 'border-teal-500/50 bg-teal-500/10'
+                  : color === 'amber'   ? 'border-amber-500/50 bg-amber-500/10'
+                  : color === 'indigo'  ? 'border-indigo-500/50 bg-indigo-500/10'
+                  : color === 'emerald' ? 'border-emerald-500/50 bg-emerald-500/10'
+                  : 'border-sky-500/50 bg-sky-500/10'
+                  : 'border-border hover:border-border/80'
+              }`}>
+              <Icon className={`h-6 w-6 mb-3 transition-colors ${
+                tab === key
+                  ? color === 'violet'  ? 'text-violet-400'
+                  : color === 'teal'    ? 'text-teal-400'
+                  : color === 'amber'   ? 'text-amber-400'
+                  : color === 'indigo'  ? 'text-indigo-400'
+                  : color === 'emerald' ? 'text-emerald-400'
+                  : 'text-sky-400'
+                  : 'text-muted-foreground group-hover:text-foreground'
+              }`} />
+              <p className={`font-semibold text-sm ${tab === key ? (
+                color === 'violet'  ? 'text-violet-300'
+                : color === 'teal'    ? 'text-teal-300'
+                : color === 'amber'   ? 'text-amber-300'
+                : color === 'indigo'  ? 'text-indigo-300'
+                : color === 'emerald' ? 'text-emerald-300'
+                : 'text-sky-300'
+              ) : ''}`}>{label}</p>
+              <p className="text-xs text-muted-foreground mt-1">{desc}</p>
+            </button>
+          ))}
+        </div>
 
         {/* Date & Skill Scheduler */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -144,6 +148,7 @@ export default function NewAssignmentPage() {
               <option value="Listening">Nghe chép (Listening)</option>
               <option value="Reading">Đọc hiểu (Reading)</option>
               <option value="Writing">Viết (Writing)</option>
+              <option value="Speaking">Nói (Speaking)</option>
             </select>
             <p className="text-xs text-muted-foreground">
               Chọn nhóm kĩ năng để phân tích điểm số và biểu đồ radar cho học sinh.
@@ -158,6 +163,7 @@ export default function NewAssignmentPage() {
           {tab === 'rewrite_vocab' && <RewriteVocabForm onSave={d => handleSave(d, 'rewrite_vocab')} isSaving={isSaving} />}
           {tab === 'dictation' && <DictationForm onSave={d => handleSave(d as any, 'dictation')} isSaving={isSaving} />}
           {tab === 'vocabulary' && <VocabularyForm onSave={d => handleSave(d, 'vocabulary')} isSaving={isSaving} />}
+          {tab === 'shadowing' && <ShadowingForm onSave={d => handleSave(d as any, 'shadowing')} isSaving={isSaving} />}
         </div>
       </div>
     </div>

@@ -50,6 +50,18 @@ export const mockAssignments: Assignment[] = [
       { id: 1, question: "Which word means 'outdated'?", options: ['Obsolete', 'Intricate', 'Fluctuate', 'Accommodate'], answer: 'Obsolete', explanation: 'Obsolete means no longer produced or used.' }
     ],
     createdAt: d(7)
+  },
+  {
+    id: 'a5',
+    title: 'Shadowing – Daily Life (Mock)',
+    type: 'shadowing',
+    skill: 'Speaking',
+    sentences: [
+      { id: 1, text: "Every morning I wake up at six o'clock.", startTime: 0 },
+      { id: 2, text: "Then I brush my teeth and wash my face.", startTime: 5 },
+      { id: 3, text: "After breakfast I usually go for a walk in the park.", startTime: 10 },
+    ],
+    createdAt: d(5)
   }
 ];
 

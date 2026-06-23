@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { VocabKeyword, QuizQuestion, DictationSentence, getVocabularyCards } from '@/lib/local-store';
-import { BookOpen, ListChecks, Plus, Trash2, Upload, CheckCircle2, AlertCircle, ArrowLeft, Eye, FileJson, PenTool, Headphones, Play, Clock, ChevronDown, Volume2, Save, X, XCircle, Search, Copy } from 'lucide-react';
+import { BookOpen, ListChecks, Plus, Trash2, Upload, CheckCircle2, AlertCircle, ArrowLeft, Eye, FileJson, PenTool, Headphones, Play, Clock, ChevronDown, Volume2, Save, X, XCircle, Search, Copy, Mic } from 'lucide-react';
 
 // YouTube URL parser
 export function extractYoutubeId(url: string): string | null {
@@ -873,6 +873,184 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
         className="w-full py-3.5 rounded-xl bg-violet-600 text-white font-semibold text-sm hover:bg-violet-500 disabled:opacity-40 transition-all shadow-[0_0_20px_rgba(124,58,237,0.25)] flex items-center justify-center gap-2">
         <CheckCircle2 className="h-4 w-4" />
         {isSaving ? 'Đang lưu...' : '✓ Xác nhận & Lưu Bài Tập Từ Vựng'}
+      </button>
+    </div>
+  );
+}
+
+// ── Shadowing Form ───────────────────────────────────────────────────────────
+
+export function ShadowingForm({ onSave, isSaving, initialData }: {
+  onSave: (d: any) => void;
+  isSaving: boolean;
+  initialData?: any;
+}) {
+  const [title, setTitle] = useState(initialData?.title || '');
+
+  const initSentences = () => {
+    let s = initialData?.sentences;
+    if (!s) return [{ id: 1, text: '', startTime: 0 }];
+    if (typeof s === 'string') {
+      try { s = JSON.parse(s); } catch { s = []; }
+    }
+    return Array.isArray(s) && s.length > 0 ? s : [{ id: 1, text: '', startTime: 0 }];
+  };
+
+  const [sentences, setSentences] = useState<DictationSentence[]>(initSentences());
+  const [error, setError] = useState('');
+  const [jsonText, setJsonText] = useState(() =>
+    initialData?.sentences
+      ? JSON.stringify({ title: initialData.title, sentences: initSentences() }, null, 2)
+      : '',
+  );
+
+  const parseJson = (raw: string) => {
+    try {
+      const json = JSON.parse(raw);
+      if (!Array.isArray(json.sentences) || json.sentences.length === 0) {
+        setError('File JSON phải có trường "sentences" là mảng không rỗng.');
+        return;
+      }
+      const parsed: DictationSentence[] = json.sentences.map((s: any, i: number) => ({
+        id: s.id ?? i + 1,
+        text: s.text || '',
+        startTime: s.startTime ?? 0,
+      }));
+      setSentences(parsed);
+      if (json.title && !title) setTitle(json.title);
+      setError('');
+    } catch {
+      setError('JSON không hợp lệ. Vui lòng kiểm tra lại định dạng.');
+    }
+  };
+
+  const addSentence = () => setSentences(prev => [...prev, { id: prev.length + 1, text: '', startTime: 0 }]);
+  const updateSentence = (idx: number, value: string) =>
+    setSentences(prev => prev.map((s, i) => i === idx ? { ...s, text: value } : s));
+  const removeSentence = (idx: number) =>
+    setSentences(prev => prev.filter((_, i) => i !== idx).map((s, i) => ({ ...s, id: i + 1 })));
+
+  const handleSave = () => {
+    if (!title.trim()) { setError('Vui lòng nhập tiêu đề bài tập'); return; }
+    const valid = sentences.filter(s => s.text.trim());
+    if (valid.length === 0) { setError('Vui lòng nhập ít nhất 1 câu'); return; }
+    setError('');
+    onSave({ title, sentences: valid });
+  };
+
+  const handleSpeak = (text: string) => {
+    if (typeof window === 'undefined') return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'en-US';
+    utt.rate = 0.85;
+    window.speechSynthesis.speak(utt);
+  };
+
+  const jsonSample = `{
+  "title": "Tên bài Shadowing",
+  "sentences": [
+    { "id": 1, "text": "Every morning I wake up at six o'clock." },
+    { "id": 2, "text": "Then I brush my teeth and wash my face." }
+  ]
+}`;
+
+  return (
+    <div className="space-y-6">
+      {/* Guide */}
+      <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-sm">
+        <div className="flex items-center gap-2 font-semibold text-emerald-400 mb-2">
+          <Mic className="h-4 w-4" /> Tạo bài Shadowing — Luyện Nói
+        </div>
+        <ol className="list-decimal list-inside text-xs text-muted-foreground space-y-1">
+          <li>Nhập danh sách câu mà học viên cần nhắc lại (shadowing)</li>
+          <li>Học viên sẽ nghe TTS đọc, sau đó tự nói lại vào microphone</li>
+          <li>Hệ thống tự nhận diện giọng nói và tính điểm chính xác</li>
+        </ol>
+      </div>
+
+      {/* JSON sample */}
+      <div className="p-4 rounded-xl bg-secondary/30 border border-white/5">
+        <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Định dạng JSON mẫu</p>
+        <pre className="text-xs text-emerald-400 font-mono bg-black/30 p-3 rounded-lg overflow-x-auto">{jsonSample}</pre>
+      </div>
+
+      {/* Title */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-foreground/80">Tiêu đề bài tập</label>
+        <input value={title} onChange={e => setTitle(e.target.value)} className="input-field"
+          placeholder="VD: Shadowing Unit 3 – Daily Routines" />
+      </div>
+
+      {/* Paste JSON */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-foreground/80 flex items-center justify-between">
+          <span>Dán JSON vào đây</span>
+          <span className="text-xs text-muted-foreground font-normal">Tự động điền danh sách câu</span>
+        </label>
+        <textarea
+          value={jsonText}
+          onChange={e => { setJsonText(e.target.value); if (e.target.value.trim()) parseJson(e.target.value); }}
+          rows={8}
+          className="input-field font-mono text-xs w-full p-4 resize-y"
+          placeholder="Dán cấu trúc JSON vào đây..."
+        />
+      </div>
+
+      {/* Sentences editor */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-foreground/80">
+            Danh sách câu ({sentences.filter(s => s.text.trim()).length} câu)
+          </label>
+        </div>
+        <div className="space-y-3">
+          {sentences.map((s, idx) => (
+            <div key={idx} className="glass rounded-2xl border border-white/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-400 uppercase">Câu {idx + 1}</span>
+                <div className="flex items-center gap-2">
+                  {s.text.trim() && (
+                    <button
+                      onClick={() => handleSpeak(s.text)}
+                      className="p-1 text-muted-foreground/50 hover:text-emerald-400 transition-colors"
+                      title="Nghe thử"
+                    >
+                      <Volume2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {sentences.length > 1 && (
+                    <button onClick={() => removeSentence(idx)} className="p-1 text-muted-foreground/40 hover:text-red-400 transition-colors">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <textarea
+                value={s.text}
+                onChange={e => updateSentence(idx, e.target.value)}
+                rows={2}
+                className="input-field text-sm w-full resize-none"
+                placeholder={`Nội dung câu ${idx + 1}...`}
+              />
+            </div>
+          ))}
+        </div>
+        <button onClick={addSentence} className="flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 transition-colors">
+          <Plus className="h-4 w-4" /> Thêm câu
+        </button>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
+        </div>
+      )}
+
+      <button onClick={handleSave} disabled={isSaving}
+        className="w-full py-3.5 rounded-xl bg-emerald-500 text-white font-semibold text-sm hover:bg-emerald-400 disabled:opacity-40 transition-all shadow-[0_0_20px_rgba(16,185,129,0.25)] flex items-center justify-center gap-2">
+        <Mic className="h-4 w-4" />
+        {isSaving ? 'Đang lưu...' : '✓ Lưu Bài Tập Shadowing'}
       </button>
     </div>
   );

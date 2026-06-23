@@ -453,8 +453,8 @@ export default function StudentReviewPage() {
         />
         
         {/* Drawer Panel */}
-        <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-transform duration-300 ease-out transform ${
-          isMobileMapOpen ? 'translate-y-0' : 'translate-y-full'
+        <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-all duration-300 ease-out transform ${
+          isMobileMapOpen ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-full opacity-0 pointer-events-none'
         }`}>
           <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-5" />
           

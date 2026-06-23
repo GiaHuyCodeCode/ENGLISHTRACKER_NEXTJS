@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { QuizQuestion, QuizAnswerResult, Submission, getStudentAvatar, getStudentColors } from '@/lib/local-store';
 import { CheckCircle2, XCircle, Send, Star, X } from 'lucide-react';
 import { ExerciseTimer } from '@/components/ui/ExerciseTimer';
@@ -24,9 +24,36 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
   const [selected, setSelected] = useState<Record<number, string>>({});
   const [revealedHints, setRevealedHints] = useState<Set<number>>(new Set());
   const [isMobileMapOpen, setIsMobileMapOpen] = useState(false);
+  const [autoSubmitCountdown, setAutoSubmitCountdown] = useState<number | null>(null);
+  
   const isSubmitted = !!result;
   const answered = Object.keys(selected).length;
   const remaining = questions.length - answered;
+
+  useEffect(() => {
+    if (isSubmitted || isSubmitting) {
+      setAutoSubmitCountdown(null);
+      return;
+    }
+    if (remaining === 0 && questions.length > 0) {
+      setAutoSubmitCountdown(10);
+    } else {
+      setAutoSubmitCountdown(null);
+    }
+  }, [remaining, isSubmitted, isSubmitting, questions.length]);
+
+  useEffect(() => {
+    if (autoSubmitCountdown === null || autoSubmitCountdown <= 0) return;
+    const timer = setTimeout(() => {
+      if (autoSubmitCountdown === 1) {
+        handleSubmit();
+        setAutoSubmitCountdown(null);
+      } else {
+        setAutoSubmitCountdown(prev => prev ? prev - 1 : null);
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [autoSubmitCountdown]);
 
   const getResult = (qid: number) => result?.find(r => String(r.questionId) === String(qid));
 
@@ -133,7 +160,7 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 disabled:opacity-40 transition-all glow-primary shadow-xl"
               >
                 <Send className="h-4 w-4" />
-                {isSubmitting ? 'Đang chấm...' : answered < questions.length ? `Nộp bài (${answered}/${questions.length})` : 'Nộp Bài'}
+                {isSubmitting ? 'Đang chấm...' : answered < questions.length ? `Nộp bài (${answered}/${questions.length})` : (autoSubmitCountdown !== null ? `Tự động nộp sau ${autoSubmitCountdown}s` : 'Hoàn Thành & Nộp Bài')}
               </button>
               {remaining > 0 && (
                 <p className="text-[10.5px] text-amber-400 text-center mt-2.5 font-semibold">
@@ -330,6 +357,24 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
           </div>
         );
       })}
+      {/* Submit Section (Mobile Only or Always visible at bottom) */}
+      {!isSubmitted && (
+        <div className="pt-6 border-t border-white/5 space-y-4 max-w-3xl mx-auto w-full lg:hidden">
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting || answered === 0}
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 disabled:opacity-40 transition-all glow-primary shadow-xl"
+          >
+            <Send className="h-5 w-5" />
+            {isSubmitting ? 'Đang chấm...' : answered < questions.length ? `Nộp bài (${answered}/${questions.length})` : (autoSubmitCountdown !== null ? `Tự động nộp sau ${autoSubmitCountdown}s` : 'Hoàn Thành & Nộp Bài')}
+          </button>
+          {remaining > 0 && (
+            <p className="text-xs text-amber-400 text-center font-semibold">
+              Còn {remaining} câu chưa làm
+            </p>
+          )}
+        </div>
+      )}
       </div>
     </div>
 
@@ -345,8 +390,8 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
         />
         
         {/* Drawer Panel */}
-        <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-transform duration-300 ease-out transform ${
-          isMobileMapOpen ? 'translate-y-0' : 'translate-y-full'
+        <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-all duration-300 ease-out transform ${
+          isMobileMapOpen ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-full opacity-0 pointer-events-none'
         }`}>
           <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-5" />
           
@@ -440,7 +485,7 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 disabled:opacity-40 transition-all shadow-lg"
                 >
                   <Send className="h-4 w-4" />
-                  {isSubmitting ? 'Đang chấm...' : answered < questions.length ? `Nộp bài (${answered}/${questions.length})` : 'Nộp Bài'}
+                  {isSubmitting ? 'Đang chấm...' : answered < questions.length ? `Nộp bài (${answered}/${questions.length})` : (autoSubmitCountdown !== null ? `Tự động nộp sau ${autoSubmitCountdown}s` : 'Nộp Bài')}
                 </button>
                 {remaining > 0 && (
                   <p className="text-[10px] text-amber-400 text-center mt-2 font-semibold">

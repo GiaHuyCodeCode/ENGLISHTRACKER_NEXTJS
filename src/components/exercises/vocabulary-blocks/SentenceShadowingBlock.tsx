@@ -1,0 +1,421 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { DictationSentence } from '@/lib/local-store';
+import {
+  Volume2, Mic, ChevronLeft, ChevronRight,
+  CheckCircle2, XCircle, AlertCircle, Eye, Send,
+} from 'lucide-react';
+import { useSpeechRecognition } from './useSpeechRecognition';
+
+export interface SentenceShadowingResult {
+  sentenceId: number;
+  recognized: string;
+  accuracy: number;
+  attempts: number;
+}
+
+interface Props {
+  sentences: DictationSentence[];
+  onComplete: (results: SentenceShadowingResult[]) => void;
+  onSkip?: () => void;
+}
+
+function normalize(s: string) {
+  return s.trim().toLowerCase().replace(/[^a-z0-9\s']/g, '').replace(/\s+/g, ' ');
+}
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)),
+  );
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+  return dp[m][n];
+}
+
+function fuzzyOk(a: string, b: string): boolean {
+  if (a === b) return true;
+  const maxLen = Math.max(a.length, b.length);
+  return maxLen === 0 ? true : 1 - levenshtein(a, b) / maxLen >= 0.8;
+}
+
+function calcAccuracy(recognized: string, target: string): number {
+  const recWords = normalize(recognized).split(' ').filter(Boolean);
+  const tgtWords = normalize(target).split(' ').filter(Boolean);
+  if (!tgtWords.length || !recWords.length) return 0;
+  let hits = 0;
+  tgtWords.forEach((w, i) => { if (i < recWords.length && fuzzyOk(recWords[i], w)) hits++; });
+  return Math.round((hits / tgtWords.length) * 100);
+}
+
+function computeWordDiff(recognized: string, target: string): { word: string; ok: boolean }[] {
+  const recWords = normalize(recognized).split(' ').filter(Boolean);
+  return target.trim().split(/\s+/).map((word, i) => ({
+    word,
+    ok: i < recWords.length ? fuzzyOk(recWords[i], normalize(word)) : false,
+  }));
+}
+
+interface SentenceResult {
+  recognized: string;
+  accuracy: number;
+  wordDiff: { word: string; ok: boolean }[];
+}
+
+export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props) {
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [phase, setPhase] = useState<'ready' | 'recording' | 'result'>('ready');
+  const [results, setResults] = useState<Record<number, SentenceResult>>({});
+  const [attempts, setAttempts] = useState<Record<number, number>>({});
+  const [isFinished, setIsFinished] = useState(false);
+  const [isTextRevealed, setIsTextRevealed] = useState(false);
+  const [shake, setShake] = useState(false);
+
+  const phaseRef = useRef(phase);
+  const attemptsRef = useRef(attempts);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useEffect(() => { attemptsRef.current = attempts; }, [attempts]);
+
+  const { isListening, isSupported, error: speechError, start, stop } = useSpeechRecognition();
+  const currentSentence = sentences[currentIdx];
+
+  const handleSpeak = useCallback((text: string) => {
+    if (typeof window === 'undefined') return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'en-US';
+    utt.rate = 0.85;
+    window.speechSynthesis.speak(utt);
+  }, []);
+
+  useEffect(() => {
+    setCurrentIdx(0);
+    setPhase('ready');
+    setResults({});
+    setAttempts({});
+    setIsFinished(false);
+    setIsTextRevealed(false);
+  }, [sentences]);
+
+  // Auto-play TTS when sentence changes
+  useEffect(() => {
+    if (!currentSentence || isFinished) return;
+    setPhase('ready');
+    setIsTextRevealed(false);
+    const t = setTimeout(() => handleSpeak(currentSentence.text), 500);
+    return () => clearTimeout(t);
+  }, [currentIdx, isFinished, handleSpeak, currentSentence]);
+
+  useEffect(() => {
+    if (!shake) return;
+    const t = setTimeout(() => setShake(false), 400);
+    return () => clearTimeout(t);
+  }, [shake]);
+
+  const handleRecord = useCallback(() => {
+    if (!currentSentence) return;
+    if (isListening) { stop(); return; }
+    if (phase !== 'ready' && phase !== 'result') return;
+
+    const sentenceId = currentSentence.id;
+    setPhase('recording');
+
+    start((transcript) => {
+      const acc = calcAccuracy(transcript, currentSentence.text);
+      const diff = computeWordDiff(transcript, currentSentence.text);
+      const count = (attemptsRef.current[sentenceId] || 0) + 1;
+
+      setResults(prev => ({ ...prev, [sentenceId]: { recognized: transcript, accuracy: acc, wordDiff: diff } }));
+      setAttempts(prev => ({ ...prev, [sentenceId]: count }));
+      setIsTextRevealed(true);
+      if (!transcript) setShake(true);
+      setPhase('result');
+    });
+  }, [currentSentence, isListening, phase, start, stop]);
+
+  const goToNext = useCallback(() => {
+    if (phase === 'recording') return;
+    if (currentIdx < sentences.length - 1) {
+      setCurrentIdx(prev => prev + 1);
+    } else {
+      setIsFinished(true);
+    }
+  }, [currentIdx, sentences.length, phase]);
+
+  const goToPrev = useCallback(() => {
+    if (phase === 'recording' || currentIdx === 0) return;
+    setCurrentIdx(prev => prev - 1);
+  }, [currentIdx, phase]);
+
+  useEffect(() => {
+    if (isFinished) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === ' ') {
+        if ((e.target as HTMLElement).tagName === 'BUTTON') return;
+        e.preventDefault();
+        handleRecord();
+      } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
+        if ((e.target as HTMLElement).tagName === 'INPUT') return;
+        goToNext();
+      } else if (e.key === 'ArrowLeft') {
+        goToPrev();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isFinished, handleRecord, goToNext, goToPrev]);
+
+  // ── Finished screen ─────────────────────────────────────────────────────────
+  if (isFinished) {
+    const finalResults: SentenceShadowingResult[] = sentences.map(s => ({
+      sentenceId: s.id,
+      recognized: results[s.id]?.recognized || '',
+      accuracy: results[s.id]?.accuracy ?? 0,
+      attempts: attempts[s.id] || 0,
+    }));
+    const overallScore = Math.round(
+      sentences.reduce((sum, s) => sum + (results[s.id]?.accuracy ?? 0), 0) / sentences.length,
+    );
+    const masteredCount = sentences.filter(s => (results[s.id]?.accuracy ?? 0) >= 80).length;
+
+    return (
+      <div className="glass-strong rounded-3xl border border-emerald-500/30 p-8 text-center max-w-xl mx-auto space-y-6 slide-up glow-success">
+        <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20">
+          <Mic className="w-8 h-8" strokeWidth={1.5} />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-xl md:text-2xl font-bold font-heading">Shadowing Hoàn Thành!</h3>
+          <p className="text-sm text-muted-foreground">Bạn đã luyện phát âm {sentences.length} câu.</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 bg-white/5 p-5 rounded-2xl border border-white/5">
+          <div>
+            <span className="text-xs text-muted-foreground uppercase font-bold block">Độ Chính Xác</span>
+            <span className={`text-3xl font-extrabold ${overallScore >= 80 ? 'text-emerald-400' : overallScore >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+              {overallScore}%
+            </span>
+          </div>
+          <div>
+            <span className="text-xs text-muted-foreground uppercase font-bold block">Đạt Chuẩn ≥80%</span>
+            <span className="text-3xl font-extrabold text-foreground">{masteredCount}/{sentences.length}</span>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onComplete(finalResults)}
+          className="w-full py-4 bg-[#0071e3] hover:bg-[#0071e3]/90 text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-2 hover-lift"
+        >
+          <Send className="w-5 h-5" strokeWidth={1.5} />
+          Lưu Kết Quả & Xem Điểm
+        </button>
+      </div>
+    );
+  }
+
+  if (!currentSentence) return null;
+
+  const currentResult = results[currentSentence.id];
+  const isCorrect = currentResult && currentResult.accuracy >= 80;
+  const isClose   = currentResult && currentResult.accuracy >= 50 && currentResult.accuracy < 80;
+
+  return (
+    <div className={`space-y-6 max-w-3xl mx-auto w-full slide-up px-1 md:px-0 ${shake ? 'animate-shake' : ''}`}>
+
+      {!isSupported && (
+        <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-sm">
+          <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+          <p className="text-amber-200">
+            Trình duyệt chưa hỗ trợ nhận diện giọng nói.
+            Hãy dùng <strong>Chrome</strong> hoặc <strong>Edge</strong>.
+          </p>
+        </div>
+      )}
+
+      {/* Progress */}
+      <div className="space-y-1.5">
+        <div className="flex justify-between text-xs font-semibold text-muted-foreground">
+          <span>Câu {currentIdx + 1} / {sentences.length}</span>
+          <span className="text-emerald-400">{Object.keys(results).length} đã luyện</span>
+        </div>
+        <div className="w-full bg-secondary/40 h-1.5 rounded-full overflow-hidden">
+          <div
+            className="bg-emerald-500 h-full transition-all duration-500"
+            style={{ width: `${(currentIdx / sentences.length) * 100}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Card */}
+      <div className={`glass-strong rounded-3xl border p-6 md:p-8 flex flex-col items-center text-center space-y-6 transition-all duration-300 ${
+        isCorrect    ? 'border-emerald-500/30' :
+        isClose      ? 'border-amber-500/30'   :
+        currentResult ? 'border-red-500/30'    : 'border-white/5'
+      }`}>
+
+        {/* TTS button */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-emerald-500/15 rounded-full blur-xl" />
+          <button
+            onClick={() => handleSpeak(currentSentence.text)}
+            disabled={isListening}
+            className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white text-emerald-400 flex items-center justify-center transition-all shadow-md hover-lift disabled:opacity-50"
+          >
+            <Volume2 className="h-10 w-10 md:h-12 md:w-12" strokeWidth={1.5} />
+          </button>
+        </div>
+
+        {/* Sentence display */}
+        <div className="w-full space-y-3">
+          <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+            Câu cần shadowing
+          </p>
+
+          {(isTextRevealed || phase === 'result') ? (
+            currentResult ? (
+              <div className="flex flex-wrap justify-center gap-x-1.5 gap-y-1">
+                {currentResult.wordDiff.map((w, i) => (
+                  <span
+                    key={i}
+                    className={`text-lg md:text-xl font-semibold ${
+                      w.ok ? 'text-emerald-400' : 'text-red-400 line-through decoration-red-400/60'
+                    }`}
+                  >
+                    {w.word}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-lg md:text-xl font-semibold text-foreground leading-relaxed">
+                {currentSentence.text}
+              </p>
+            )
+          ) : (
+            <div className="relative flex items-center justify-center gap-3">
+              <p className="text-base text-muted-foreground italic select-none blur-sm pointer-events-none">
+                {currentSentence.text}
+              </p>
+              <button
+                onClick={() => setIsTextRevealed(true)}
+                className="absolute right-0 flex items-center gap-1 text-xs text-emerald-400/70 hover:text-emerald-400 transition-colors bg-background/80 px-2 py-1 rounded-lg"
+              >
+                <Eye className="w-3.5 h-3.5" /> Hiện
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Recording zone */}
+        <div className="w-full max-w-lg space-y-4">
+          <button
+            onClick={handleRecord}
+            disabled={!isSupported}
+            className={`w-full h-16 rounded-2xl font-bold text-sm transition-all hover-lift flex items-center justify-center gap-3 ${
+              isListening
+                ? 'bg-red-500/15 border border-red-500/40 text-red-400'
+                : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-500'
+            } disabled:opacity-40 disabled:cursor-not-allowed`}
+          >
+            {isListening ? (
+              <>
+                <div className="flex items-end gap-[3px]" style={{ height: 26 }}>
+                  {[0.4, 0.75, 1, 0.6, 0.9, 0.5, 0.7].map((h, i) => (
+                    <div
+                      key={i}
+                      className="w-[3px] bg-red-400 rounded-full"
+                      style={{
+                        height: `${h * 100}%`,
+                        transformOrigin: 'bottom',
+                        animation: `waveformBar 0.5s ease-in-out ${i * 0.07}s infinite alternate`,
+                      }}
+                    />
+                  ))}
+                </div>
+                <span>Đang nghe… (nhấn để dừng)</span>
+              </>
+            ) : (
+              <>
+                <Mic className="w-6 h-6" strokeWidth={1.5} />
+                <span>
+                  {phase === 'result' ? 'Thử Lại' : 'Nhấn & Shadow'}
+                  <span className="ml-2 text-[10px] opacity-50 font-normal">Space</span>
+                </span>
+              </>
+            )}
+          </button>
+
+          {/* Result feedback */}
+          {phase === 'result' && currentResult && (
+            <div className={`p-4 rounded-2xl border flex flex-col items-start gap-2 slide-up text-left ${
+              isCorrect ? 'bg-emerald-500/10 border-emerald-500/30 glow-success' :
+              isClose   ? 'bg-amber-500/10 border-amber-500/30' :
+                          'bg-red-500/10 border-red-500/30 glow-error'
+            }`}>
+              <div className="flex items-center gap-2 w-full text-sm font-bold">
+                {isCorrect ? (
+                  <><CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" strokeWidth={1.5} /><span className="text-emerald-400">Xuất sắc!</span></>
+                ) : isClose ? (
+                  <span className="text-amber-400">Gần đúng —</span>
+                ) : (
+                  <><XCircle className="h-5 w-5 text-red-400 shrink-0" strokeWidth={1.5} /><span className="text-red-400">Cần luyện thêm</span></>
+                )}
+                <span className={`ml-auto px-2.5 py-1 rounded-full text-xs font-extrabold ${
+                  isCorrect ? 'bg-emerald-500/20 text-emerald-300' :
+                  isClose   ? 'bg-amber-500/20 text-amber-300' :
+                              'bg-red-500/20 text-red-300'
+                }`}>
+                  {currentResult.accuracy}%
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Bạn nói:{' '}
+                <span className="font-semibold text-foreground italic">
+                  &ldquo;{currentResult.recognized || '(không nhận diện được)'}&rdquo;
+                </span>
+              </p>
+            </div>
+          )}
+
+          {speechError && (
+            <p className="text-xs text-red-400 text-center">
+              {speechError === 'not-allowed'
+                ? 'Cần cấp quyền microphone cho trình duyệt.'
+                : `Lỗi nhận diện: ${speechError}`}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="flex justify-between items-center gap-4">
+        <button
+          onClick={goToPrev}
+          disabled={currentIdx === 0 || phase === 'recording'}
+          className="px-5 py-3 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 disabled:opacity-30 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
+        >
+          <ChevronLeft className="h-4 w-4" strokeWidth={1.5} /> Câu trước
+        </button>
+
+        {onSkip && (
+          <button
+            onClick={onSkip}
+            className="px-4 py-3 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Bỏ qua →
+          </button>
+        )}
+
+        <button
+          onClick={goToNext}
+          disabled={phase === 'recording'}
+          className="px-5 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white disabled:opacity-30 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
+        >
+          {currentIdx === sentences.length - 1 ? 'Hoàn thành' : 'Câu tiếp theo'}
+          <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
+        </button>
+      </div>
+    </div>
+  );
+}
