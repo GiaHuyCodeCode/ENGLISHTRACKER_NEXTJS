@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { saveAssignment, VocabKeyword, QuizQuestion, getVocabularyCards, DictationSentence } from '@/lib/local-store';
 import {
@@ -20,6 +20,7 @@ export default function NewAssignmentPage() {
   const [tab, setTab] = useState<Tab>('vocab_context');
   const [isSaving, setIsSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [skill, setSkill] = useState<'Vocab' | 'Grammar' | 'Reading' | 'Listening' | 'Writing'>('Vocab');
   const [createdAtDate, setCreatedAtDate] = useState(() => {
     const local = new Date();
     const offset = local.getTimezoneOffset();
@@ -27,11 +28,23 @@ export default function NewAssignmentPage() {
     return localDate.toISOString().split('T')[0];
   });
 
+  useEffect(() => {
+    if (tab === 'vocab_context' || tab === 'vocabulary') {
+      setSkill('Vocab');
+    } else if (tab === 'multiple_choice') {
+      setSkill('Grammar');
+    } else if (tab === 'dictation') {
+      setSkill('Listening');
+    } else if (tab === 'rewrite_vocab') {
+      setSkill('Writing');
+    }
+  }, [tab]);
+
   const handleSave = (data: Omit<Parameters<typeof saveAssignment>[0], 'type'>, type: Tab) => {
     setIsSaving(true);
-    const createdAtISO = new Date(createdAtDate + 'T00:00:00').toISOString();
-    saveAssignment({ ...data, type, createdAt: createdAtISO } as any);
-    setTimeout(() => { setSuccess(true); setTimeout(() => router.push('/'), 1200); }, 300);
+    const createdAtISO = new Date(createdAtDate + 'T00:00:00Z').toISOString();
+    saveAssignment({ ...data, type, skill, createdAt: createdAtISO } as any);
+    setTimeout(() => { setSuccess(true); setTimeout(() => router.push('/?tab=assignments_mgmt'), 1200); }, 300);
     setIsSaving(false);
   };
 
@@ -53,7 +66,7 @@ export default function NewAssignmentPage() {
       {success && (
         <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium slide-up">
           <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
-          Đã lưu thành công! Đang về dashboard...
+          Đã lưu thành công! Đang về trang quản lý bài tập...
         </div>
       )}
 
@@ -98,21 +111,44 @@ export default function NewAssignmentPage() {
             ))}
           </div>
 
-        {/* Date Scheduler */}
-        <div className="glass rounded-2xl border border-border p-6 space-y-3">
-          <label className="text-sm font-semibold text-foreground/80 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-primary" />
-            Ngày giao bài tập (Scheduled Date)
-          </label>
-          <input
-            type="date"
-            value={createdAtDate}
-            onChange={e => setCreatedAtDate(e.target.value)}
-            className="input-field max-w-xs"
-          />
-          <p className="text-xs text-muted-foreground">
-            Bài tập sẽ chỉ hiển thị ở phía học sinh kể từ ngày được chọn này.
-          </p>
+        {/* Date & Skill Scheduler */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="glass rounded-2xl border border-border p-6 space-y-3">
+            <label className="text-sm font-semibold text-foreground/80 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-primary" />
+              Ngày giao bài tập (Scheduled Date)
+            </label>
+            <input
+              type="date"
+              value={createdAtDate}
+              onChange={e => setCreatedAtDate(e.target.value)}
+              className="input-field w-full"
+            />
+            <p className="text-xs text-muted-foreground">
+              Bài tập sẽ chỉ hiển thị ở phía học sinh kể từ ngày được chọn này.
+            </p>
+          </div>
+
+          <div className="glass rounded-2xl border border-border p-6 space-y-3">
+            <label className="text-sm font-semibold text-foreground/80 flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-primary" />
+              Kĩ năng (Skill Area)
+            </label>
+            <select
+              value={skill}
+              onChange={e => setSkill(e.target.value as any)}
+              className="input-field w-full bg-slate-900 border-border text-foreground"
+            >
+              <option value="Vocab">Từ vựng (Vocabulary)</option>
+              <option value="Grammar">Ngữ pháp (Grammar)</option>
+              <option value="Listening">Nghe chép (Listening)</option>
+              <option value="Reading">Đọc hiểu (Reading)</option>
+              <option value="Writing">Viết (Writing)</option>
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Chọn nhóm kĩ năng để phân tích điểm số và biểu đồ radar cho học sinh.
+            </p>
+          </div>
         </div>
 
         {/* Form */}

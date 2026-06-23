@@ -230,3 +230,34 @@
   100% { transform: scale(0); opacity: 0; }
 }
 .scale-out { animation: scale-out 0.4s forwards; }
+
+/* ── Flashcard Slide Transitions ────────────────────────────────────────── */
+@keyframes slide-out-left {
+  0% { transform: translateX(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateX(-150px) rotate(-6deg); opacity: 0; }
+}
+@keyframes slide-out-right {
+  0% { transform: translateX(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateX(150px) rotate(6deg); opacity: 0; }
+}
+@keyframes slide-in-left {
+  0% { transform: translateX(-120px) rotate(-4deg); opacity: 0; }
+  100% { transform: translateX(0) rotate(0deg); opacity: 1; }
+}
+@keyframes slide-in-right {
+  0% { transform: translateX(120px) rotate(4deg); opacity: 0; }
+  100% { transform: translateX(0) rotate(0deg); opacity: 1; }
+}
+
+.animate-slide-out-left {
+  animation: slide-out-left 0.28s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+.animate-slide-out-right {
+  animation: slide-out-right 0.28s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+.animate-slide-in-left {
+  animation: slide-in-left 0.28s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.28s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}

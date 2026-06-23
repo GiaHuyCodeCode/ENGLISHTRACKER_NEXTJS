@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { VocabCard, VocabAnswerResult, Submission } from '@/lib/local-store';
-import { Send, BookOpen, Layers, FileText, Headphones, LayoutGrid, ArrowRight, CheckCircle2, AlertTriangle, HelpCircle, RefreshCw } from 'lucide-react';
+import { Send, BookOpen, Layers, FileText, Headphones, LayoutGrid, ArrowRight, CheckCircle2, AlertTriangle, HelpCircle, RefreshCw, Star, X } from 'lucide-react';
 
 import { FlashcardBlock } from './vocabulary-blocks/FlashcardBlock';
 import { SynonymBlock } from './vocabulary-blocks/SynonymBlock';
@@ -71,6 +71,7 @@ export function VocabularyExercise({
 
   // Thêm state cho chế độ nghe trước/sau
   const [speakMode, setSpeakMode] = useState<'before' | 'after'>('after');
+  const [isMobileMapOpen, setIsMobileMapOpen] = useState(false);
 
   const isSubmitted = !!result;
 
@@ -135,7 +136,7 @@ export function VocabularyExercise({
     setMcAnswers(prev => ({ ...prev, [wordId]: val }));
   };
 
-  const calculateScore = () => {
+  const calculateScore = useCallback(() => {
     if (isRequirementWorkflow) {
       let testCorrect = 0;
       vocabCards.forEach(c => { if (mcAnswers[c.id] === c.word) testCorrect++; });
@@ -158,18 +159,9 @@ export function VocabularyExercise({
       if ((textAnswers[c.word] || '').trim().toLowerCase() === c.word.toLowerCase()) correct++;
     });
     return Math.round((correct / vocabCards.length) * 100);
-  };
+  }, [isRequirementWorkflow, vocabCards, mcAnswers, dictationScore, activeMode, gameMatchedIds.length, textAnswers]);
 
-  const handleDictationFinished = (score: number, dictationAnswers: Record<string, string>, attempts?: Record<string, number>) => {
-    setDictationScore(score);
-    setIsDictationFinished(true);
-    setTextAnswers(dictationAnswers);
-    if (attempts) setDictationAttempts(attempts);
-    setActiveMode('test');
-    setProgressStats(null); // Reset progress để block test cập nhật
-  };
-
-  const handleSubmitAll = () => {
+  const handleSubmitAll = useCallback(() => {
     const finalAnswers = vocabCards.map(c => {
       let studentAnswer = '';
       let isCorrect = false;
@@ -202,7 +194,40 @@ export function VocabularyExercise({
 
     const finalScore = calculateScore();
     onSubmit(finalAnswers, finalScore, dictationScore ?? undefined);
+  }, [vocabCards, isRequirementWorkflow, activeMode, mcAnswers, gameMatchedIds, synonymAnswers, textAnswers, dictationAttempts, calculateScore, onSubmit, dictationScore]);
+
+  const handleDictationFinished = (score: number, dictationAnswers: Record<string, string>, attempts?: Record<string, number>) => {
+    setDictationScore(score);
+    setIsDictationFinished(true);
+    setTextAnswers(dictationAnswers);
+    if (attempts) setDictationAttempts(attempts);
+    setActiveMode('test');
+    setProgressStats(null); // Reset progress để block test cập nhật
   };
+
+  // Lắng nghe phím Enter để nộp bài tự động khi hoàn thành trắc nghiệm
+  useEffect(() => {
+    if (isSubmitted || activeMode !== 'test') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+          return;
+        }
+
+        const answeredCount = Object.keys(mcAnswers).length;
+        const totalCount = vocabCards.length;
+
+        if (answeredCount === totalCount && totalCount > 0) {
+          e.preventDefault();
+          handleSubmitAll();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mcAnswers, vocabCards.length, activeMode, isSubmitted, handleSubmitAll]);
 
   // Pre-fill answers if already submitted
   useEffect(() => {
@@ -325,9 +350,9 @@ export function VocabularyExercise({
         </div>
       )}
 
-      {/* Mode Switcher Tabs */}
-      {!isSubmitted && !hideTabs && !isRequirementWorkflow && (
-        <div className="flex flex-wrap bg-white/5 p-2 rounded-2xl border border-white/5 gap-2 backdrop-blur-sm">
+      {/* Exercise Mode Selection Tabs (Apple segmented control styled) */}
+      {!hideTabs && !isRequirementWorkflow && (
+        <div className="flex flex-nowrap bg-white/5 border border-white/5 p-1 rounded-2xl gap-1 md:gap-1.5 w-full max-w-4xl mx-auto mb-8 overflow-x-auto select-none no-scrollbar">
           <button 
             onClick={() => { setActiveMode('flashcard'); setProgressStats(null); onTabChange?.('flashcard'); }} 
             className={`flex-1 min-w-[70px] md:min-w-[100px] flex flex-col items-center justify-center gap-1 md:gap-1.5 py-2 md:py-3 rounded-xl text-[10px] md:text-xs font-bold transition-all duration-300 ${activeMode === 'flashcard' ? 'bg-[#0071e3] text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
@@ -361,12 +386,32 @@ export function VocabularyExercise({
         </div>
       )}
 
+      {/* Sticky Mobile Status Bar */}
+      {!isSubmitted && isTrackingAvailable && progressStats && (
+        <div className="sticky top-16 z-40 lg:hidden -mx-4 px-4 py-3 bg-black/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between gap-4 shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-muted-foreground">Tiến độ:</span>
+            <span className="text-xs font-extrabold text-[#0071e3]">{progressPercentage}%</span>
+            <span className="text-[10px] text-muted-foreground">({progressStats.completed + progressStats.incorrect}/{totalWordsCount})</span>
+          </div>
+          <div className="flex-1 max-w-[40%] bg-secondary h-1.5 rounded-full overflow-hidden">
+            <div className="bg-[#0071e3] h-full transition-all duration-500" style={{ width: `${progressPercentage}%` }} />
+          </div>
+          <button
+            onClick={() => setIsMobileMapOpen(true)}
+            className="px-3 py-1.5 bg-[#0071e3]/10 border border-[#0071e3]/20 rounded-xl text-xs font-bold text-[#0071e3] active:scale-95 transition-all"
+          >
+            Sơ đồ
+          </button>
+        </div>
+      )}
+
       {/* Main Workspace Layout (2 Columns on Desktop) */}
       <div className={`grid grid-cols-1 ${isSubmitted ? '' : 'lg:grid-cols-4'} gap-6 items-start`}>
         
-        {/* LEFT COLUMN (Desktop): Real-time Apple Activity Tracking Sidebar */}
+        {/* LEFT COLUMN (Desktop Only): Real-time Apple Activity Tracking Sidebar */}
         {!isSubmitted && (
-          <aside className="lg:col-span-1 order-last lg:order-first space-y-4">
+          <aside className="hidden lg:block lg:col-span-1 space-y-4">
           
           {/* Tracking Sidebar Panel */}
           {isTrackingAvailable ? (
@@ -590,6 +635,135 @@ export function VocabularyExercise({
         </div>
 
       </div>
+
+      {/* Bottom Sheet for Mobile Sơ đồ câu hỏi */}
+      {!isSubmitted && isTrackingAvailable && progressStats && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300 ${
+              isMobileMapOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+            }`}
+            onClick={() => setIsMobileMapOpen(false)}
+          />
+          
+          {/* Drawer Panel */}
+          <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-transform duration-300 ease-out transform ${
+            isMobileMapOpen ? 'translate-y-0' : 'translate-y-full'
+          }`}>
+            <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-5" />
+            
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold font-heading text-lg flex items-center gap-2">
+                  <Star className="h-5 w-5 text-amber-400" /> Sơ đồ câu hỏi từ vựng
+                </h3>
+                <button 
+                  onClick={() => setIsMobileMapOpen(false)} 
+                  className="p-1.5 bg-white/5 border border-white/5 rounded-lg text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Progress Summary and Circular-style Ring */}
+              <div className="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/5">
+                <div>
+                  <h4 className="text-xs uppercase font-bold tracking-widest text-muted-foreground">Tiến độ bài làm</h4>
+                  <p className="text-xl font-black font-heading mt-1 text-white">{progressPercentage}%</p>
+                </div>
+                {/* Circular ring path */}
+                <div className="relative w-14 h-14">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      className="text-white/5"
+                      strokeWidth="3.5"
+                      stroke="currentColor"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      className="text-[#0071e3] transition-all duration-500 ease-out"
+                      strokeWidth="3.5"
+                      strokeDasharray={`${progressPercentage}, 100`}
+                      strokeLinecap="round"
+                      stroke="currentColor"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-muted-foreground">
+                    {progressStats.completed + progressStats.incorrect}/{totalWordsCount}
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress Statistics Badges */}
+              <div className="grid grid-cols-3 gap-2.5">
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2 text-center">
+                  <span className="text-[9px] uppercase font-bold text-emerald-400 block mb-0.5">Đã xong</span>
+                  <span className="text-base font-black text-emerald-300 leading-none">{progressStats.completed}</span>
+                </div>
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-2 text-center">
+                  <span className="text-[9px] uppercase font-bold text-red-400 block mb-0.5">Sai/Lỗi</span>
+                  <span className="text-base font-black text-red-300 leading-none">{progressStats.incorrect}</span>
+                </div>
+                <div className="bg-white/5 border border-white/5 rounded-xl p-2 text-center">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground block mb-0.5">Chưa làm</span>
+                  <span className="text-base font-black text-muted-foreground leading-none">{progressStats.pending}</span>
+                </div>
+              </div>
+
+              {/* Sơ đồ câu hỏi trong chế độ xem lại hoặc tự học */}
+              {(isSubmitted || !isRequirementWorkflow) && (activeMode === 'dictation' || activeMode === 'test') && (
+                <div className="space-y-2.5 pt-4 border-t border-white/5">
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Chi tiết câu hỏi</p>
+                  <div className="grid grid-cols-5 gap-2 max-w-sm mx-auto">
+                    {progressStats.roundWords.map((card, idx) => {
+                      const status = progressStats.statusMap[card.id] || 'pending';
+                      const isActive = idx === progressStats.currentIdx;
+                      
+                      let bgCls = 'bg-white/5 text-muted-foreground border-white/5';
+                      if (status === 'correct') {
+                        bgCls = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30';
+                      } else if (status === 'incorrect') {
+                        bgCls = 'bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30 glow-error';
+                      } else if (status === 'active' || isActive) {
+                        bgCls = 'bg-[#0071e3]/20 text-[#0071e3] border-[#0071e3] scale-110';
+                      }
+
+                      return (
+                        <button
+                          key={card.id}
+                          onClick={() => {
+                            progressStats.onJumpToQuestion?.(idx);
+                            setIsMobileMapOpen(false);
+                          }}
+                          title={card.word}
+                          className={`w-10 h-10 mx-auto flex items-center justify-center text-xs font-bold rounded-xl border transition-all duration-300 ${bgCls} ${isActive ? 'ring-1 ring-[#0071e3]' : ''}`}
+                        >
+                          {idx + 1}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Chế độ nghe Dictation */}
+              {activeMode === 'dictation' && (
+                <div className="pt-4 border-t border-white/5 space-y-2.5">
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5"><Headphones className="h-3 w-3" /> Tùy chọn nghe</p>
+                  <select value={speakMode} onChange={e => setSpeakMode(e.target.value as 'before' | 'after')} className="w-full bg-[#2c2c2e] border border-white/10 rounded-xl text-xs py-2.5 px-3 text-muted-foreground hover:text-foreground outline-none transition-colors">
+                    <option value="after">Nghe sau khi kiểm tra (Mặc định)</option>
+                    <option value="before">Nghe trước khi gõ</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

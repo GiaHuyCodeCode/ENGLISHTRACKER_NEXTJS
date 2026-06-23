@@ -1,5 +1,6 @@
 import { USE_MOCK_DB, mockAssignments, mockSubmissions, mockTrackings, mockVocabCards, mockVocabProgress, mockGamification } from './database_mockup';
 import { syncSubmissionToSheet, syncAssignmentToSheet, syncActionToSheet, syncVocabListToSheet } from './google-sheets';
+import { toLocalDateString } from './utils';
 
 // ─── Fuzzy Match (Levenshtein, threshold 80%) ────────────────────────────────
 
@@ -71,6 +72,7 @@ export interface Assignment {
   imageUrl?: string;
   allowHints?: boolean;
   createdAt: string;
+  skill?: 'Vocab' | 'Grammar' | 'Reading' | 'Listening' | 'Writing';
   // Dictation-specific fields
   sentences?: DictationSentence[];
 }
@@ -276,14 +278,14 @@ export function getGamificationProfiles(): GamificationProfile[] {
     trackings.forEach(t => {
       if (t.studentName === studentName) {
         const d = new Date(t.submittedAt);
-        activities.push({ date: d.toISOString().split('T')[0], hour: d.getHours(), score: t.score, category: t.category, type: 'tracking', durationMs: 0 });
+        activities.push({ date: toLocalDateString(d), hour: d.getHours(), score: t.score, category: t.category, type: 'tracking', durationMs: 0 });
       }
     });
 
     submissions.forEach(s => {
       if (s.studentName === studentName) {
         const d = new Date(s.submittedAt);
-        activities.push({ date: d.toISOString().split('T')[0], hour: d.getHours(), score: s.score, category: s.assignmentType, type: 'submission', durationMs: s.durationMs || 0 });
+        activities.push({ date: toLocalDateString(d), hour: d.getHours(), score: s.score, category: s.assignmentType, type: 'submission', durationMs: s.durationMs || 0 });
       }
     });
 
@@ -297,8 +299,8 @@ export function getGamificationProfiles(): GamificationProfile[] {
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
 
-      const todayStr = today.toISOString().split('T')[0];
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const todayStr = toLocalDateString(today);
+      const yesterdayStr = toLocalDateString(yesterday);
 
       if (uniqueDates[0] === todayStr || uniqueDates[0] === yesterdayStr) {
         streakCount = 1;
@@ -306,7 +308,7 @@ export function getGamificationProfiles(): GamificationProfile[] {
         for (let i = 1; i < uniqueDates.length; i++) {
           const expectedDate = new Date(currentDate);
           expectedDate.setDate(expectedDate.getDate() - 1);
-          if (uniqueDates[i] === expectedDate.toISOString().split('T')[0]) {
+          if (uniqueDates[i] === toLocalDateString(expectedDate)) {
             streakCount++;
             currentDate = expectedDate;
           } else {

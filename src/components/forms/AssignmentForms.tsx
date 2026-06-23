@@ -186,32 +186,48 @@ export function QuizForm({ onSave, isSaving, initialData }: {
   });
   const [questions, setQuestions] = useState<QuizQuestion[] | null>(initialData?.questions || null);
   const [error, setError] = useState('');
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const parseJson = (raw: string) => {
     try {
       const parsed = JSON.parse(raw);
-      const qs: QuizQuestion[] = Array.isArray(parsed) ? parsed : parsed.questions;
-      if (!Array.isArray(qs) || !qs.length) throw new Error('Không tìm thấy mảng "questions"');
+      const qs = Array.isArray(parsed) ? parsed : parsed.questions;
+      if (!Array.isArray(qs) || !qs.length) {
+        throw new Error('Không tìm thấy danh sách câu hỏi hợp lệ. JSON phải là một mảng hoặc có trường "questions" là một mảng.');
+      }
+      
+      const validated: QuizQuestion[] = qs.map((q: any, index: number) => {
+        const qNum = index + 1;
+        if (typeof q !== 'object' || q === null) {
+          throw new Error(`Câu hỏi thứ ${qNum} không hợp lệ (không phải là một đối tượng JSON).`);
+        }
+        if (q.question === undefined || q.question === null || String(q.question).trim() === '') {
+          throw new Error(`Câu hỏi thứ ${qNum} thiếu nội dung ("question").`);
+        }
+        if (!Array.isArray(q.options) || q.options.length === 0) {
+          throw new Error(`Câu hỏi thứ ${qNum} thiếu danh sách lựa chọn ("options") hoặc "options" không phải là mảng.`);
+        }
+        if (!q.answer || typeof q.answer !== 'string' || !q.answer.trim()) {
+          throw new Error(`Câu hỏi thứ ${qNum} thiếu đáp án đúng ("answer").`);
+        }
+        
+        return {
+          id: q.id ?? qNum,
+          question: String(q.question),
+          options: q.options.map((opt: any) => String(opt ?? '')),
+          answer: String(q.answer).trim().toUpperCase(),
+          explanation: String(q.explanation || ''),
+          hint: String(q.hint || ''),
+          knowledgeArea: String(q.knowledgeArea || '')
+        };
+      });
+
       if (!title && parsed.title) setTitle(parsed.title);
-      setQuestions(qs);
+      setQuestions(validated);
       setError('');
     } catch (e: unknown) {
       setError(`JSON không hợp lệ: ${e instanceof Error ? e.message : 'lỗi không xác định'}`);
       setQuestions(null);
     }
-  };
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const text = ev.target?.result as string;
-      setJsonText(text);
-      parseJson(text);
-    };
-    reader.readAsText(file);
   };
 
   const jsonTemplate = `{
@@ -246,27 +262,16 @@ export function QuizForm({ onSave, isSaving, initialData }: {
           placeholder="VD: Unit 5 – Phrasal Verbs Quiz" />
       </div>
 
-      {/* Upload */}
-      <div
-        onClick={() => fileRef.current?.click()}
-        className="border-2 border-dashed border-border/50 rounded-xl p-8 text-center cursor-pointer hover:border-teal-500/50 hover:bg-teal-500/5 transition-all group">
-        <FileJson className="h-10 w-10 mx-auto mb-3 text-muted-foreground group-hover:text-teal-400 transition-colors" />
-        <p className="text-sm text-muted-foreground">
-          Kéo thả hoặc <span className="text-teal-400 font-medium">click để upload file .json</span>
-        </p>
-        <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleFile} />
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-foreground/80 flex items-center justify-between">
+          <span>Dán JSON vào đây</span>
+          <span className="text-xs text-muted-foreground font-normal">Sẽ tự động hiển thị danh sách câu hỏi bên dưới</span>
+        </label>
+        <textarea value={jsonText}
+          onChange={e => { setJsonText(e.target.value); if (e.target.value.trim()) parseJson(e.target.value); }}
+          rows={8} className="input-field font-mono text-xs w-full p-4 resize-y"
+          placeholder={'{\n  "title": "Quiz Unit 5",\n  "questions": [\n    {\n      "id": 1,\n      "question": "\'Give up\' có nghĩa là?",\n      "options": ["Bắt đầu", "Từ bỏ", "Tiếp tục", "Hoàn thành"],\n      "answer": "B",\n      "explanation": "Give up = từ bỏ",\n      "hint": "Gợi ý đây...",\n      "knowledgeArea": "Phrasal Verbs"\n    }\n  ]\n}'} />
       </div>
-
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-px bg-border/50" />
-        <span className="text-xs text-muted-foreground">hoặc paste JSON trực tiếp</span>
-        <div className="flex-1 h-px bg-border/50" />
-      </div>
-
-      <textarea value={jsonText}
-        onChange={e => { setJsonText(e.target.value); if (e.target.value.trim()) parseJson(e.target.value); }}
-        rows={8} className="input-field font-mono text-xs resize-none"
-        placeholder={'{\n  "title": "Quiz Unit 5",\n  "questions": [\n    {\n      "id": 1,\n      "question": "\'Give up\' có nghĩa là?",\n      "options": ["Bắt đầu", "Từ bỏ", "Tiếp tục", "Hoàn thành"],\n      "answer": "B",\n      "explanation": "Give up = từ bỏ",\n      "hint": "Gợi ý đây...",\n      "knowledgeArea": "Phrasal Verbs"\n    }\n  ]\n}'} />
 
       {error && (
         <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
@@ -304,15 +309,18 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {q.options.map((opt, optIdx) => (
+                  {(q.options || []).map((opt, optIdx) => (
                     <div key={optIdx} className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-muted-foreground w-4 flex-shrink-0 text-center">{['A', 'B', 'C', 'D'][optIdx]}</span>
+                      <span className="text-xs font-bold text-muted-foreground w-4 flex-shrink-0 text-center">
+                        {['A', 'B', 'C', 'D'][optIdx] || String.fromCharCode(65 + optIdx)}
+                      </span>
                       <input 
                         className="input-field w-full text-xs py-1.5"
                         value={opt}
                         onChange={e => {
+                          if (!questions) return;
                           const newQs = [...questions];
-                          const newOpts = [...q.options];
+                          const newOpts = [...(q.options || [])];
                           newOpts[optIdx] = e.target.value;
                           newQs[i] = { ...q, options: newOpts };
                           setQuestions(newQs);
@@ -329,6 +337,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                       value={q.answer}
                       maxLength={1}
                       onChange={e => {
+                        if (!questions) return;
                         const newQs = [...questions];
                         newQs[i] = { ...q, answer: e.target.value.toUpperCase() };
                         setQuestions(newQs);
@@ -647,7 +656,6 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
   });
   const [vocabCards, setVocabCards] = useState<any[] | null>(initialData?.vocabCards || null);
   const [error, setError] = useState('');
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const handleSpeak = (text: string) => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -686,18 +694,6 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
       setError(`JSON không hợp lệ: ${e instanceof Error ? e.message : 'lỗi không xác định'}`);
       setVocabCards(null);
     }
-  };
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const text = ev.target?.result as string;
-      setJsonText(text);
-      parseJson(text);
-    };
-    reader.readAsText(file);
   };
 
   const handleDeleteCard = (index: number) => {

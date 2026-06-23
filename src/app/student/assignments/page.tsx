@@ -160,8 +160,27 @@ export default function StudentAssignmentsPage() {
     return new Date(a.createdAt) <= now;
   });
 
+  const getLocalDateString = (dateInput: string | Date) => {
+    const d = new Date(dateInput);
+    const offset = d.getTimezoneOffset();
+    const localDate = new Date(d.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+  };
+  const todayLocalStr = getLocalDateString(new Date());
+
   const done = visibleAssignments.filter(a => getSubmission(a.id));
-  const todo = visibleAssignments.filter(a => !getSubmission(a.id));
+  const todo = visibleAssignments.filter(a => !getSubmission(a.id)).sort((a, b) => {
+    const dateA = a.createdAt ? getLocalDateString(a.createdAt) : '';
+    const dateB = b.createdAt ? getLocalDateString(b.createdAt) : '';
+    
+    const isTodayA = dateA === todayLocalStr;
+    const isTodayB = dateB === todayLocalStr;
+    
+    if (isTodayA && !isTodayB) return -1;
+    if (!isTodayA && isTodayB) return 1;
+    
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+  });
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -261,6 +280,7 @@ export default function StudentAssignmentsPage() {
                        a.type === 'dictation' ? `${getDictationCount(a)} câu • Nghe & gõ lại` :
                        a.type === 'vocabulary' ? `${a.vocabCards?.length || 0} từ • Học & Kiểm tra` :
                        `${a.keywords?.length || 0} từ khóa cần dùng`}
+                      {a.createdAt && ` • Ngày giao: ${new Date(a.createdAt).toLocaleDateString('vi-VN')}`}
                     </p>
                   </div>
                   

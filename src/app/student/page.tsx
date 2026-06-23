@@ -12,6 +12,7 @@ import {
 } from '@/lib/local-store';
 
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
+import { toLocalDateString } from '@/lib/utils';
 import { Trophy, BookOpen, CheckCircle2, TrendingUp, User, ChevronRight, PenTool, ListChecks, Target, Brain, AlertCircle, Flame, Calendar, Clock, Loader2, RefreshCw, Headphones, FileJson } from 'lucide-react';
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -55,6 +56,14 @@ export default function StudentDashboard() {
   const [dueAssignments, setDueAssignments] = useState<Assignment[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Spaced Repetition states
+  const [totalLearnedCount, setTotalLearnedCount] = useState<number>(0);
+  const [masteredCount, setMasteredCount] = useState<number>(0);
+  const [averageRetention, setAverageRetention] = useState<number>(100);
+  const [dueVocabList, setDueVocabList] = useState<{ id: string; word: string; meaning: string; stage: number; overdueDays: number }[]>([]);
+  const [forgettingCurveData, setForgettingCurveData] = useState<any[]>([]);
+  const [srActiveSubTab, setSrActiveSubTab] = useState<'assignments' | 'words'>('assignments');
+
   const calculateStats = (student: string) => {
     const subs = getSubmissions().filter(s => s.studentName === student);
     const trks = getDailyTrackings().filter(t => t.studentName === student);
@@ -62,12 +71,16 @@ export default function StudentDashboard() {
     setTrackings(trks);
     setProfile(getGamificationProfiles().find(p => p.studentName === student) || null);
 
-    // Calculate due vocabulary count
     const allCards = getVocabularyCards();
     const studentProgress = getStudentVocabProgress(student);
     const progressMap = new Map<string, any>();
     studentProgress.forEach(p => progressMap.set(p.wordId, p));
+    const cardMap = new Map<string, any>();
+    allCards.forEach(c => cardMap.set(c.id, c));
     const now = new Date();
+    const nowTime = now.getTime();
+
+    // Calculate due vocabulary count
     const dueCount = allCards.filter(card => {
       const prog = progressMap.get(card.id);
       if (!prog) return true;
@@ -76,14 +89,14 @@ export default function StudentDashboard() {
     setDueVocabCount(dueCount);
 
     // Calculate words created today
-    const todayStr = now.toISOString().split('T')[0];
-    const createdToday = allCards.filter(c => c.createdAt && c.createdAt.startsWith(todayStr)).length;
+    const todayStr = toLocalDateString(now);
+    const createdToday = allCards.filter(c => c.createdAt && toLocalDateString(c.createdAt) === todayStr).length;
     setTodayVocabCount(createdToday);
 
     // Calculate Study Day
     const dates = new Set([
-      ...subs.map(s => s.submittedAt.split('T')[0]),
-      ...trks.map(t => t.submittedAt.split('T')[0])
+      ...subs.map(s => toLocalDateString(s.submittedAt)),
+      ...trks.map(t => toLocalDateString(t.submittedAt))
     ]);
     setStudyDay(Math.max(1, dates.size));
 
@@ -101,6 +114,73 @@ export default function StudentDashboard() {
       });
     });
     setDueAssignments(dueAssigns);
+
+    // 1. Total learned cards
+    setTotalLearnedCount(studentProgress.length);
+
+    // 2. Mastered count (Stage >= 5)
+    const mastered = studentProgress.filter(p => p.stage >= 5).length;
+    setMasteredCount(mastered);
+
+    // 3. Current retention & Due Vocab List
+    let totalRetention = 0;
+    const dueList: typeof dueVocabList = [];
+
+    studentProgress.forEach(p => {
+      const card = cardMap.get(p.wordId);
+      if (!card) return;
+
+      const lastRev = p.lastReviewed ? new Date(p.lastReviewed) : new Date(p.nextReviewDate); // fallback
+      const elapsedDays = Math.max(0, (nowTime - lastRev.getTime()) / (24 * 60 * 60 * 1000));
+      const S = p.interval || 1; // half life in days
+      const retention = 100 * Math.pow(0.9, elapsedDays / S);
+      totalRetention += retention;
+
+      const nextRev = new Date(p.nextReviewDate);
+      if (nextRev <= now) {
+        const overdueDays = Math.max(0, Math.floor((nowTime - nextRev.getTime()) / (24 * 60 * 60 * 1000)));
+        dueList.push({
+          id: card.id,
+          word: card.word,
+          meaning: card.meaning,
+          stage: p.stage,
+          overdueDays
+        });
+      }
+    });
+
+    const avgRet = studentProgress.length ? Math.round(totalRetention / studentProgress.length) : 100;
+    setAverageRetention(avgRet);
+    setDueVocabList(dueList.sort((a, b) => b.overdueDays - a.overdueDays));
+
+    // 4. Forgetting Curve Prediction (Next 10 Days)
+    const curvePoints = Array.from({ length: 11 }, (_, i) => {
+      if (studentProgress.length === 0) {
+        // Demo curve values: decay from 100% to 30%
+        const demoValues = [100, 80, 70, 60, 52, 46, 41, 37, 34, 32, 30];
+        return {
+          day: i === 0 ? 'Hôm nay' : `+${i} ngày`,
+          'Độ nhớ': demoValues[i],
+          'Ngưỡng ôn tập': 90
+        };
+      }
+
+      let dailyTotalRet = 0;
+      studentProgress.forEach(p => {
+        const lastRev = p.lastReviewed ? new Date(p.lastReviewed) : new Date(p.nextReviewDate);
+        const elapsedDays = Math.max(0, (nowTime - lastRev.getTime()) / (24 * 60 * 60 * 1000)) + i; // add offset day
+        const S = p.interval || 1;
+        const retention = 100 * Math.pow(0.9, elapsedDays / S);
+        dailyTotalRet += retention;
+      });
+      const avgDailyRet = Math.round(dailyTotalRet / studentProgress.length);
+      return {
+        day: i === 0 ? 'Hôm nay' : `+${i} ngày`,
+        'Độ nhớ': avgDailyRet,
+        'Ngưỡng ôn tập': 90
+      };
+    });
+    setForgettingCurveData(curvePoints);
   };
 
   const refreshData = async () => {
@@ -182,11 +262,17 @@ export default function StudentDashboard() {
     const scores = { Vocab: [] as number[], Grammar: [] as number[], Reading: [] as number[], Listening: [] as number[], Writing: [] as number[] };
     const classScores = { Vocab: [] as number[], Grammar: [] as number[], Reading: [] as number[], Listening: [] as number[], Writing: [] as number[] };
 
+    const assignmentMap = new Map<string, Assignment>();
+    assignments.forEach(a => assignmentMap.set(a.id, a));
+
     submissions.forEach(s => {
-      if (s.assignmentType === 'vocab_context' || s.assignmentType === 'vocabulary') scores.Vocab.push(s.score);
-      else if (s.assignmentType === 'multiple_choice') scores.Grammar.push(s.score);
-      else if (s.assignmentType === 'rewrite_vocab') scores.Writing.push(s.score);
-      else if (s.assignmentType === 'dictation') scores.Listening.push(s.score);
+      const a = assignmentMap.get(s.assignmentId);
+      const skill = a?.skill || 'Vocab';
+      if (skill === 'Vocab') scores.Vocab.push(s.score);
+      else if (skill === 'Grammar') scores.Grammar.push(s.score);
+      else if (skill === 'Reading') scores.Reading.push(s.score);
+      else if (skill === 'Listening') scores.Listening.push(s.score);
+      else if (skill === 'Writing') scores.Writing.push(s.score);
     });
 
     trackings.forEach(t => {
@@ -201,10 +287,13 @@ export default function StudentDashboard() {
     const allTrackings = getDailyTrackings();
 
     allSubmissions.forEach(s => {
-      if (s.assignmentType === 'vocab_context' || s.assignmentType === 'vocabulary') classScores.Vocab.push(s.score);
-      else if (s.assignmentType === 'multiple_choice') classScores.Grammar.push(s.score);
-      else if (s.assignmentType === 'rewrite_vocab') classScores.Writing.push(s.score);
-      else if (s.assignmentType === 'dictation') classScores.Listening.push(s.score);
+      const a = assignmentMap.get(s.assignmentId);
+      const skill = a?.skill || 'Vocab';
+      if (skill === 'Vocab') classScores.Vocab.push(s.score);
+      else if (skill === 'Grammar') classScores.Grammar.push(s.score);
+      else if (skill === 'Reading') classScores.Reading.push(s.score);
+      else if (skill === 'Listening') classScores.Listening.push(s.score);
+      else if (skill === 'Writing') classScores.Writing.push(s.score);
     });
 
     allTrackings.forEach(t => {
@@ -260,19 +349,19 @@ export default function StudentDashboard() {
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
-    return d.toISOString().split('T')[0];
+    return toLocalDateString(d);
   });
 
   const progressData = last7Days.map(date => {
     // Student daily score
-    const dSubs = submissions.filter(s => s.submittedAt.startsWith(date));
-    const dTrks = trackings.filter(t => t.submittedAt.startsWith(date));
+    const dSubs = submissions.filter(s => toLocalDateString(s.submittedAt) === date);
+    const dTrks = trackings.filter(t => toLocalDateString(t.submittedAt) === date);
     const dScores = [...dSubs.map(s => s.score), ...dTrks.map(t => t.score)];
     const myAvg = dScores.length ? Math.round(dScores.reduce((a, b) => a + b, 0) / dScores.length) : null;
 
     // Class daily score
-    const classSubs = allSubmissions.filter(s => s.submittedAt.startsWith(date));
-    const classTrks = allTrackings.filter(t => t.submittedAt.startsWith(date));
+    const classSubs = allSubmissions.filter(s => toLocalDateString(s.submittedAt) === date);
+    const classTrks = allTrackings.filter(t => toLocalDateString(t.submittedAt) === date);
     const classScores = [...classSubs.map(s => s.score), ...classTrks.map(t => t.score)];
     const clsAvg = classScores.length ? Math.round(classScores.reduce((a, b) => a + b, 0) / classScores.length) : null;
 
@@ -285,13 +374,14 @@ export default function StudentDashboard() {
     return { date: date.slice(5), count };
   });
 
+  const assignmentMapForFocus = new Map<string, Assignment>();
+  assignments.forEach(a => assignmentMapForFocus.set(a.id, a));
+
   const skillFocusData = skillData.map(s => {
     const count = submissions.filter(sub => {
-      if (s.key === 'Vocab' && (sub.assignmentType === 'vocab_context' || sub.assignmentType === 'vocabulary')) return true;
-      if (s.key === 'Grammar' && sub.assignmentType === 'multiple_choice') return true;
-      if (s.key === 'Writing' && sub.assignmentType === 'rewrite_vocab') return true;
-      if (s.key === 'Listening' && sub.assignmentType === 'dictation') return true;
-      return false;
+      const a = assignmentMapForFocus.get(sub.assignmentId);
+      const skill = a?.skill || 'Vocab';
+      return skill === s.key;
     }).length + trackings.filter(t => {
       if (s.key === 'Listening' && (t.category === 'Dictation' || t.category === 'Listening')) return true;
       return t.category === s.key;
@@ -440,9 +530,9 @@ export default function StudentDashboard() {
                       <Brain className="h-5 w-5 text-primary" /> Phân Tích Kỹ Năng
                     </h3>
                     {skillData.some(s => s.A > 0) ? (
-                      <div className="w-full h-[250px]">
+                      <div className="w-full h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
-                          <RadarChart cx="50%" cy="50%" outerRadius="70%" data={skillData}>
+                          <RadarChart cx="50%" cy="50%" outerRadius="60%" data={skillData}>
                             <PolarGrid stroke="hsl(var(--border))" />
                             <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
                             <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
@@ -582,7 +672,21 @@ export default function StudentDashboard() {
                     <div className="w-full h-[250px] min-h-[250px]">
                       <ResponsiveContainer width="99%" height="100%">
                         <LineChart data={progressData}>
-                          <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                          <XAxis 
+                            dataKey="date" 
+                            stroke="hsl(var(--muted-foreground))" 
+                            fontSize={10} 
+                            tickLine={false} 
+                            axisLine={false} 
+                            minTickGap={15}
+                            tickFormatter={(val, idx) => {
+                              if (idx === 0 || idx === progressData.length - 1) {
+                                const parts = val.split('-');
+                                return parts.length === 3 ? `${parts[2]}/${parts[1]}` : val;
+                              }
+                              return '•';
+                            }}
+                          />
                           <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
                           <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} />
                           <Legend verticalAlign="top" height={36} />
@@ -601,7 +705,21 @@ export default function StudentDashboard() {
                     <div className="w-full h-[250px] min-h-[250px]">
                       <ResponsiveContainer width="99%" height="100%">
                         <BarChart data={effortData}>
-                          <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                          <XAxis 
+                            dataKey="date" 
+                            stroke="hsl(var(--muted-foreground))" 
+                            fontSize={10} 
+                            tickLine={false} 
+                            axisLine={false} 
+                            minTickGap={15}
+                            tickFormatter={(val, idx) => {
+                              if (idx === 0 || idx === effortData.length - 1) {
+                                const parts = val.split('-');
+                                return parts.length === 3 ? `${parts[2]}/${parts[1]}` : val;
+                              }
+                              return '•';
+                            }}
+                          />
                           <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                           <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} cursor={{ fill: 'hsl(var(--muted)/0.2)' }} />
                           <Bar dataKey="count" name="Số bài" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={40} />
@@ -653,95 +771,253 @@ export default function StudentDashboard() {
               </>
             )}
 
-            {/* Spaced Repetition — Due Assignments Calendar */}
-            <div className="glass-strong rounded-3xl border border-white/10 p-6 relative overflow-hidden fade-in stagger-4">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#0071e3]/10 via-transparent to-transparent opacity-60"></div>
-              <div className="relative space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold font-heading text-[#0071e3] flex items-center gap-2">
-                      <Brain className="h-5 w-5 text-[#0071e3]" strokeWidth={1.5} />
-                      Lịch Ôn Tập Hôm Nay
-                    </h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Có <span className="font-bold text-[#0071e3]">{dueAssignments.length} bài học</span> cần ôn tập •
-                      <span className="text-emerald-400 font-semibold ml-1">{dueVocabCount} từ đến hạn</span>
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#0071e3]/10 border border-[#0071e3]/20 text-xs font-semibold text-sky-400">
-                      <Calendar className="h-3.5 w-3.5" strokeWidth={1.5} /> Ngày học thứ {studyDay}
-                    </div>
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-300">
-                      <BookOpen className="h-3.5 w-3.5" strokeWidth={1.5} /> +{todayVocabCount} từ mới hôm nay
-                    </div>
-                  </div>
-                </div>
-
-                {dueAssignments.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-center space-y-2">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
-                      <CheckCircle2 className="h-6 w-6 text-emerald-400" />
-                    </div>
-                    <p className="text-sm font-semibold text-emerald-400">Tuyệt vời! Bạn đã ôn tập xong cho hôm nay 🎉</p>
-                    <p className="text-xs text-muted-foreground">Quay lại vào ngày mai để tiếp tục.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {dueAssignments.map(assignment => {
-                      const totalWords = assignment.vocabCards?.length || 0;
-                      const dueWordsInAssign = (assignment.vocabCards || []).filter(card => {
-                        const prog = getStudentVocabProgress(selectedStudent || '').find(p => p.wordId === card.id);
-                        if (!prog) return true;
-                        return new Date(prog.nextReviewDate) <= new Date();
-                      }).length;
-                      return (
-                        <button
-                          key={assignment.id}
-                          onClick={() => router.push(`/student/assignments/${assignment.id}`)}
-                          className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-[#0071e3]/50 hover:bg-[#0071e3]/10 transition-all text-left group"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-xl bg-[#0071e3]/15 flex items-center justify-center flex-shrink-0">
-                              <BookOpen className="h-5 w-5 text-[#0071e3]" strokeWidth={1.5} />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-semibold text-sm text-foreground truncate">{assignment.title}</p>
-                              <p className="text-xs text-muted-foreground">{totalWords} từ trong bài • <span className="text-amber-400 font-semibold">{dueWordsInAssign} từ đến hạn</span></p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="px-2.5 py-1 rounded-lg bg-[#0071e3]/15 text-[#0071e3] text-xs font-bold border border-[#0071e3]/20">
-                              {totalWords} từ
-                            </span>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-[#0071e3] transition-colors" strokeWidth={1.5} />
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Daily Tracking CTA */}
-            <div className="glass-strong rounded-3xl border border-primary/30 p-6 relative overflow-hidden group hover-lift fade-in stagger-4">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-50"></div>
-              <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Spaced Repetition — Due Assignments Calendar & Forgetting Curve */}
+            <div className="glass-strong rounded-3xl border border-white/10 p-6 relative overflow-hidden fade-in stagger-4 space-y-6">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#0071e3]/5 via-transparent to-transparent opacity-60"></div>
+              
+              <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-4">
                 <div>
-                  <h2 className="text-xl font-bold font-heading text-primary flex items-center gap-2">
-                    <Target className="h-5 w-5" />
-                    Báo Cáo Tiến Độ Hằng Ngày
+                  <h2 className="text-xl font-bold font-heading text-[#0071e3] flex items-center gap-2">
+                    <Brain className="h-5 w-5 text-[#0071e3]" strokeWidth={1.5} />
+                    Hệ Thống Ôn Tập Lặp Lại Ngắt Quãng (Spaced Repetition)
                   </h2>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Chụp ảnh bài học (Vocabulary, Grammar...) và cập nhật điểm số thi đua hôm nay!
+                    Tối ưu hóa khả năng ghi nhớ dài hạn dựa trên thuật toán Ebbinghaus.
                   </p>
                 </div>
-                <button onClick={() => router.push('/student/tracking')}
-                  className="flex-shrink-0 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all glow-primary w-full sm:w-auto">
-                  Nộp Báo Cáo
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#0071e3]/10 border border-[#0071e3]/20 text-xs font-semibold text-sky-400">
+                    <Calendar className="h-3.5 w-3.5" strokeWidth={1.5} /> Ngày học thứ {studyDay}
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-300">
+                    <BookOpen className="h-3.5 w-3.5" strokeWidth={1.5} /> +{todayVocabCount} từ mới hôm nay
+                  </div>
+                </div>
+              </div>
+
+              {/* SR Statistics Grid */}
+              <div className="relative grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col justify-between">
+                  <span className="text-xs text-muted-foreground font-medium">Tổng từ đang học</span>
+                  <div className="flex items-baseline gap-1.5 mt-2">
+                    <span className="text-2xl font-bold font-heading text-white">{totalLearnedCount}</span>
+                    <span className="text-xs text-muted-foreground">từ</span>
+                  </div>
+                </div>
+                <div className="p-4 rounded-2xl bg-[#0071e3]/5 border border-[#0071e3]/10 flex flex-col justify-between">
+                  <span className="text-xs text-muted-foreground font-medium">Từ cần ôn hôm nay</span>
+                  <div className="flex items-baseline gap-1.5 mt-2">
+                    <span className="text-2xl font-bold font-heading text-[#0071e3]">{dueVocabCount}</span>
+                    <span className="text-xs text-muted-foreground">từ</span>
+                  </div>
+                </div>
+                <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 flex flex-col justify-between">
+                  <span className="text-xs text-muted-foreground font-medium">Đã thuộc (Stage 5+)</span>
+                  <div className="flex items-baseline gap-1.5 mt-2">
+                    <span className="text-2xl font-bold font-heading text-emerald-400">{masteredCount}</span>
+                    <span className="text-xs text-muted-foreground">từ</span>
+                  </div>
+                </div>
+                <div className="p-4 rounded-2xl bg-violet-500/5 border border-violet-500/10 flex flex-col justify-between">
+                  <span className="text-xs text-muted-foreground font-medium">Trí nhớ hiện tại</span>
+                  <div className="flex items-baseline gap-1.5 mt-2">
+                    <span className={`text-2xl font-bold font-heading ${
+                      averageRetention >= 90 ? 'text-emerald-400' :
+                      averageRetention >= 75 ? 'text-amber-400' :
+                      'text-red-400'
+                    }`}>{averageRetention}%</span>
+                    <span className="text-xs text-muted-foreground">trung bình</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Details and Forgetting Curve Chart */}
+              <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Left Side: Repetition list */}
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                    <button
+                      onClick={() => setSrActiveSubTab('assignments')}
+                      className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-all ${
+                        srActiveSubTab === 'assignments'
+                          ? 'border-[#0071e3] text-[#0071e3]'
+                          : 'border-transparent text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      Bài tập cần ôn ({dueAssignments.length})
+                    </button>
+                    <button
+                      onClick={() => setSrActiveSubTab('words')}
+                      className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-all ${
+                        srActiveSubTab === 'words'
+                          ? 'border-[#0071e3] text-[#0071e3]'
+                          : 'border-transparent text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      Từ vựng cần ôn ({dueVocabList.length})
+                    </button>
+                  </div>
+
+                  {srActiveSubTab === 'assignments' ? (
+                    dueAssignments.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 bg-white/5 rounded-2xl border border-white/5">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                          <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                        </div>
+                        <p className="text-sm font-semibold text-emerald-400">Không có bài tập nào cần ôn!</p>
+                        <p className="text-xs text-muted-foreground">Mọi bài tập từ vựng đều được ghi nhớ tốt.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                        {dueAssignments.map(assignment => {
+                          const totalWords = assignment.vocabCards?.length || 0;
+                          const dueWordsInAssign = (assignment.vocabCards || []).filter(card => {
+                            const prog = getStudentVocabProgress(selectedStudent || '').find(p => p.wordId === card.id);
+                            if (!prog) return true;
+                            return new Date(prog.nextReviewDate) <= new Date();
+                          }).length;
+                          return (
+                            <button
+                              key={assignment.id}
+                              onClick={() => router.push(`/student/assignments/${assignment.id}`)}
+                              className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/5 hover:border-[#0071e3]/50 hover:bg-[#0071e3]/10 transition-all text-left group"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-9 h-9 rounded-xl bg-[#0071e3]/15 flex items-center justify-center flex-shrink-0">
+                                  <BookOpen className="h-4.5 w-4.5 text-[#0071e3]" strokeWidth={1.5} />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-xs text-foreground truncate">{assignment.title}</p>
+                                  <p className="text-[11px] text-muted-foreground">{totalWords} từ • <span className="text-amber-400 font-semibold">{dueWordsInAssign} từ đến hạn</span></p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                <span className="px-2 py-0.5 rounded bg-[#0071e3]/15 text-[#0071e3] text-[10px] font-bold border border-[#0071e3]/20">
+                                  Ôn ngay
+                                </span>
+                                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-[#0071e3] transition-colors" strokeWidth={1.5} />
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )
+                  ) : (
+                    dueVocabList.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 bg-white/5 rounded-2xl border border-white/5">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                          <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                        </div>
+                        <p className="text-sm font-semibold text-emerald-400">Không có từ vựng riêng lẻ nào trễ hạn!</p>
+                        <p className="text-xs text-muted-foreground">Tất cả từ vựng đều được ghi nhớ an toàn.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                        {dueVocabList.map(item => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all text-left"
+                          >
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm text-foreground">{item.word}</p>
+                              <p className="text-xs text-muted-foreground truncate">{item.meaning}</p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                item.stage >= 5 ? 'bg-emerald-500/15 text-emerald-400' :
+                                item.stage >= 3 ? 'bg-[#0071e3]/15 text-sky-400' :
+                                'bg-amber-500/15 text-amber-400'
+                              }`}>
+                                Stage {item.stage}
+                              </span>
+                              {item.overdueDays > 0 ? (
+                                <span className="text-[10px] text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full font-medium">
+                                  Trễ {item.overdueDays} ngày
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-medium">
+                                  Đến hạn
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  )}
+                </div>
+
+                {/* Right Side: Forgetting Curve Chart */}
+                <div className="lg:col-span-5 flex flex-col justify-between p-4 rounded-2xl bg-white/5 border border-white/5 space-y-4">
+                  <div>
+                    <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-[#0071e3]" />
+                      Đường Cong Quên Lãng (Ebbinghaus)
+                    </h3>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Dự báo độ nhớ từ vựng giảm theo thời gian nếu không ôn tập.
+                    </p>
+                  </div>
+                  
+                  <div className="h-[180px] w-full relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={forgettingCurveData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
+                        <XAxis 
+                          dataKey="day" 
+                          stroke="#666" 
+                          fontSize={10} 
+                          tickLine={false} 
+                          axisLine={false} 
+                        />
+                        <YAxis 
+                          domain={[0, 100]} 
+                          stroke="#666" 
+                          fontSize={10} 
+                          tickLine={false} 
+                          axisLine={false}
+                          tickFormatter={(v) => `${v}%`}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'rgba(17, 17, 17, 0.95)', 
+                            borderColor: 'rgba(255, 255, 255, 0.1)', 
+                            borderRadius: '12px',
+                            fontSize: '11px'
+                          }} 
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="Độ nhớ" 
+                          stroke="#0071e3" 
+                          strokeWidth={2.5} 
+                          dot={{ r: 3, stroke: '#0071e3', strokeWidth: 1.5, fill: '#0a0a0a' }}
+                          activeDot={{ r: 5 }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="Ngưỡng ôn tập" 
+                          stroke="#ef4444" 
+                          strokeDasharray="4 4" 
+                          strokeWidth={1.2} 
+                          dot={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground bg-black/20 p-2 rounded-lg">
+                    <div className="flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#0071e3]"></span>
+                      <span>Độ nhớ (% retention)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-none border-b border-dashed border-[#ef4444] inline-block"></span>
+                      <span>Ngưỡng cần ôn (90%)</span>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </div>
 

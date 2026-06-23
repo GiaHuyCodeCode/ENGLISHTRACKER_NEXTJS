@@ -11,11 +11,13 @@ import {
 import { syncVocabListToSheet } from '@/lib/google-sheets';
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
 import { StudentTimeChart } from '@/components/ui/StudentTimeChart';
+import { toLocalDateString } from '@/lib/utils';
 import { 
   Users, BookOpen, Clock, Target, Edit2, Save, X, XCircle,
-  Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2, Lightbulb, Settings, Loader2, RefreshCw, FileJson, Volume2, Headphones
+  Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2, Lightbulb, Settings, Loader2, RefreshCw, FileJson, Volume2, Headphones, Calendar
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { 
   LineChart, Line, BarChart, Bar, Radar, RadarChart, PolarGrid, 
   PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, Cell
@@ -44,12 +46,24 @@ function StudentAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md'
 }
 
 export default function TeacherDashboard() {
+  const searchParams = useSearchParams();
+  const tabParam = searchParams?.get('tab');
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [trackings, setTrackings] = useState<DailyTracking[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'vocabulary'>('overview');
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'vocabulary' | 'assignments_mgmt'>('overview');
+  const [selectedDate, setSelectedDate] = useState<string>(toLocalDateString());
   const [isSyncing, setIsSyncing] = useState(false);
+  const [mgmtDateFilter, setMgmtDateFilter] = useState<string>('');
+  const [mgmtSkillFilter, setMgmtSkillFilter] = useState<string>('all');
+
+  useEffect(() => {
+    if (tabParam === 'assignments_mgmt' || tabParam === 'overview' || tabParam === 'analytics' || tabParam === 'vocabulary') {
+      setActiveTab(tabParam as any);
+    } else if (!tabParam) {
+      setActiveTab('overview');
+    }
+  }, [tabParam]);
 
   const refreshData = async () => {
     // 1. Lấy dữ liệu local trước để hiển thị nhanh
@@ -160,7 +174,8 @@ export default function TeacherDashboard() {
   };
 
   // ── Time Travel Filter ─────────────────────────────────────────────────────
-  const endOfDay = selectedDate + 'T23:59:59.999Z';
+  const [_edy, _edm, _edd] = selectedDate.split('-').map(Number);
+  const endOfDay = new Date(_edy, _edm - 1, _edd, 23, 59, 59, 999).toISOString();
   const filteredSubmissions = submissions.filter(s => s.submittedAt <= endOfDay);
   const filteredTrackings = trackings.filter(t => t.submittedAt <= endOfDay);
   const filteredAssignments = assignments.filter(a => a.createdAt ? a.createdAt <= endOfDay : true);
@@ -190,7 +205,7 @@ export default function TeacherDashboard() {
     ? Math.round(filteredSubmissions.reduce((s, x) => s + x.score, 0) / filteredSubmissions.length)
     : 0;
   const completedToday = filteredSubmissions.filter(
-    s => s.submittedAt.startsWith(selectedDate),
+    s => toLocalDateString(s.submittedAt) === selectedDate,
   ).length;
 
   // ── Per-student stats ──────────────────────────────────────────────────────
@@ -220,8 +235,8 @@ export default function TeacherDashboard() {
 
   // ── Analytics Data ─────────────────────────────────────────────────────────
   const todayActivities = [
-    ...filteredSubmissions.filter(s => s.submittedAt.startsWith(selectedDate)),
-    ...filteredTrackings.filter(t => t.submittedAt.startsWith(selectedDate))
+    ...filteredSubmissions.filter(s => toLocalDateString(s.submittedAt) === selectedDate),
+    ...filteredTrackings.filter(t => toLocalDateString(t.submittedAt) === selectedDate)
   ];
   
   // 1. Star of the Day
@@ -254,22 +269,50 @@ export default function TeacherDashboard() {
   const timeDistributionData = Object.entries(timeDist).map(([time, count]) => ({ time, count }));
 
   // 3. Class Trend (Line Chart)
+  const monday = (() => {
+    const [year, month, day] = selectedDate.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
+    const dayOfWeek = d.getDay();
+    const diff = d.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    const mon = new Date(d.setDate(diff));
+    return mon;
+  })();
+
   const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() - (6 - i));
-    return d.toISOString().split('T')[0];
+    const d = new Date(monday);
+    d.setDate(d.getDate() + i);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   });
 
+  const getVNWeekday = (dStr: string) => {
+    const [year, month, day] = dStr.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
+    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    return `${dayNames[d.getDay()]} (${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')})`;
+  };
+
+  const assignmentMap = new Map<string, Assignment>();
+  assignments.forEach(a => assignmentMap.set(a.id, a));
+
   const classTrendData = last7Days.map(date => {
-    const dSubs = submissions.filter(s => s.submittedAt.startsWith(date));
-    const dTrks = trackings.filter(t => t.submittedAt.startsWith(date));
+    const dSubs = submissions.filter(s => toLocalDateString(s.submittedAt) === date);
+    const dTrks = trackings.filter(t => toLocalDateString(t.submittedAt) === date);
     
     const scores = { Vocab: [] as number[], Grammar: [] as number[], Reading: [] as number[], Listening: [] as number[], Writing: [] as number[] };
+    const allScores: number[] = [];
+    
     dSubs.forEach(s => {
-      if (s.assignmentType === 'vocab_context' || s.assignmentType === 'vocabulary') scores.Vocab.push(s.score);
-      else if (s.assignmentType === 'multiple_choice') scores.Grammar.push(s.score);
-      else if (s.assignmentType === 'dictation') scores.Listening.push(s.score);
-      else if (s.assignmentType === 'rewrite_vocab') scores.Writing.push(s.score);
+      const a = assignmentMap.get(s.assignmentId);
+      const skill = a?.skill || 'Vocab';
+      if (skill === 'Vocab') scores.Vocab.push(s.score);
+      else if (skill === 'Grammar') scores.Grammar.push(s.score);
+      else if (skill === 'Reading') scores.Reading.push(s.score);
+      else if (skill === 'Listening') scores.Listening.push(s.score);
+      else if (skill === 'Writing') scores.Writing.push(s.score);
+      allScores.push(s.score);
     });
     dTrks.forEach(t => {
       if (t.category === 'Vocabulary') scores.Vocab.push(t.score);
@@ -277,35 +320,65 @@ export default function TeacherDashboard() {
       else if (t.category === 'Reading') scores.Reading.push(t.score);
       else if (t.category === 'Dictation' || t.category === 'Listening') scores.Listening.push(t.score);
       else if (t.category === 'Writing') scores.Writing.push(t.score);
+      allScores.push(t.score);
     });
     
     const average = (arr: number[]) => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : null;
     return {
-      date: date.slice(5),
+      date: getVNWeekday(date),
       Vocab: average(scores.Vocab),
       Grammar: average(scores.Grammar),
       Reading: average(scores.Reading),
       Listening: average(scores.Listening),
       Writing: average(scores.Writing),
+      Score: average(allScores),
     };
   });
+
+  // Calculate overall average for radar
+  const getOverallSkillAverage = (skill: string) => {
+    const scores: number[] = [];
+    submissions.forEach(s => {
+      const a = assignmentMap.get(s.assignmentId);
+      const aSkill = a?.skill || 'Vocab';
+      if (aSkill.toLowerCase() === skill.toLowerCase()) scores.push(s.score);
+    });
+    trackings.forEach(t => {
+      let tSkill: string = t.category;
+      if (tSkill === 'Vocabulary') tSkill = 'Vocab';
+      else if (tSkill === 'Dictation') tSkill = 'Listening';
+      if (tSkill.toLowerCase() === skill.toLowerCase()) scores.push(t.score);
+    });
+    return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+  };
 
   // 4. Actionable Insights
   const insights: string[] = [];
   if (classTrendData.length >= 2) {
-    const firstDay = classTrendData[0];
-    const lastDay = classTrendData[classTrendData.length - 1];
     const skills = ['Vocab', 'Grammar', 'Reading', 'Listening', 'Writing'];
     const skillNames: any = { Vocab: 'Từ vựng', Grammar: 'Ngữ pháp', Reading: 'Đọc hiểu', Listening: 'Nghe chép', Writing: 'Viết' };
     
     skills.forEach(skill => {
-      const start = (firstDay as any)[skill];
-      const end = (lastDay as any)[skill];
-      if (start !== null && end !== null) {
-        if (end - start <= -15) {
-          insights.push(`🚨 Kỹ năng ${skillNames[skill]} đang giảm mạnh (${end - start} điểm) so với 7 ngày trước. Khuyến nghị giao thêm bài tập loại này!`);
-        } else if (end - start >= 15) {
-          insights.push(`🌟 Lớp học đang có sự tiến bộ vượt bậc ở kỹ năng ${skillNames[skill]} (+${end - start} điểm).`);
+      let start: number | null = null;
+      for (let i = 0; i < classTrendData.length; i++) {
+        if ((classTrendData[i] as any)[skill] !== null) {
+          start = (classTrendData[i] as any)[skill];
+          break;
+        }
+      }
+      let end: number | null = null;
+      for (let i = classTrendData.length - 1; i >= 0; i--) {
+        if ((classTrendData[i] as any)[skill] !== null) {
+          end = (classTrendData[i] as any)[skill];
+          break;
+        }
+      }
+      if (start !== null && end !== null && start !== end) {
+        const diff = end - start;
+        if (diff <= -15) {
+          insights.push(`🚨 Kỹ năng ${skillNames[skill]} đang giảm mạnh (${diff} điểm) so với đầu tuần. Khuyến nghị giao thêm bài tập loại này!`);
+        } else if (diff >= 15) {
+          insights.push(`🌟 Lớp học đang có sự tiến bộ vượt bậc ở kỹ năng ${skillNames[skill]} (+${diff} điểm) so với đầu tuần.`);
         }
       }
     });
@@ -321,6 +394,15 @@ export default function TeacherDashboard() {
     if (h < 1) return `${m} phút trước`;
     if (h < 24) return `${h} giờ trước`;
     return `${Math.floor(h / 24)} ngày trước`;
+  };
+  const formatSubmissionTime = (iso: string) => {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const date = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${date}/${month} - ${hours}:${minutes}`;
   };
 
   return (
@@ -416,8 +498,8 @@ export default function TeacherDashboard() {
             <input 
               type="date" 
               value={selectedDate}
-              onChange={e => setSelectedDate(e.target.value || new Date().toISOString().split('T')[0])}
-              max={new Date().toISOString().split('T')[0]}
+              onChange={e => setSelectedDate(e.target.value || toLocalDateString())}
+              max={toLocalDateString()}
               className="input-field text-sm py-1.5 px-3 w-auto"
             />
           </div>
@@ -453,10 +535,16 @@ export default function TeacherDashboard() {
           Tổng Quan Lớp Học
         </button>
         <button 
+          onClick={() => setActiveTab('assignments_mgmt')} 
+          className={`pb-3 font-semibold transition-colors border-b-2 ${activeTab === 'assignments_mgmt' ? 'text-primary border-primary' : 'text-muted-foreground border-transparent hover:text-foreground'}`}
+        >
+          Quản Lý Bài Tập
+        </button>
+        <button 
           onClick={() => setActiveTab('analytics')} 
           className={`pb-3 font-semibold transition-colors border-b-2 ${activeTab === 'analytics' ? 'text-primary border-primary' : 'text-muted-foreground border-transparent hover:text-foreground'}`}
         >
-          Phân Tích Chuyên Sâu
+          Dashboard Điểm Số & Skill
         </button>
         <button 
           onClick={() => setActiveTab('vocabulary')} 
@@ -509,114 +597,45 @@ export default function TeacherDashboard() {
               </div>
             </div>
 
-        {/* Assignments List */}
+        {/* Class Trend Line Chart */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold font-heading flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-violet-400" />
-              Bài Tập Đã Giao
-            </h2>
-            <div className="flex items-center gap-2">
-              <Link href="/teacher/scores"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/20 text-primary hover:bg-primary/10 transition-colors text-xs font-semibold">
-                <Settings className="h-3.5 w-3.5" /> Quản lý điểm
-              </Link>
-              <Link href="/teacher/assignments/new"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors text-xs font-semibold">
-                <PlusCircle className="h-3.5 w-3.5" /> Thêm
-              </Link>
+          <h2 className="text-lg font-semibold font-heading flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-emerald-400" />
+            Dashboard Điểm Số & Skill
+          </h2>
+          <div className="glass-strong rounded-3xl p-6 h-[400px] flex flex-col justify-center border border-white/5">
+            <div className="w-full h-[320px]">
+              <ResponsiveContainer width="99%" height="100%">
+                <LineChart data={classTrendData}>
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="hsl(var(--muted-foreground))" 
+                    fontSize={10} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    minTickGap={15}
+                    tickFormatter={(val, idx) => {
+                      if (idx === 0 || idx === classTrendData.length - 1) {
+                        return val.replace('Thứ ', 'T.');
+                      }
+                      return '•';
+                    }}
+                  />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} domain={[0, 100]} />
+                  <Tooltip contentStyle={{ backgroundColor: 'rgba(17, 17, 17, 0.95)', borderColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '12px', fontSize: '11px' }} />
+                  <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '11px' }} />
+                  <Line type="monotone" dataKey="Score" name="Điểm trung bình" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} activeDot={{ r: 6 }} connectNulls={true} />
+                  <Line type="monotone" dataKey="Vocab" name="Từ vựng" stroke="#a78bfa" strokeWidth={2} dot={{ r: 2 }} connectNulls={true} />
+                  <Line type="monotone" dataKey="Grammar" name="Ngữ pháp" stroke="#34d399" strokeWidth={2} dot={{ r: 2 }} connectNulls={true} />
+                  <Line type="monotone" dataKey="Reading" name="Đọc hiểu" stroke="#fbbf24" strokeWidth={2} dot={{ r: 2 }} connectNulls={true} />
+                  <Line type="monotone" dataKey="Listening" name="Nghe chép" stroke="#60a5fa" strokeWidth={2} dot={{ r: 2 }} connectNulls={true} />
+                  <Line type="monotone" dataKey="Writing" name="Viết" stroke="#f87171" strokeWidth={2} dot={{ r: 2 }} connectNulls={true} />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </div>
-          <div className="glass-strong rounded-3xl p-6 h-[400px] flex flex-col">
-            {assignments.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-                <BookOpen className="h-10 w-10 mb-3 opacity-30" />
-                <p className="text-sm">Chưa có bài tập</p>
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto pr-2 space-y-3">
-                {assignments.map(a => {
-                  const subs = submissions.filter(s => s.assignmentId === a.id);
-                  const avg = subs.length ? Math.round(subs.reduce((s, x) => s + x.score, 0) / subs.length) : null;
-                  return (
-                    <Link key={a.id} href={`/teacher/assignments/${a.id}/edit`} className="flex items-start gap-3 p-4 rounded-2xl bg-secondary/30 border border-white/5 group hover:bg-secondary/60 transition-colors cursor-pointer">
-                      <div className={`p-2.5 rounded-xl ${
-                        a.type === 'vocab_context' || a.type === 'vocabulary' ? 'bg-violet-500/10 text-violet-400' : 
-                        a.type === 'multiple_choice' ? 'bg-teal-500/10 text-teal-400' :
-                        a.type === 'dictation' ? 'bg-sky-500/10 text-sky-400' :
-                        'bg-amber-500/10 text-amber-400'
-                      }`}>
-                      {a.type === 'vocab_context' ? <BookOpen className="h-4 w-4" /> : 
-                       a.type === 'multiple_choice' ? <ListChecks className="h-4 w-4" /> :
-                       a.type === 'dictation' ? <Headphones className="h-4 w-4" /> :
-                       a.type === 'vocabulary' ? <FileJson className="h-4 w-4" /> :
-                       <PenTool className="h-4 w-4" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">{a.title}</p>
-                      <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
-                        <span className={`px-1.5 py-0.5 rounded-md font-medium ${
-                          a.type === 'vocab_context' || a.type === 'vocabulary' ? 'bg-violet-500/10 text-violet-300' : 
-                          a.type === 'multiple_choice' ? 'bg-teal-500/10 text-teal-300' :
-                          a.type === 'dictation' ? 'bg-sky-500/10 text-sky-300' :
-                          'bg-amber-500/10 text-amber-300'
-                        }`}>
-                          {a.type === 'vocab_context' || a.type === 'vocabulary' ? 'Vocab' : 
-                           a.type === 'multiple_choice' ? 'Quiz' :
-                           a.type === 'dictation' ? 'Nghe chép' : 'Viết'}
-                        </span>
-                        <span>•</span>
-                        <span>
-                          {a.type === 'vocab_context' ? `${a.keywords?.length || 0} từ khóa` : 
-                           a.type === 'multiple_choice' ? `${a.questions?.length || 0} câu hỏi` :
-                           a.type === 'dictation' ? `${getDictationCount(a)} câu` :
-                           a.type === 'vocabulary' ? `${a.vocabCards?.length || 0} từ vựng` :
-                           `${a.keywords?.length || 0} từ khóa`}
-                        </span>
-                        {avg !== null && <ScoreBadge score={avg} />}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {a.type === 'multiple_choice' && (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleHint(a); }}
-                          className={`p-1.5 rounded-lg transition-colors relative z-10 flex items-center gap-1 px-2 ${
-                            a.allowHints 
-                              ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' 
-                              : 'text-muted-foreground/50 hover:text-amber-400 hover:bg-amber-500/10'
-                          }`}
-                          title={a.allowHints ? "Tắt gợi ý" : "Bật gợi ý"}
-                        >
-                          <Lightbulb className="h-4 w-4 pointer-events-none" />
-                          <span className="text-[10px] font-semibold">{a.allowHints ? 'Bật' : 'Tắt'}</span>
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleShareAssignment(a); }}
-                        className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-blue-400 hover:bg-blue-500/10 transition-colors relative z-10"
-                        title="Chia sẻ bài tập"
-                      >
-                        <Share2 className="h-4 w-4 pointer-events-none" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(a.id); }}
-                        className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-red-400 hover:bg-red-500/10 transition-colors relative z-10"
-                        title="Xóa bài tập"
-                      >
-                        <Trash2 className="h-4 w-4 pointer-events-none" />
-                      </button>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
         </div>
       </div>
-    </div>
 
     {/* Recent Activity */}
       {recentActivities.length > 0 && (
@@ -627,7 +646,9 @@ export default function TeacherDashboard() {
               Hoạt Động Gần Đây
             </h2>
           </div>
-          <div className="overflow-x-auto">
+          
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/30 text-muted-foreground text-xs uppercase tracking-wide">
@@ -673,7 +694,7 @@ export default function TeacherDashboard() {
                     </td>
                     <td className="px-6 py-3 text-center"><ScoreBadge score={act.score} /></td>
                     <td className="px-6 py-3 text-right whitespace-nowrap">
-                      <span className="text-xs text-muted-foreground">{timeAgo(act.submittedAt)}</span>
+                      <span className="text-xs text-muted-foreground">{formatSubmissionTime(act.submittedAt)}</span>
                     </td>
                     <td className="px-6 py-3 text-right whitespace-nowrap">
                       {!act.isTracking && act.durationMs ? (
@@ -689,8 +710,242 @@ export default function TeacherDashboard() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card List View */}
+          <div className="md:hidden divide-y divide-white/5">
+            {recentActivities.map((act: any) => (
+              <div key={act.id} className="p-4 space-y-2 hover:bg-slate-800/10 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <StudentAvatar name={act.studentName} size="sm" />
+                    <span className="font-semibold text-sm text-foreground">{act.studentName}</span>
+                  </div>
+                  <ScoreBadge score={act.score} />
+                </div>
+                
+                <div className="text-xs text-muted-foreground line-clamp-1">
+                  {act.isTracking ? 'Báo cáo: ' + act.category : act.assignmentTitle}
+                </div>
+                
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium border ${
+                    act.isTracking ? 'bg-blue-500/10 text-blue-300 border-blue-500/20' :
+                    act.assignmentType === 'vocab_context' || act.assignmentType === 'vocabulary' ? 'bg-violet-500/10 text-violet-300 border-violet-500/20' : 
+                    act.assignmentType === 'multiple_choice' ? 'bg-teal-500/10 text-teal-300 border-teal-500/20' :
+                    act.assignmentType === 'dictation' ? 'bg-sky-500/10 text-sky-300 border-sky-500/20' :
+                    'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                  }`}>
+                    {act.isTracking ? act.category :
+                     act.assignmentType === 'vocab_context' || act.assignmentType === 'vocabulary' ? 'Vocab' : 
+                     act.assignmentType === 'multiple_choice' ? 'Quiz' :
+                     act.assignmentType === 'dictation' ? 'Nghe chép' : 'Viết'}
+                  </span>
+                  
+                  <span>
+                    {formatSubmissionTime(act.submittedAt)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
+        </div>
+      )}
+
+      {activeTab === 'assignments_mgmt' && (
+        <div className="space-y-6 fade-in stagger-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+            <div>
+              <h2 className="text-xl font-bold font-heading text-primary flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-violet-400" />
+                Quản Lý Bài Tập Đã Giao
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Xem danh sách, lọc theo kỹ năng, ngày tạo và quản lý bài tập của học sinh.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link href="/teacher/scores"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-secondary/50 border border-white/5 text-foreground hover:bg-secondary transition-colors text-sm font-semibold">
+                <Settings className="h-4 w-4" /> Quản lý điểm
+              </Link>
+              <Link href="/teacher/assignments/new"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-sm font-semibold border border-primary/20 shadow-lg shadow-primary/5">
+                <PlusCircle className="h-4 w-4" /> Thêm Bài Tập Mới
+              </Link>
+            </div>
+          </div>
+
+          {/* Filters Bar */}
+          <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Skill filter buttons */}
+            <div className="space-y-1.5 flex-1">
+              <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider block">Lọc Theo Kỹ Năng</label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { value: 'all', label: 'Tất cả' },
+                  { value: 'Vocab', label: 'Từ vựng (Vocab)' },
+                  { value: 'Grammar', label: 'Ngữ pháp (Grammar)' },
+                  { value: 'Reading', label: 'Đọc hiểu (Reading)' },
+                  { value: 'Listening', label: 'Nghe chép (Listening)' },
+                  { value: 'Writing', label: 'Viết (Writing)' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setMgmtSkillFilter(opt.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                      mgmtSkillFilter === opt.value
+                        ? 'bg-primary border-primary text-primary-foreground shadow-md shadow-primary/10'
+                        : 'bg-transparent border-white/10 text-muted-foreground hover:text-white hover:border-white/20'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Date filter picker */}
+            <div className="space-y-1.5 shrink-0">
+              <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider block">Lọc Theo Ngày Tạo</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={mgmtDateFilter}
+                  onChange={e => setMgmtDateFilter(e.target.value)}
+                  className="input-field text-xs py-1.5 px-3 w-auto bg-background border-white/10 rounded-lg text-foreground focus:border-primary/50 focus:outline-none"
+                />
+                {mgmtDateFilter && (
+                  <button
+                    onClick={() => setMgmtDateFilter('')}
+                    className="p-1.5 rounded-lg border border-red-500/20 text-red-400 bg-red-500/10 hover:bg-red-500/20 text-xs font-semibold transition-colors"
+                  >
+                    Xóa lọc
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Assignments list */}
+          {(() => {
+            const filteredMgmtAssignments = assignments.filter(a => {
+              if (mgmtSkillFilter !== 'all') {
+                const skill = a.skill || 'Vocab';
+                if (skill.toLowerCase() !== mgmtSkillFilter.toLowerCase()) return false;
+              }
+              if (mgmtDateFilter) {
+                if (!a.createdAt) return false;
+                const d = new Date(a.createdAt);
+                const aDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                if (aDate !== mgmtDateFilter) return false;
+              }
+              return true;
+            });
+
+            if (filteredMgmtAssignments.length === 0) {
+              return (
+                <div className="flex flex-col items-center justify-center py-16 text-center space-y-3 bg-white/5 rounded-3xl border border-white/5">
+                  <BookOpen className="h-12 w-12 text-muted-foreground opacity-30" />
+                  <p className="text-sm font-semibold text-muted-foreground">Không tìm thấy bài tập nào!</p>
+                  <p className="text-xs text-muted-foreground/60 max-w-md">Thử thay đổi điều kiện lọc theo ngày hoặc kỹ năng để tìm thấy bài tập bạn cần.</p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
+                {filteredMgmtAssignments.map(a => {
+                  const subs = submissions.filter(s => s.assignmentId === a.id);
+                  const avg = subs.length ? Math.round(subs.reduce((s, x) => s + x.score, 0) / subs.length) : null;
+                  const skill = a.skill || 'Vocab';
+                  return (
+                    <div key={a.id} className="flex items-start justify-between gap-4 p-5 rounded-2xl bg-white/5 border border-white/5 hover:border-primary/30 transition-all group">
+                      <Link href={`/teacher/assignments/${a.id}/edit`} className="flex-1 flex items-start gap-3.5 min-w-0 cursor-pointer">
+                        <div className={`p-3 rounded-xl flex-shrink-0 ${
+                          skill === 'Vocab' ? 'bg-violet-500/10 text-violet-400' :
+                          skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-400' :
+                          skill === 'Reading' ? 'bg-amber-500/10 text-amber-400' :
+                          skill === 'Listening' ? 'bg-sky-500/10 text-sky-400' :
+                          'bg-red-500/10 text-red-400'
+                        }`}>
+                          {a.type === 'vocab_context' ? <BookOpen className="h-5 w-5" /> :
+                           a.type === 'multiple_choice' ? <ListChecks className="h-5 w-5" /> :
+                           a.type === 'dictation' ? <Headphones className="h-5 w-5" /> :
+                           a.type === 'vocabulary' ? <FileJson className="h-5 w-5" /> :
+                           <PenTool className="h-5 w-5" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">{a.title}</p>
+                          <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                              skill === 'Vocab' ? 'bg-violet-500/10 text-violet-300 border-violet-500/20' :
+                              skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' :
+                              skill === 'Reading' ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' :
+                              skill === 'Listening' ? 'bg-sky-500/10 text-sky-300 border-sky-500/20' :
+                              'bg-red-500/10 text-red-300 border-red-500/20'
+                            }`}>
+                              {skill}
+                            </span>
+                            <span className="text-muted-foreground/60">•</span>
+                            <span className="text-muted-foreground">
+                              {a.type === 'vocab_context' ? `${a.keywords?.length || 0} từ khóa` :
+                               a.type === 'multiple_choice' ? `${a.questions?.length || 0} câu hỏi` :
+                               a.type === 'dictation' ? `${getDictationCount(a)} câu` :
+                               a.type === 'vocabulary' ? `${a.vocabCards?.length || 0} từ vựng` :
+                               `${a.keywords?.length || 0} từ khóa`}
+                            </span>
+                            {a.createdAt && (
+                              <>
+                                <span className="text-muted-foreground/60">•</span>
+                                <span className="text-muted-foreground flex items-center gap-1">
+                                  <Calendar className="h-3 w-3 text-sky-400" />
+                                  {new Date(a.createdAt).toLocaleDateString('vi-VN')}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          {avg !== null && (
+                            <div className="mt-3 flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">Điểm TB lớp:</span>
+                              <ScoreBadge score={avg} />
+                              <span className="text-xs text-muted-foreground">({subs.length} lượt làm)</span>
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {a.type === 'multiple_choice' && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleHint(a); }}
+                            className={`p-2 rounded-xl transition-colors relative z-10 flex items-center gap-1.5 px-2.5 py-1.5 text-xs ${
+                              a.allowHints
+                                ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                                : 'text-muted-foreground/50 hover:text-amber-400 hover:bg-amber-500/10'
+                            }`}
+                            title={a.allowHints ? "Tắt gợi ý" : "Bật gợi ý"}
+                          >
+                            <Lightbulb className="h-4 w-4 pointer-events-none" />
+                            <span className="font-semibold">{a.allowHints ? 'Bật gợi ý' : 'Tắt gợi ý'}</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(a.id); }}
+                          className="p-2 rounded-xl text-muted-foreground/50 hover:text-red-400 hover:bg-red-500/10 transition-colors relative z-10"
+                          title="Xóa bài tập"
+                        >
+                          <Trash2 className="h-4.5 w-4.5 pointer-events-none" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -715,20 +970,34 @@ export default function TeacherDashboard() {
             {/* Class Trend Line Chart */}
             <div className="glass-strong rounded-3xl p-6 border border-white/5 lg:col-span-2">
               <h3 className="font-semibold font-heading flex items-center gap-2 mb-6">
-                <TrendingUp className="h-5 w-5 text-emerald-400" /> Xu Hướng Kỹ Năng Lớp Học (7 Ngày)
+                <TrendingUp className="h-5 w-5 text-emerald-400" /> Dashboard Điểm Số & Skill
               </h3>
               <div className="w-full h-[300px] min-h-[300px]">
                 <ResponsiveContainer width="99%" height="100%">
                   <LineChart data={classTrendData}>
-                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="hsl(var(--muted-foreground))" 
+                      fontSize={10} 
+                      tickLine={false} 
+                      axisLine={false} 
+                      minTickGap={15}
+                      tickFormatter={(val, idx) => {
+                        if (idx === 0 || idx === classTrendData.length - 1) {
+                          return val.replace('Thứ ', 'T.');
+                        }
+                        return '•';
+                      }}
+                    />
                     <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
                     <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} />
                     <Legend verticalAlign="top" height={36} />
-                    <Line type="monotone" dataKey="Vocab" name="Từ vựng" stroke="#a78bfa" strokeWidth={2} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="Grammar" name="Ngữ pháp" stroke="#34d399" strokeWidth={2} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="Reading" name="Đọc hiểu" stroke="#fbbf24" strokeWidth={2} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="Listening" name="Nghe chép" stroke="#60a5fa" strokeWidth={2} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="Writing" name="Viết" stroke="#f87171" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="Score" name="Điểm trung bình" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} activeDot={{ r: 6 }} connectNulls={true} />
+                    <Line type="monotone" dataKey="Vocab" name="Từ vựng" stroke="#a78bfa" strokeWidth={2} dot={{ r: 2 }} connectNulls={true} />
+                    <Line type="monotone" dataKey="Grammar" name="Ngữ pháp" stroke="#34d399" strokeWidth={2} dot={{ r: 2 }} connectNulls={true} />
+                    <Line type="monotone" dataKey="Reading" name="Đọc hiểu" stroke="#fbbf24" strokeWidth={2} dot={{ r: 2 }} connectNulls={true} />
+                    <Line type="monotone" dataKey="Listening" name="Nghe chép" stroke="#60a5fa" strokeWidth={2} dot={{ r: 2 }} connectNulls={true} />
+                    <Line type="monotone" dataKey="Writing" name="Viết" stroke="#f87171" strokeWidth={2} dot={{ r: 2 }} connectNulls={true} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -742,7 +1011,14 @@ export default function TeacherDashboard() {
               <div className="w-full h-[250px] min-h-[250px]">
                 <ResponsiveContainer width="99%" height="100%">
                   <BarChart data={timeDistributionData}>
-                    <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                    <XAxis 
+                      dataKey="time" 
+                      stroke="hsl(var(--muted-foreground))" 
+                      fontSize={10} 
+                      tickLine={false} 
+                      axisLine={false} 
+                      tickFormatter={(val) => val.split(' ')[0]} 
+                    />
                     <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                     <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} cursor={{ fill: 'hsl(var(--muted)/0.2)' }} />
                     <Bar dataKey="count" name="Số bài nộp" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={50}>
@@ -765,14 +1041,14 @@ export default function TeacherDashboard() {
                 <Trophy className="h-5 w-5 text-amber-400" /> Năng Lực Trung Bình
               </h3>
               <p className="text-sm text-muted-foreground mb-4 w-full text-left">Phân bổ điểm số theo 5 kỹ năng của toàn bộ lớp học</p>
-              <div className="w-full h-[250px]">
+              <div className="w-full h-[300px]">
                 <ResponsiveContainer width="99%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={[
-                    { subject: 'Từ vựng', A: classTrendData.length ? classTrendData[classTrendData.length-1].Vocab : 0, fullMark: 100 },
-                    { subject: 'Ngữ pháp', A: classTrendData.length ? classTrendData[classTrendData.length-1].Grammar : 0, fullMark: 100 },
-                    { subject: 'Đọc hiểu', A: classTrendData.length ? classTrendData[classTrendData.length-1].Reading : 0, fullMark: 100 },
-                    { subject: 'Nghe chép', A: classTrendData.length ? classTrendData[classTrendData.length-1].Listening : 0, fullMark: 100 },
-                    { subject: 'Viết', A: classTrendData.length ? classTrendData[classTrendData.length-1].Writing : 0, fullMark: 100 },
+                  <RadarChart cx="50%" cy="50%" outerRadius="60%" data={[
+                    { subject: 'Từ vựng', A: getOverallSkillAverage('Vocab'), fullMark: 100 },
+                    { subject: 'Ngữ pháp', A: getOverallSkillAverage('Grammar'), fullMark: 100 },
+                    { subject: 'Đọc hiểu', A: getOverallSkillAverage('Reading'), fullMark: 100 },
+                    { subject: 'Nghe chép', A: getOverallSkillAverage('Listening'), fullMark: 100 },
+                    { subject: 'Viết', A: getOverallSkillAverage('Writing'), fullMark: 100 },
                   ]}>
                     <PolarGrid stroke="hsl(var(--border))" />
                     <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />

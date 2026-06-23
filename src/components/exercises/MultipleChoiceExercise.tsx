@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { QuizQuestion, QuizAnswerResult, Submission, getStudentAvatar } from '@/lib/local-store';
-import { CheckCircle2, XCircle, Send } from 'lucide-react';
+import { QuizQuestion, QuizAnswerResult, Submission, getStudentAvatar, getStudentColors } from '@/lib/local-store';
+import { CheckCircle2, XCircle, Send, Star, X } from 'lucide-react';
 import { ExerciseTimer } from '@/components/ui/ExerciseTimer';
 
 interface Props {
@@ -23,6 +23,7 @@ const LABELS = ['A', 'B', 'C', 'D'];
 export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, result, score, durationMs, feedback, allSubmissions, allowHints, hideSidebar }: Props) {
   const [selected, setSelected] = useState<Record<number, string>>({});
   const [revealedHints, setRevealedHints] = useState<Set<number>>(new Set());
+  const [isMobileMapOpen, setIsMobileMapOpen] = useState(false);
   const isSubmitted = !!result;
   const answered = Object.keys(selected).length;
   const remaining = questions.length - answered;
@@ -51,10 +52,35 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
   };
 
   return (
-    <div className={hideSidebar ? "space-y-5" : "grid grid-cols-1 lg:grid-cols-4 gap-6 items-start"}>
-      {/* Left Sidebar */}
+    <>
+      {/* Sticky Mobile Status Bar */}
       {!hideSidebar && (
-        <div className="lg:col-span-1 lg:sticky lg:top-4 z-30 space-y-4 self-start order-last lg:order-first">
+        <div className="sticky top-16 z-40 lg:hidden -mx-4 px-4 py-3 bg-black/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between gap-3 shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-muted-foreground">Tiến độ:</span>
+            <span className="text-xs font-extrabold text-primary">{answered}/{questions.length}</span>
+          </div>
+          <div className="flex-1 max-w-[30%] bg-secondary h-1.5 rounded-full overflow-hidden">
+            <div className="bg-primary h-full transition-all duration-500" style={{ width: `${(answered / questions.length) * 100}%` }} />
+          </div>
+          {!isSubmitted && (
+            <div className="flex items-center gap-1 px-2.5 py-1 bg-white/5 border border-white/5 rounded-xl">
+              <ExerciseTimer isRunning={true} className="!p-0 !bg-transparent text-xs font-bold text-foreground" />
+            </div>
+          )}
+          <button
+            onClick={() => setIsMobileMapOpen(true)}
+            className="px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-xl text-xs font-bold text-primary active:scale-95 transition-all"
+          >
+            Sơ đồ
+          </button>
+        </div>
+      )}
+
+      <div className={hideSidebar ? "space-y-5" : "grid grid-cols-1 lg:grid-cols-4 gap-6 items-start"}>
+        {/* Left Sidebar (Desktop Only) */}
+        {!hideSidebar && (
+          <div className="hidden lg:block lg:col-span-1 lg:sticky lg:top-4 z-30 space-y-4 self-start">
           {!isSubmitted && (
             <div className="glass-strong rounded-3xl border border-white/10 p-5 shadow-xl">
               <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-3 text-center">Thời gian làm bài</div>
@@ -190,28 +216,25 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                     : 'bg-secondary text-muted-foreground border-border'
                 }`}>{idx + 1}</span>
                 <div className="flex-1 min-w-0">
-                  {q.knowledgeArea && (
-                    <div className="mb-1.5">
-                      <span className="inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-teal-400 bg-teal-500/10 border border-teal-500/20 rounded-md">
-                        {q.knowledgeArea}
-                      </span>
-                    </div>
-                  )}
-                  {uniqueFailedPeersForQuestion.length > 0 && (
-                    <div className="mb-2">
-                      <span className="inline-flex items-center gap-1 bg-red-500/5 px-2 py-0.5 rounded-md border border-red-500/10 align-middle">
-                        <span className="text-[9px] text-red-400/80 uppercase font-semibold">Vài con gà đã ngã xuống:</span>
-                        <span className="flex -space-x-1">
-                          {uniqueFailedPeersForQuestion.map(peer => (
-                            <span key={peer || 'unknown'} title={`${peer} đã làm sai câu này`} className="relative w-4 h-4 rounded-full border border-red-500/50 flex items-center justify-center bg-background text-[7px] font-bold shadow-sm z-10 hover:z-20 transition-all hover:scale-110">
-                              {getStudentAvatar(peer || 'Unknown')}
-                              <span className="absolute -bottom-0.5 -right-0.5 bg-red-500 rounded-full w-2 h-2 flex items-center justify-center border border-background">
-                                <XCircle className="w-1.5 h-1.5 text-white" />
-                              </span>
-                            </span>
-                          ))}
+                  {(q.knowledgeArea || uniqueFailedPeersForQuestion.length > 0) && (
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
+                      {q.knowledgeArea && (
+                        <span className="inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-teal-400 bg-teal-500/10 border border-teal-500/20 rounded-md">
+                          {q.knowledgeArea}
                         </span>
-                      </span>
+                      )}
+                      {uniqueFailedPeersForQuestion.length > 0 && (
+                        <div className="flex gap-1.5 py-0.5">
+                          {uniqueFailedPeersForQuestion.map(peer => {
+                            const colors = getStudentColors(peer || 'Unknown');
+                            return (
+                              <div key={peer || 'unknown'} title={`${peer} đã làm sai câu này`} className={`relative w-7 h-7 rounded-full border-2 border-red-500 flex items-center justify-center text-[9px] font-bold shadow-md z-10 hover:z-20 transition-all hover:scale-110 ${colors.bg} ${colors.text}`}>
+                                {getStudentAvatar(peer || 'Unknown')}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                   <p className="font-medium text-sm leading-relaxed">
@@ -309,5 +332,127 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
       })}
       </div>
     </div>
+
+    {/* Bottom Sheet for Mobile Sơ đồ câu hỏi */}
+    {!hideSidebar && (
+      <>
+        {/* Backdrop */}
+        <div 
+          className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300 ${
+            isMobileMapOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+          onClick={() => setIsMobileMapOpen(false)}
+        />
+        
+        {/* Drawer Panel */}
+        <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-transform duration-300 ease-out transform ${
+          isMobileMapOpen ? 'translate-y-0' : 'translate-y-full'
+        }`}>
+          <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-5" />
+          
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold font-heading text-lg flex items-center gap-2">
+                <Star className="h-5 w-5 text-amber-400" /> Sơ đồ câu hỏi trắc nghiệm
+              </h3>
+              <button 
+                onClick={() => setIsMobileMapOpen(false)} 
+                className="p-1.5 bg-white/5 border border-white/5 rounded-lg text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Progress and Timer Details */}
+            <div className="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/5">
+              <div className="flex items-center gap-3">
+                <div className="relative w-12 h-12 flex-shrink-0">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" strokeWidth="3" className="text-secondary" />
+                    <circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" strokeWidth="3"
+                      strokeDasharray={16 * 2 * Math.PI}
+                      strokeDashoffset={(16 * 2 * Math.PI) - ((answered / questions.length) * 16 * 2 * Math.PI)}
+                      className="text-primary transition-all duration-500 ease-out" />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-muted-foreground">
+                    {answered}/{questions.length}
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-xs uppercase font-bold tracking-widest text-muted-foreground">Đã hoàn thành</h4>
+                  <p className="text-sm font-black text-white mt-0.5">{Math.round((answered / questions.length) * 100)}%</p>
+                </div>
+              </div>
+
+              {!isSubmitted && (
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Thời gian</span>
+                  <ExerciseTimer isRunning={true} className="!p-0 !bg-transparent text-sm font-bold text-foreground mt-0.5" />
+                </div>
+              )}
+            </div>
+
+            {/* Question Grid */}
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Danh sách các câu</p>
+              <div className="grid grid-cols-5 gap-2 max-w-sm mx-auto">
+                {questions.map((q, idx) => {
+                  const isAnswered = !!selected[q.id];
+                  const qResult = getResult(q.id);
+                  const isCorrect = qResult?.isCorrect;
+                  
+                  let btnClass = 'bg-secondary text-muted-foreground border-border hover:bg-secondary/80';
+                  if (isSubmitted) {
+                    btnClass = isCorrect ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-red-500/20 text-red-400 border-red-500/40';
+                  } else if (isAnswered) {
+                    btnClass = 'bg-primary/20 text-primary border-primary/40';
+                  }
+
+                  return (
+                    <button
+                      key={q.id}
+                      onClick={() => {
+                        const el = document.getElementById(`mc-question-${idx}`);
+                        if (el) {
+                          const y = el.getBoundingClientRect().top + window.scrollY - 80;
+                          window.scrollTo({ top: y, behavior: 'smooth' });
+                          setIsMobileMapOpen(false);
+                        }
+                      }}
+                      className={`w-10 h-10 mx-auto rounded-xl text-xs font-bold flex items-center justify-center border transition-all active:scale-95 ${btnClass}`}
+                    >
+                      {idx + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Submit / Remaining Information inside Sheet */}
+            {!isSubmitted && (
+              <div className="pt-2 border-t border-white/5">
+                <button
+                  onClick={() => {
+                    handleSubmit();
+                    setIsMobileMapOpen(false);
+                  }}
+                  disabled={isSubmitting || answered === 0}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 disabled:opacity-40 transition-all shadow-lg"
+                >
+                  <Send className="h-4 w-4" />
+                  {isSubmitting ? 'Đang chấm...' : answered < questions.length ? `Nộp bài (${answered}/${questions.length})` : 'Nộp Bài'}
+                </button>
+                {remaining > 0 && (
+                  <p className="text-[10px] text-amber-400 text-center mt-2 font-semibold">
+                    Còn {remaining} câu chưa làm
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    )}
+  </>
   );
 }

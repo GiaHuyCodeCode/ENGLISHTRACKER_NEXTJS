@@ -83,6 +83,54 @@ export function TestBlock({
     }
   };
 
+  const handleSelectOption = (cardId: string, opt: string) => {
+    if (mcRevealed[cardId] || isSubmitted) return;
+    onAnswerChange(cardId, opt);
+    setMcRevealed(prev => ({ ...prev, [cardId]: true }));
+    
+    // Tự động chuyển câu hỏi tiếp theo sau 1.2s
+    const matchIdx = shuffledCards.findIndex(c => c.id === cardId);
+    if (matchIdx !== -1 && matchIdx < shuffledCards.length - 1) {
+      setTimeout(() => {
+        handleJumpToQuestion(matchIdx + 1);
+      }, 1200);
+    }
+  };
+
+  // Lắng nghe phím tắt A/B/C/D hoặc 1/2/3/4 chọn đáp án
+  useEffect(() => {
+    if (isSubmitted || shuffledCards.length === 0) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      const activeCard = shuffledCards[currentActiveIdx];
+      if (!activeCard) return;
+
+      if (mcRevealed[activeCard.id]) return;
+
+      const opts = mcOptions[activeCard.id] || [];
+      if (opts.length < 4) return;
+
+      let selectedIndex = -1;
+      const key = e.key.toLowerCase();
+      if (key === '1' || key === 'a') selectedIndex = 0;
+      else if (key === '2' || key === 'b') selectedIndex = 1;
+      else if (key === '3' || key === 'c') selectedIndex = 2;
+      else if (key === '4' || key === 'd') selectedIndex = 3;
+
+      if (selectedIndex >= 0 && selectedIndex < opts.length) {
+        e.preventDefault();
+        handleSelectOption(activeCard.id, opts[selectedIndex]);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [shuffledCards, currentActiveIdx, mcOptions, mcRevealed, isSubmitted]);
+
   // Listen to top status bar jump event
   useEffect(() => {
     const handleJump = (e: Event) => {
@@ -222,12 +270,18 @@ export function TestBlock({
                       disabled={revealed || isSubmitted} 
                       onClick={(e) => {
                         e.stopPropagation();
-                        onAnswerChange(c.id, opt);
-                        setMcRevealed(prev => ({ ...prev, [c.id]: true }));
+                        handleSelectOption(c.id, opt);
                       }} 
                       className={`p-3 md:p-4 rounded-2xl border text-sm md:text-base font-bold transition-all duration-300 text-center sm:text-left flex items-center justify-between group ${cls} ${!revealed && !isSubmitted ? 'hover-lift' : ''}`}
                     >
-                      <span>{opt}</span>
+                      <span className="flex items-center gap-2.5">
+                        {!revealed && !isSubmitted && (
+                          <span className="w-6 h-6 rounded-lg bg-white/10 text-xs font-extrabold flex items-center justify-center border border-white/5 text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary group-hover:border-primary/30 transition-colors">
+                            {['A', 'B', 'C', 'D'][oi]}
+                          </span>
+                        )}
+                        <span>{opt}</span>
+                      </span>
                       {revealed && opt === c.word && <CheckCircle2 className="h-5 w-5 text-emerald-400" strokeWidth={1.5} />}
                       {revealed && opt === chosen && opt !== c.word && <XCircle className="h-5 w-5 text-red-400" strokeWidth={1.5} />}
                     </button>

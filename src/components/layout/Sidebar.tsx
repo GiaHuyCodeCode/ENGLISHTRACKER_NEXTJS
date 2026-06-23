@@ -20,6 +20,7 @@ import { getCurrentUser, logoutUser, UserSession } from '@/lib/local-store';
 
 const teacherLinks = [
   { href: '/',                        icon: LayoutDashboard, label: 'Dashboard Giáo Viên' },
+  { href: '/?tab=assignments_mgmt',   icon: ListChecks,       label: 'Quản Lý Bài Tập' },
   { href: '/teacher/assignments/new', icon: PlusCircle,       label: 'Tạo Bài Tập' },
 ];
 
@@ -34,17 +35,27 @@ export function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<UserSession | null>(null);
+  const [currentSearch, setCurrentSearch] = useState('');
 
   // Đóng sidebar khi chuyển trang trên mobile
   useEffect(() => {
     setIsOpen(false);
     setUser(getCurrentUser());
+    if (typeof window !== 'undefined') {
+      setCurrentSearch(window.location.search);
+    }
   }, [pathname]);
 
-  const isActive = (href: string) =>
-    href === '/' || href === '/student' 
-      ? pathname === href 
-      : pathname.startsWith(href);
+  const isActive = (href: string) => {
+    if (href === '/') {
+      return pathname === '/' && (!currentSearch || currentSearch === '?tab=overview');
+    }
+    if (href.includes('?')) {
+      const [path, query] = href.split('?');
+      return pathname === path && currentSearch.includes(query);
+    }
+    return pathname === href;
+  };
 
   return (
     <>

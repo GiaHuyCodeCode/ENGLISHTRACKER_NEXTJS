@@ -11,8 +11,40 @@ interface FlashcardBlockProps {
 export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: FlashcardBlockProps) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [animating, setAnimating] = useState(false);
+  const [slideAnimation, setSlideAnimation] = useState<'slide-out-left' | 'slide-out-right' | 'slide-in-left' | 'slide-in-right' | ''>('');
   
   const currentCard = vocabCards[currentIdx];
+
+  const handleNext = () => {
+    if (animating || currentIdx === vocabCards.length - 1) return;
+    setAnimating(true);
+    setSlideAnimation('slide-out-left');
+    setTimeout(() => {
+      setCurrentIdx(prev => prev + 1);
+      setIsFlipped(false);
+      setSlideAnimation('slide-in-right');
+      setTimeout(() => {
+        setSlideAnimation('');
+        setAnimating(false);
+      }, 280);
+    }, 280);
+  };
+
+  const handlePrev = () => {
+    if (animating || currentIdx === 0) return;
+    setAnimating(true);
+    setSlideAnimation('slide-out-right');
+    setTimeout(() => {
+      setCurrentIdx(prev => prev - 1);
+      setIsFlipped(false);
+      setSlideAnimation('slide-in-left');
+      setTimeout(() => {
+        setSlideAnimation('');
+        setAnimating(false);
+      }, 280);
+    }, 280);
+  };
 
   // Keyboard Navigation
   useEffect(() => {
@@ -21,19 +53,46 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
         e.preventDefault();
-        setIsFlipped(prev => !prev);
+        if (!animating) setIsFlipped(prev => !prev);
       } else if (e.code === 'ArrowRight' || e.code === 'Enter') {
-        setCurrentIdx(prev => Math.min(vocabCards.length - 1, prev + 1));
-        setIsFlipped(false);
+        handleNext();
       } else if (e.code === 'ArrowLeft') {
-        setCurrentIdx(prev => Math.max(0, prev - 1));
-        setIsFlipped(false);
+        handlePrev();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentCard, isSubmitted, vocabCards.length]);
+  }, [currentCard, isSubmitted, currentIdx, animating, vocabCards.length]);
+
+  // Touch Swipe Gestures
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (animating) return;
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (animating) return;
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (animating || !touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe) {
+      handleNext();
+    } else if (isRightSwipe) {
+      handlePrev();
+    }
+  };
 
   // Auto-speak on card change
   useEffect(() => {
@@ -48,7 +107,9 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
     <div className="space-y-6 slide-up">
       <div className="flex items-center gap-2 text-xs text-muted-foreground p-3 bg-secondary/30 rounded-xl border border-white/5">
         <AlertCircle className="h-4 w-4 text-violet-400 flex-shrink-0" />
-        Mẹo: Sử dụng phím <kbd className="px-1.5 py-0.5 rounded bg-secondary mx-1 text-foreground border border-border/50">Space</kbd> để lật thẻ, <kbd className="px-1.5 py-0.5 rounded bg-secondary mx-1 text-foreground border border-border/50">→</kbd> để qua từ tiếp theo.
+        <div>
+          Mẹo: Sử dụng phím <kbd className="px-1.5 py-0.5 rounded bg-secondary mx-1 text-foreground border border-border/50 font-bold">Space</kbd> để lật thẻ, <kbd className="px-1.5 py-0.5 rounded bg-secondary mx-1 text-foreground border border-border/50 font-bold">→</kbd> để qua từ tiếp theo. Trên điện thoại, bạn có thể <strong>vuốt màn hình sang trái/phải</strong> để chuyển thẻ.
+        </div>
       </div>
 
       {/* Progress Bar */}
@@ -67,8 +128,16 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
 
       {/* 3D Flashcard */}
       <div 
-        onClick={() => setIsFlipped(!isFlipped)} 
-        className="relative h-64 md:h-72 w-full cursor-pointer perspective group"
+        onClick={() => !animating && setIsFlipped(!isFlipped)} 
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        className={`relative h-64 md:h-72 w-full cursor-pointer perspective group ${
+          slideAnimation === 'slide-out-left' ? 'animate-slide-out-left' :
+          slideAnimation === 'slide-out-right' ? 'animate-slide-out-right' :
+          slideAnimation === 'slide-in-left' ? 'animate-slide-in-left' :
+          slideAnimation === 'slide-in-right' ? 'animate-slide-in-right' : ''
+        }`}
       >
         <div className={`w-full h-full duration-700 preserve-3d relative transition-transform ${isFlipped ? 'rotate-y-180' : ''}`}>
           
@@ -135,16 +204,16 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
       {/* Navigation Controls */}
       <div className="flex justify-between items-center gap-4 pt-4">
         <button 
-          onClick={() => { setCurrentIdx(prev => Math.max(0, prev - 1)); setIsFlipped(false); }} 
-          disabled={currentIdx === 0} 
+          onClick={handlePrev} 
+          disabled={currentIdx === 0 || animating} 
           className="px-5 py-3 rounded-xl border border-border hover:bg-secondary/50 disabled:opacity-30 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
         >
           <ChevronLeft className="h-4 w-4" /> Trở lại
         </button>
         
         <button 
-          onClick={() => { setCurrentIdx(prev => Math.min(vocabCards.length - 1, prev + 1)); setIsFlipped(false); }} 
-          disabled={currentIdx === vocabCards.length - 1} 
+          onClick={handleNext} 
+          disabled={currentIdx === vocabCards.length - 1 || animating} 
           className="px-5 py-3 rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-30 disabled:hover:bg-primary/10 disabled:hover:text-primary transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
         >
           Tiếp theo <ChevronRight className="h-4 w-4" />
@@ -153,3 +222,4 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
     </div>
   );
 }
+

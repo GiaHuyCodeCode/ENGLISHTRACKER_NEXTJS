@@ -11,7 +11,7 @@ import { MultipleChoiceExercise } from '@/components/exercises/MultipleChoiceExe
 import { RewriteVocabExercise } from '@/components/exercises/RewriteVocabExercise';
 import { VocabularyExercise } from '@/components/exercises/VocabularyExercise';
 import { RaceTrackLeaderboard } from '@/components/ui/RaceTrackLeaderboard';
-import { ArrowLeft, Clock, CheckCircle2, Trophy, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, Trophy, HelpCircle, Star, X } from 'lucide-react';
 import Link from 'next/link';
 
 export default function StudentReviewPage() {
@@ -22,6 +22,7 @@ export default function StudentReviewPage() {
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMobileMapOpen, setIsMobileMapOpen] = useState(false);
 
   useEffect(() => {
     seedIfEmpty();
@@ -260,7 +261,26 @@ export default function StudentReviewPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <>
+      {/* Mobile Sticky Question Map Bar */}
+      {questionMap.length > 0 && assignment.type !== 'vocabulary' && (
+        <div className="sticky top-16 z-40 lg:hidden -mx-4 px-4 py-3 bg-black/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-muted-foreground">Đối chiếu đáp án:</span>
+            <span className="text-xs font-extrabold text-emerald-400">{correctCount} đúng</span>
+            <span className="text-xs text-muted-foreground">/</span>
+            <span className="text-xs font-extrabold text-red-400">{totalCount - correctCount} sai</span>
+          </div>
+          <button
+            onClick={() => setIsMobileMapOpen(true)}
+            className="px-3 py-1.5 bg-[#0071e3]/10 border border-[#0071e3]/20 rounded-xl text-xs font-bold text-[#0071e3] active:scale-95 transition-all"
+          >
+            Xem sơ đồ câu
+          </button>
+        </div>
+      )}
+
+      <div className="max-w-7xl mx-auto space-y-6">
       {/* Back to history header */}
       <div className="flex items-center gap-4">
         <Link
@@ -316,9 +336,9 @@ export default function StudentReviewPage() {
 
       {/* Main Grid Layout: Left Sidebar + Right Content */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        {/* Left Sticky Sidebar: Sơ đồ câu hỏi */}
+        {/* Left Sticky Sidebar: Sơ đồ câu hỏi (Desktop Only) */}
         {questionMap.length > 0 && assignment.type !== 'vocabulary' && (
-          <div className="lg:col-span-1 lg:sticky lg:top-4 z-30 space-y-4 self-start order-last lg:order-first">
+          <div className="hidden lg:block lg:col-span-1 lg:sticky lg:top-4 z-30 space-y-4 self-start">
             <div className="glass-strong rounded-3xl border border-white/10 p-5 md:p-6 shadow-xl space-y-4 max-h-[calc(100vh-140px)] overflow-y-auto">
               <div className="flex justify-between items-center text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
                 <span>Sơ đồ câu hỏi</span>
@@ -420,5 +440,76 @@ export default function StudentReviewPage() {
         </div>
       </div>
     </div>
+
+    {/* Bottom Sheet for Mobile Sơ đồ câu hỏi */}
+    {questionMap.length > 0 && assignment.type !== 'vocabulary' && (
+      <>
+        {/* Backdrop */}
+        <div 
+          className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300 ${
+            isMobileMapOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+          onClick={() => setIsMobileMapOpen(false)}
+        />
+        
+        {/* Drawer Panel */}
+        <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-transform duration-300 ease-out transform ${
+          isMobileMapOpen ? 'translate-y-0' : 'translate-y-full'
+        }`}>
+          <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-5" />
+          
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold font-heading text-lg flex items-center gap-2">
+                <Star className="h-5 w-5 text-amber-400" /> Sơ đồ câu hỏi đối chiếu
+              </h3>
+              <button 
+                onClick={() => setIsMobileMapOpen(false)} 
+                className="p-1.5 bg-white/5 border border-white/5 rounded-lg text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Progress Summary and Circular-style Ring */}
+            <div className="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/5">
+              <div>
+                <h4 className="text-xs uppercase font-bold tracking-widest text-muted-foreground font-heading">Kết quả đạt được</h4>
+                <p className="text-xl font-black mt-1 text-white">{submission.score} Điểm</p>
+              </div>
+              <div className="text-right text-xs space-y-1">
+                <div className="text-emerald-400 font-bold">✓ {correctCount} câu đúng</div>
+                <div className="text-red-400 font-bold">✗ {totalCount - correctCount} câu sai</div>
+              </div>
+            </div>
+
+            {/* Grid map */}
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Chi tiết các câu</p>
+              <div className="grid grid-cols-5 gap-2 max-w-sm mx-auto">
+                {questionMap.map((q, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      q.onClick();
+                      setIsMobileMapOpen(false);
+                    }}
+                    title={q.title}
+                    className={`w-10 h-10 mx-auto rounded-xl text-xs font-bold flex items-center justify-center border transition-all active:scale-95 ${
+                      q.isCorrect
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                        : 'bg-red-500/20 text-red-400 border-red-500/40'
+                    }`}
+                  >
+                    {q.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    )}
+  </>
   );
 }

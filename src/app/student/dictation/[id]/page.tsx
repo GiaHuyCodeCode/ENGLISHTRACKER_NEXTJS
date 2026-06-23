@@ -116,6 +116,7 @@ export default function DictationExercisePage() {
   const [showDone, setShowDone] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speed, setSpeed] = useState(1.0);
+  const [isMobileMapOpen, setIsMobileMapOpen] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const startTimeRef = useRef<number>(Date.now());
@@ -293,8 +294,27 @@ export default function DictationExercisePage() {
           onRestart={handleRestart}
         />
       ) : sentences.length > 0 ? (
-        <div className="lg:grid lg:grid-cols-3 lg:gap-8 fade-in items-start">
-          <div className="lg:col-span-2 space-y-6">
+        <>
+          {/* Sticky Mobile Status Bar */}
+          <div className="sticky top-16 z-40 lg:hidden -mx-4 px-4 py-3 bg-black/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between gap-4 shadow-md">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-muted-foreground">Tiến độ:</span>
+              <span className="text-xs font-extrabold text-sky-400">{progress}%</span>
+              <span className="text-[10px] text-muted-foreground">({completedIdx.size}/{sentences.length} câu)</span>
+            </div>
+            <div className="flex-1 max-w-[40%] bg-secondary h-1.5 rounded-full overflow-hidden">
+              <div className="bg-sky-400 h-full transition-all duration-500" style={{ width: `${progress}%` }} />
+            </div>
+            <button
+              onClick={() => setIsMobileMapOpen(true)}
+              className="px-3 py-1.5 bg-sky-500/10 border border-sky-500/20 rounded-xl text-xs font-bold text-sky-400 active:scale-95 transition-all"
+            >
+              Sơ đồ câu
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 fade-in items-start">
+            <div className="lg:col-span-3 space-y-6 order-first lg:order-last">
             {/* Header */}
             <div className="glass rounded-3xl border border-white/5 p-6">
               <div className="flex items-center gap-4">
@@ -464,8 +484,8 @@ export default function DictationExercisePage() {
             )}
           </div>
 
-          {/* Sidebar Tracking */}
-          <div className="lg:col-span-1 mt-6 lg:mt-0 space-y-6 lg:sticky lg:top-6">
+          {/* Sidebar Tracking (Desktop Only) */}
+          <div className="hidden lg:block lg:col-span-1 mt-6 lg:mt-0 space-y-6 lg:sticky lg:top-6">
             <div className="glass-strong rounded-3xl border border-white/5 p-6 space-y-6">
               <div>
                 <h3 className="font-bold font-heading text-lg flex items-center gap-2">
@@ -526,6 +546,82 @@ export default function DictationExercisePage() {
             </div>
           </div>
         </div>
+
+        {/* Bottom Sheet for Mobile Sơ đồ câu hỏi */}
+        <>
+          {/* Backdrop */}
+          <div 
+            className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300 ${
+              isMobileMapOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+            }`}
+            onClick={() => setIsMobileMapOpen(false)}
+          />
+          
+          {/* Drawer Panel */}
+          <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-transform duration-300 ease-out transform ${
+            isMobileMapOpen ? 'translate-y-0' : 'translate-y-full'
+          }`}>
+            <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-5" />
+            
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold font-heading text-lg flex items-center gap-2">
+                  <Star className="h-5 w-5 text-amber-400" /> Sơ đồ câu hỏi
+                </h3>
+                <button 
+                  onClick={() => setIsMobileMapOpen(false)} 
+                  className="p-1.5 bg-white/5 border border-white/5 rounded-lg text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/5">
+                <div className="relative w-14 h-14 flex-shrink-0">
+                  <svg className="w-full h-full transform -rotate-90">
+                    <circle cx="28" cy="28" r="24" fill="none" stroke="currentColor" strokeWidth="5" className="text-secondary" />
+                    <circle cx="28" cy="28" r="24" fill="none" stroke="currentColor" strokeWidth="5"
+                      strokeDasharray={24 * 2 * Math.PI}
+                      strokeDashoffset={(24 * 2 * Math.PI) - ((progress / 100) * 24 * 2 * Math.PI)}
+                      className="text-sky-400 transition-all duration-1000 ease-out" />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-xs font-bold text-white">{progress}%</span>
+                  </div>
+                </div>
+                <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Đã xong:</span>
+                    <span className="font-bold text-emerald-400">{completedIdx.size}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Còn lại:</span>
+                    <span className="font-bold text-amber-400">{sentences.length - completedIdx.size}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Chi tiết các câu</p>
+                <div className="grid grid-cols-5 gap-2 max-w-sm mx-auto">
+                  {sentences.map((_, i) => (
+                    <div 
+                      key={i} 
+                      className={`w-10 h-10 mx-auto rounded-xl flex items-center justify-center text-xs font-bold transition-all ${
+                        completedIdx.has(i) ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                        i === currentIdx ? 'bg-sky-500/20 text-sky-400 border-sky-500/50 scale-105' :
+                        'bg-secondary/40 text-muted-foreground/50 border border-white/5'
+                      }`}
+                    >
+                      {i + 1}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+        </>
       ) : (
         <div className="flex flex-col items-center justify-center h-64 space-y-3">
           <Headphones className="w-10 h-10 text-muted-foreground opacity-50" />
