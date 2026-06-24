@@ -400,7 +400,7 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
         <div className="w-full max-w-lg space-y-4">
           <button
             onClick={toggleRecord}
-            disabled={!isSupported || phase === 'recording'}
+            disabled={!isSupported || (phase === 'recording' && !isRecording)}
             className={`w-full h-16 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-3 ${
               isRecording
                 ? 'bg-red-500/15 border border-red-500/40 text-red-400 scale-95 shadow-[0_0_20px_rgba(239,68,68,0.4)]'

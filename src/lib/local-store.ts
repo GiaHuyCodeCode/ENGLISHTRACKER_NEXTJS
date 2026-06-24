@@ -660,6 +660,28 @@ export function clearAllData(): void {
 
 // ─── Scoring & Submit ─────────────────────────────────────────────────────────
 
+function getAdjustedSubmitTime(assignmentCreatedAt: string | undefined): string {
+  const now = new Date();
+  if (!assignmentCreatedAt) return now.toISOString();
+
+  try {
+    const createdDate = new Date(assignmentCreatedAt);
+    if (isNaN(createdDate.getTime())) return now.toISOString();
+
+    const createdDay = new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate());
+    const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (nowDay > createdDay) {
+      const adjusted = new Date(createdDay);
+      adjusted.setHours(23, 59, 59, 999);
+      return adjusted.toISOString();
+    }
+  } catch (e) {
+    // Ignore error
+  }
+  return now.toISOString();
+}
+
 export function submitVocab(payload: {
   assignmentId: string; studentName: string;
   answers: { word: string; studentAnswer: string }[];
@@ -689,7 +711,7 @@ export function submitVocab(payload: {
     score,
     vocabAnswers,
     durationMs: payload.durationMs,
-    submittedAt: new Date().toISOString(),
+    submittedAt: getAdjustedSubmitTime(assignment.createdAt),
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);
   syncSubmissionToSheet(sub);
@@ -721,7 +743,7 @@ export function submitVocabularyAssignment(payload: {
       correctAnswer: ans.word
     })),
     durationMs: payload.durationMs,
-    submittedAt: new Date().toISOString(),
+    submittedAt: getAdjustedSubmitTime(assignment.createdAt),
   };
 
   // Save the submission
@@ -735,7 +757,7 @@ export function submitVocabularyAssignment(payload: {
       studentName: payload.studentName,
       category: 'Dictation',
       score: payload.dictationScore,
-      submittedAt: new Date().toISOString(),
+      submittedAt: getAdjustedSubmitTime(assignment.createdAt),
     };
     write(KEYS.dailyTracking, [...getDailyTrackings(), trackingRecord]);
     syncSubmissionToSheet({
@@ -815,7 +837,7 @@ export function submitQuiz(payload: {
     quizAnswers,
     feedback,
     durationMs: payload.durationMs,
-    submittedAt: new Date().toISOString(),
+    submittedAt: getAdjustedSubmitTime(assignment.createdAt),
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);
   syncSubmissionToSheet(sub);
@@ -863,7 +885,7 @@ export function submitRewrite(payload: {
     score,
     rewriteAnswers,
     durationMs: payload.durationMs,
-    submittedAt: new Date().toISOString(),
+    submittedAt: getAdjustedSubmitTime(assignment.createdAt),
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);
   syncSubmissionToSheet(sub);
@@ -893,7 +915,7 @@ export function submitDictation(payload: {
     score,
     dictationResults: payload.results,
     durationMs: payload.durationMs,
-    submittedAt: new Date().toISOString(),
+    submittedAt: getAdjustedSubmitTime(assignment.createdAt),
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);
   syncSubmissionToSheet(sub);
@@ -925,7 +947,7 @@ export function submitSentenceShadowing(payload: {
       attempts: r.attempts,
     })),
     durationMs: payload.durationMs,
-    submittedAt: new Date().toISOString(),
+    submittedAt: getAdjustedSubmitTime(getAssignment(payload.assignmentId.replace('shadowing_', ''))?.createdAt),
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);
   syncSubmissionToSheet(sub);

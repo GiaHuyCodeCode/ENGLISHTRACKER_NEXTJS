@@ -390,6 +390,7 @@ export function ShadowingBlock({
         <div className="w-full max-w-md space-y-4">
           <button
             onClick={toggleRecord}
+            disabled={phase === 'recording' && !isRecording}
             className={`w-full h-16 md:h-20 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-3 select-none ${
               isRecording
                 ? 'bg-red-500/15 border border-red-500/40 text-red-400 scale-95 shadow-[0_0_20px_rgba(239,68,68,0.4)]'

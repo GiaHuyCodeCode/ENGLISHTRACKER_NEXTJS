@@ -75,6 +75,8 @@
   -webkit-backdrop-filter: blur(40px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  transform: translateZ(0); /* Hardware acceleration to prevent flickering */
+  backface-visibility: hidden;
 }
 
 .glass-strong {
@@ -83,6 +85,8 @@
   -webkit-backdrop-filter: blur(40px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  transform: translateZ(0); /* Hardware acceleration to prevent flickering */
+  backface-visibility: hidden;
 }
 
 /* ── Background Dot Pattern (Subtle) ─────────────────────────────────────── */

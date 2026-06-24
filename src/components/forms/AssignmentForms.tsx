@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { VocabKeyword, QuizQuestion, DictationSentence, getVocabularyCards } from '@/lib/local-store';
 import { BookOpen, ListChecks, Plus, Trash2, Upload, CheckCircle2, AlertCircle, ArrowLeft, Eye, FileJson, PenTool, Headphones, Play, Clock, ChevronDown, Volume2, Save, X, XCircle, Search, Copy, Mic } from 'lucide-react';
+import { audioManager } from '@/lib/audio';
 
 // YouTube URL parser
 export function extractYoutubeId(url: string): string | null {
@@ -775,13 +776,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
   const [error, setError] = useState('');
 
   const handleSpeak = (text: string) => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    }
+    audioManager.speak(text, 0.9);
   };
 
   const parseJson = (raw: string) => {
@@ -1072,12 +1067,7 @@ export function ShadowingForm({ onSave, isSaving, initialData }: {
   };
 
   const handleSpeak = (text: string) => {
-    if (typeof window === 'undefined') return;
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = 'en-US';
-    utt.rate = 0.85;
-    window.speechSynthesis.speak(utt);
+    audioManager.speak(text, 0.85);
   };
 
   const jsonSample = `{

@@ -36,6 +36,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { VocabularyExercise } from '@/components/exercises/VocabularyExercise';
+import { audioManager } from '@/lib/audio';
 
 export default function StudentVocabularyPage() {
   const router = useRouter();
@@ -219,16 +220,10 @@ export default function StudentVocabularyPage() {
   }, [currentIdx, reviewQueue]);
 
   const handleSpeak = (text: string) => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.9;
-      utterance.onstart = () => setSpeakingWord(text);
-      utterance.onend = () => setSpeakingWord(null);
-      utterance.onerror = () => setSpeakingWord(null);
-      window.speechSynthesis.speak(utterance);
-    }
+    audioManager.speak(text, 0.9, undefined, undefined, undefined,
+      () => setSpeakingWord(text),
+      () => setSpeakingWord(null)
+    );
   };
 
   useEffect(() => {

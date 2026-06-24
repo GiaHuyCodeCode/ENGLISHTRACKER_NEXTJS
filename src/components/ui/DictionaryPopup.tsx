@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getVocabularyCards, VocabCard } from '@/lib/local-store';
 import { X, Volume2, Search, BookOpen } from 'lucide-react';
+import { audioManager } from '@/lib/audio';
 
 interface DictionaryData {
   word: string;
@@ -192,11 +193,7 @@ export function DictionaryPopup() {
   };
 
   const speak = (text: string) => {
-    if (typeof window === 'undefined') return;
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = 'en-US';
-    window.speechSynthesis.speak(utt);
+    audioManager.speak(text);
   };
 
   if (!isVisible) return null;

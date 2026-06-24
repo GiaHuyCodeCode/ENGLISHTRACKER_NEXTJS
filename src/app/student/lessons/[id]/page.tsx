@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { VocabularyExercise } from '@/components/exercises/VocabularyExercise';
 import { RaceTrackLeaderboard } from '@/components/ui/RaceTrackLeaderboard';
+import { audioManager } from '@/lib/audio';
 
 export default function LessonDetailPage() {
   const params = useParams();
@@ -48,16 +49,12 @@ export default function LessonDetailPage() {
   );
 
   const handleSpeak = (text: string) => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.85;
-      utterance.onstart = () => setSpeakingWord(text);
-      utterance.onend = () => setSpeakingWord(null);
-      utterance.onerror = () => setSpeakingWord(null);
-      window.speechSynthesis.speak(utterance);
-    }
+    audioManager.speak(text, 0.85, undefined, undefined, undefined,
+      () => setSpeakingWord(text),
+      () => {
+        setSpeakingWord(null);
+      }
+    );
   };
 
   const openMode = (mode: string) => {

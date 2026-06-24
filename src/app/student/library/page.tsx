@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Search,
 } from 'lucide-react';
+import { audioManager } from '@/lib/audio';
 
 // Stage config: label, color classes, bar color, interval info
 const STAGE_CONFIG = [
@@ -54,35 +55,21 @@ export default function VocabularyLibraryPage() {
   }, [studentName, cards]);
 
   const handleSpeak = (text: string) => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'en-US';
-      u.rate = 0.85;
-      
-      // Fix SpeechSynthesisUtterance GC bug by keeping reference
-      (window as any).utteranceRef = u;
-      
-      u.onstart = () => {
-        setSpeakingWord(text);
-      };
-      u.onend = () => {
-        setSpeakingWord(null);
-      };
-      u.onerror = () => {
-        setSpeakingWord(null);
-      };
-      
-      // Immediate state change for responsive visual feedback
-      setSpeakingWord(text);
-      
-      // Fallback timer in case onend is not triggered by the browser
-      setTimeout(() => {
-        setSpeakingWord(prev => prev === text ? null : prev);
-      }, 2000);
+    // Immediate state change for responsive visual feedback
+    setSpeakingWord(text);
+    
+    // Fallback timer in case onend is not triggered by the browser
+    const timer = setTimeout(() => {
+      setSpeakingWord(prev => prev === text ? null : prev);
+    }, 2000);
 
-      window.speechSynthesis.speak(u);
-    }
+    audioManager.speak(text, 0.85, undefined, undefined, undefined,
+      () => setSpeakingWord(text),
+      () => {
+        clearTimeout(timer);
+        setSpeakingWord(null);
+      }
+    );
   };
 
   const filteredCards = cards.filter(card => {
