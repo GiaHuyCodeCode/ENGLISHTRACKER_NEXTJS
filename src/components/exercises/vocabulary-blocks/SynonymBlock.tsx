@@ -6,7 +6,7 @@ interface SynonymBlockProps {
   vocabCards: VocabCard[];
   answers: Record<string, string>;
   onAnswerChange: (word: string, val: string) => void;
-  handleSpeak: (text: string) => void;
+  handleSpeak: (text: string, rate?: number, audioUrl?: string) => void;
   isSubmitted: boolean;
 }
 
@@ -29,7 +29,7 @@ export function SynonymBlock({ vocabCards, answers, onAnswerChange, handleSpeak,
     }));
     
     if (isCorrect) {
-      handleSpeak(word);
+      handleSpeak(word, 1.0, currentCard.audioUrl);
     } else {
       setShake(true);
       setTimeout(() => setShake(false), 400);

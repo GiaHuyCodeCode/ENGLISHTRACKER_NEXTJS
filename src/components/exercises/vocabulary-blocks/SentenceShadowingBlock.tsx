@@ -4,20 +4,9 @@ import {
   Volume2, Mic, ChevronLeft, ChevronRight,
   CheckCircle2, XCircle, AlertCircle, Eye, Send,
 } from 'lucide-react';
+import { audioManager } from '@/lib/audio';
 import { useSpeechRecognition } from './useSpeechRecognition';
-
-export interface SentenceShadowingResult {
-  sentenceId: number;
-  recognized: string;
-  accuracy: number;
-  attempts: number;
-}
-
-interface Props {
-  sentences: DictationSentence[];
-  onComplete: (results: SentenceShadowingResult[]) => void;
-  onSkip?: () => void;
-}
+import { usePhonetic } from '@/lib/usePhonetic';
 
 function normalize(s: string) {
   return s.trim().toLowerCase().replace(/[^a-z0-9\s']/g, '').replace(/\s+/g, ' ');
@@ -42,27 +31,24 @@ function fuzzyOk(a: string, b: string): boolean {
   return maxLen === 0 ? true : 1 - levenshtein(a, b) / maxLen >= 0.8;
 }
 
-function calcAccuracy(recognized: string, target: string): number {
-  const recWords = normalize(recognized).split(' ').filter(Boolean);
-  const tgtWords = normalize(target).split(' ').filter(Boolean);
-  if (!tgtWords.length || !recWords.length) return 0;
-  let hits = 0;
-  tgtWords.forEach((w, i) => { if (i < recWords.length && fuzzyOk(recWords[i], w)) hits++; });
-  return Math.round((hits / tgtWords.length) * 100);
+export interface SentenceShadowingResult {
+  sentenceId: number;
+  recognized: string;
+  accuracy: number;
+  attempts: number;
 }
 
-function computeWordDiff(recognized: string, target: string): { word: string; ok: boolean }[] {
-  const recWords = normalize(recognized).split(' ').filter(Boolean);
-  return target.trim().split(/\s+/).map((word, i) => ({
-    word,
-    ok: i < recWords.length ? fuzzyOk(recWords[i], normalize(word)) : false,
-  }));
+interface Props {
+  sentences: DictationSentence[];
+  onComplete: (results: SentenceShadowingResult[]) => void;
+  onSkip?: () => void;
 }
 
 interface SentenceResult {
   recognized: string;
   accuracy: number;
   wordDiff: { word: string; ok: boolean }[];
+  userAudioUrl?: string;
 }
 
 export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props) {
@@ -74,23 +60,31 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
   const [isTextRevealed, setIsTextRevealed] = useState(false);
   const [shake, setShake] = useState(false);
   const [speed, setSpeed] = useState(1.0);
+  const [isRecording, setIsRecording] = useState(false);
 
   const phaseRef = useRef(phase);
   const attemptsRef = useRef(attempts);
+  const currentIdxRef = useRef(currentIdx);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const mimeTypeRef = useRef<string>('audio/webm');
+  
+  const { isListening: srListening, isSupported, start: startSR, stop: stopSR } = useSpeechRecognition('en-US');
+
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { attemptsRef.current = attempts; }, [attempts]);
+  useEffect(() => { currentIdxRef.current = currentIdx; }, [currentIdx]);
 
-  const { isListening, isSupported, error: speechError, start, stop } = useSpeechRecognition();
   const currentSentence = sentences[currentIdx];
+  const { phonetic: displayPhonetic, loading: phoneticLoading } = usePhonetic(currentSentence?.text, currentSentence?.phonetic);
 
-  const handleSpeak = useCallback((text: string) => {
-    if (typeof window === 'undefined') return;
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = 'en-US';
-    utt.rate = speed;
-    window.speechSynthesis.speak(utt);
-  }, [speed]);
+  const handleSpeak = useCallback((text: string, audioUrl?: string, customStart?: number) => {
+    const start = customStart ?? currentSentence.startTime;
+    const nextSentence = sentences[currentIdxRef.current + 1];
+    const endTime = nextSentence?.startTime;
+    
+    audioManager.speak(text, speed, audioUrl, start, endTime);
+  }, [speed, sentences, currentSentence]);
 
   useEffect(() => {
     setCurrentIdx(0);
@@ -101,14 +95,11 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
     setIsTextRevealed(false);
   }, [sentences]);
 
-  // Auto-play TTS when sentence changes
   useEffect(() => {
     if (!currentSentence || isFinished) return;
     setPhase('ready');
     setIsTextRevealed(false);
-    const t = setTimeout(() => handleSpeak(currentSentence.text), 500);
-    return () => clearTimeout(t);
-  }, [currentIdx, isFinished, handleSpeak, currentSentence]);
+  }, [currentIdx, isFinished, currentSentence]);
 
   useEffect(() => {
     if (!shake) return;
@@ -116,40 +107,114 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
     return () => clearTimeout(t);
   }, [shake]);
 
-  const handleRecord = useCallback(() => {
-    if (!currentSentence) return;
-    if (isListening) { stop(); return; }
-    if (phase !== 'ready' && phase !== 'result') return;
-
-    const sentenceId = currentSentence.id;
+  const handleRecordStart = async () => {
+    if (!currentSentence || phase === 'recording' || !isSupported) return;
+    
     setPhase('recording');
+    setIsRecording(true);
 
-    start((transcript) => {
-      const acc = calcAccuracy(transcript, currentSentence.text);
-      const diff = computeWordDiff(transcript, currentSentence.text);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+      mimeTypeRef.current = mimeType;
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mediaRecorder.start();
+    } catch (err) {
+      console.warn('Could not start MediaRecorder for playback', err);
+    }
+    
+    startSR((transcript, confidence) => {
+      setIsRecording(false);
+      
+      const targetText = currentSentence.text;
+      const sentenceId = currentSentence.id;
+      
+      const recWords = normalize(transcript).split(' ').filter(Boolean);
+      const tgtWords = normalize(targetText).split(' ').filter(Boolean);
+      
+      let hits = 0;
+      const wordDiff = targetText.trim().split(/\s+/).map((w, i) => {
+        const ok = i < recWords.length ? fuzzyOk(recWords[i], normalize(w)) : false;
+        if (ok) hits++;
+        return { word: w, ok };
+      });
+
+      // If transcript is totally empty, score is 0
+      const acc = transcript.trim() === '' ? 0 : (tgtWords.length ? Math.round((hits / tgtWords.length) * 100) : 0);
       const count = (attemptsRef.current[sentenceId] || 0) + 1;
 
-      setResults(prev => ({ ...prev, [sentenceId]: { recognized: transcript, accuracy: acc, wordDiff: diff } }));
-      setAttempts(prev => ({ ...prev, [sentenceId]: count }));
-      setIsTextRevealed(true);
-      if (!transcript) setShake(true);
-      setPhase('result');
+      const saveResult = (audioUrl?: string) => {
+        setResults(prev => ({ ...prev, [sentenceId]: { recognized: transcript, accuracy: acc, wordDiff, userAudioUrl: audioUrl } }));
+        setAttempts(prev => ({ ...prev, [sentenceId]: count }));
+        setIsTextRevealed(true);
+
+        if (!transcript) setShake(true);
+        setPhase('result');
+
+        const isSuccess = acc >= 80;
+        if (isSuccess) {
+          setTimeout(() => {
+            if (currentIdxRef.current < sentences.length - 1) {
+              setCurrentIdx(prev => prev + 1);
+              setPhase('ready');
+            } else {
+              setIsFinished(true);
+            }
+          }, 2000);
+        }
+      };
+
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.onstop = () => {
+          mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
+          const audioBlob = new Blob(chunksRef.current, { type: mimeTypeRef.current });
+          const url = URL.createObjectURL(audioBlob);
+          saveResult(url);
+        };
+        mediaRecorderRef.current.stop();
+      } else {
+        saveResult(undefined);
+      }
     });
-  }, [currentSentence, isListening, phase, start, stop]);
+  };
+
+  const handleRecordStop = () => {
+    if (isRecording) {
+      stopSR();
+      setIsRecording(false);
+    }
+  };
+
+  const toggleRecord = useCallback(() => {
+    if (isRecording) {
+      handleRecordStop();
+    } else {
+      handleRecordStart();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecording]);
 
   const goToNext = useCallback(() => {
     if (phase === 'recording') return;
     if (currentIdx < sentences.length - 1) {
       setCurrentIdx(prev => prev + 1);
+      handleSpeak(sentences[currentIdx + 1].text, sentences[currentIdx + 1].audioUrl);
     } else {
       setIsFinished(true);
     }
-  }, [currentIdx, sentences.length, phase]);
+  }, [currentIdx, phase, handleSpeak, sentences]);
 
   const goToPrev = useCallback(() => {
     if (phase === 'recording' || currentIdx === 0) return;
     setCurrentIdx(prev => prev - 1);
-  }, [currentIdx, phase]);
+    handleSpeak(sentences[currentIdx - 1].text, sentences[currentIdx - 1].audioUrl);
+  }, [currentIdx, phase, handleSpeak, sentences]);
 
   useEffect(() => {
     if (isFinished) return;
@@ -157,21 +222,21 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
       if (e.key === ' ') {
         if ((e.target as HTMLElement).tagName === 'BUTTON') return;
         e.preventDefault();
-        handleRecord();
+        toggleRecord();
       } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
         if ((e.target as HTMLElement).tagName === 'INPUT') return;
         goToNext();
       } else if (e.key === 'ArrowLeft') {
         goToPrev();
       } else if (e.key === 'Control') {
-        handleSpeak(currentSentence.text);
+        handleSpeak(currentSentence.text, currentSentence.audioUrl);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isFinished, handleRecord, goToNext, goToPrev, handleSpeak, currentSentence]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFinished, goToNext, goToPrev, handleSpeak, currentSentence, toggleRecord]);
 
-  // ── Finished screen ─────────────────────────────────────────────────────────
   if (isFinished) {
     const finalResults: SentenceShadowingResult[] = sentences.map(s => ({
       sentenceId: s.id,
@@ -226,18 +291,12 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
 
   return (
     <div className={`space-y-6 max-w-3xl mx-auto w-full slide-up px-1 md:px-0 ${shake ? 'animate-shake' : ''}`}>
-
       {!isSupported && (
-        <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-sm">
-          <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
-          <p className="text-amber-200">
-            Trình duyệt chưa hỗ trợ nhận diện giọng nói.
-            Hãy dùng <strong>Chrome</strong> hoặc <strong>Edge</strong>.
-          </p>
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm text-center">
+          Trình duyệt của bạn không hỗ trợ nhận diện giọng nói. Vui lòng sử dụng Chrome/Edge trên máy tính hoặc cho phép quyền truy cập Microphone.
         </div>
       )}
 
-      {/* Progress */}
       <div className="space-y-1.5">
         <div className="flex justify-between text-xs font-semibold text-muted-foreground">
           <span>Câu {currentIdx + 1} / {sentences.length}</span>
@@ -251,14 +310,12 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
         </div>
       </div>
 
-      {/* Card */}
       <div className={`glass-strong rounded-3xl border p-6 md:p-8 flex flex-col items-center text-center space-y-6 transition-all duration-300 ${
         isCorrect    ? 'border-emerald-500/30' :
         isClose      ? 'border-amber-500/30'   :
         currentResult ? 'border-red-500/30'    : 'border-white/5'
       }`}>
 
-        {/* TTS play button */}
         <div className="relative w-full flex justify-center py-4">
           <div className="absolute top-0 right-0">
             <select value={speed} onChange={e => setSpeed(Number(e.target.value))} className="bg-secondary/50 border border-white/10 rounded-lg text-xs py-1 px-2 text-muted-foreground hover:text-foreground outline-none">
@@ -271,8 +328,8 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
           <div className="relative">
             <div className="absolute inset-0 bg-emerald-500/15 rounded-full blur-xl" />
             <button
-              onClick={() => handleSpeak(currentSentence.text)}
-              disabled={isListening}
+              onClick={() => handleSpeak(currentSentence.text, currentSentence.audioUrl)}
+              disabled={isRecording || phase === 'recording'}
               className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white text-emerald-400 flex items-center justify-center transition-all shadow-md hover-lift disabled:opacity-50 mx-auto"
             >
               <Volume2 className="h-10 w-10 md:h-12 md:w-12" strokeWidth={1.5} />
@@ -280,7 +337,6 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
           </div>
         </div>
 
-        {/* Sentence display */}
         <div className="w-full space-y-3">
           <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
             Câu cần shadowing
@@ -288,28 +344,49 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
 
           {(isTextRevealed || phase === 'result') ? (
             currentResult ? (
-              <div className="flex flex-wrap justify-center gap-x-1.5 gap-y-1">
-                {currentResult.wordDiff.map((w, i) => (
-                  <span
-                    key={i}
-                    className={`text-lg md:text-xl font-semibold ${
-                      w.ok ? 'text-emerald-400' : 'text-red-400 line-through decoration-red-400/60'
-                    }`}
-                  >
-                    {w.word}
-                  </span>
-                ))}
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex flex-wrap justify-center gap-x-1.5 gap-y-1">
+                  {currentResult.wordDiff.map((w, i) => (
+                    <span
+                      key={i}
+                      className={`text-lg md:text-xl font-semibold ${
+                        w.ok ? 'text-emerald-400' : 'text-red-400 line-through decoration-red-400/60'
+                      }`}
+                    >
+                      {w.word}
+                    </span>
+                  ))}
+                </div>
+                {(displayPhonetic || phoneticLoading) && (
+                  <p className="text-sm font-mono text-emerald-400/80">
+                    {phoneticLoading ? <span className="animate-pulse">...</span> : displayPhonetic}
+                  </p>
+                )}
               </div>
             ) : (
-              <p className="text-lg md:text-xl font-semibold text-foreground leading-relaxed">
-                {currentSentence.text}
-              </p>
+              <div className="space-y-1">
+                <p className="text-lg md:text-xl font-semibold text-foreground leading-relaxed">
+                  {currentSentence.text}
+                </p>
+                {(displayPhonetic || phoneticLoading) && (
+                  <p className="text-sm font-mono text-emerald-400/80">
+                    {phoneticLoading ? <span className="animate-pulse">...</span> : displayPhonetic}
+                  </p>
+                )}
+              </div>
             )
           ) : (
             <div className="relative flex items-center justify-center gap-3">
-              <p className="text-base text-muted-foreground italic select-none blur-sm pointer-events-none">
-                {currentSentence.text}
-              </p>
+              <div className="space-y-1 select-none blur-sm pointer-events-none">
+                <p className="text-base text-muted-foreground italic">
+                  {currentSentence.text}
+                </p>
+                {(displayPhonetic || phoneticLoading) && (
+                  <p className="text-xs font-mono text-muted-foreground/60">
+                    {phoneticLoading ? <span className="animate-pulse">...</span> : displayPhonetic}
+                  </p>
+                )}
+              </div>
               <button
                 onClick={() => setIsTextRevealed(true)}
                 className="absolute right-0 flex items-center gap-1 text-xs text-emerald-400/70 hover:text-emerald-400 transition-colors bg-background/80 px-2 py-1 rounded-lg"
@@ -320,18 +397,17 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
           )}
         </div>
 
-        {/* Recording zone */}
         <div className="w-full max-w-lg space-y-4">
           <button
-            onClick={handleRecord}
-            disabled={!isSupported}
-            className={`w-full h-16 rounded-2xl font-bold text-sm transition-all hover-lift flex items-center justify-center gap-3 ${
-              isListening
-                ? 'bg-red-500/15 border border-red-500/40 text-red-400'
-                : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-500'
+            onClick={toggleRecord}
+            disabled={!isSupported || phase === 'recording'}
+            className={`w-full h-16 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-3 ${
+              isRecording
+                ? 'bg-red-500/15 border border-red-500/40 text-red-400 scale-95 shadow-[0_0_20px_rgba(239,68,68,0.4)]'
+                : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 hover-lift'
             } disabled:opacity-40 disabled:cursor-not-allowed`}
           >
-            {isListening ? (
+            {isRecording ? (
               <>
                 <div className="flex items-end gap-[3px]" style={{ height: 26 }}>
                   {[0.4, 0.75, 1, 0.6, 0.9, 0.5, 0.7].map((h, i) => (
@@ -346,20 +422,24 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
                     />
                   ))}
                 </div>
-                <span>Đang nghe… (nhấn để dừng)</span>
+                <span>Đang thu... (chạm để dừng)</span>
+              </>
+            ) : phase === 'recording' ? (
+              <>
+                <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                <span>Đang chấm điểm bằng AI...</span>
               </>
             ) : (
               <>
                 <Mic className="w-6 h-6" strokeWidth={1.5} />
                 <span>
-                  {phase === 'result' ? 'Thử Lại' : 'Nhấn & Shadow'}
+                  {phase === 'result' ? 'Chạm để thử lại' : 'Chạm để ghi âm'}
                   <span className="ml-2 text-[10px] opacity-50 font-normal">Space</span>
                 </span>
               </>
             )}
           </button>
 
-          {/* Result feedback */}
           {phase === 'result' && currentResult && (
             <div className={`p-4 rounded-2xl border flex flex-col items-start gap-2 slide-up text-left ${
               isCorrect ? 'bg-emerald-500/10 border-emerald-500/30 glow-success' :
@@ -382,26 +462,25 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
                   {currentResult.accuracy}%
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground mt-1">
                 Bạn nói:{' '}
                 <span className="font-semibold text-foreground italic">
                   &ldquo;{currentResult.recognized || '(không nhận diện được)'}&rdquo;
                 </span>
               </p>
+              {currentResult.userAudioUrl && (
+                <audio 
+                  controls 
+                  src={currentResult.userAudioUrl!} 
+                  className="h-8 w-full max-w-[240px] mt-2 outline-none" 
+                  title="Nghe lại giọng của bạn"
+                />
+              )}
             </div>
-          )}
-
-          {speechError && (
-            <p className="text-xs text-red-400 text-center">
-              {speechError === 'not-allowed'
-                ? 'Cần cấp quyền microphone cho trình duyệt.'
-                : `Lỗi nhận diện: ${speechError}`}
-            </p>
           )}
         </div>
       </div>
 
-      {/* Keyboard Shortcuts Hint */}
       <div className="hidden md:flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground/60">
         <div className="flex items-center gap-2">
           <kbd className="px-2 py-1 rounded bg-secondary border border-white/10 font-mono font-bold text-[10px] text-muted-foreground">Ctrl</kbd>
@@ -418,7 +497,6 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
         </div>
       </div>
 
-      {/* Navigation */}
       <div className="flex justify-between items-center gap-4">
         <button
           onClick={goToPrev}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { getAssignment, updateAssignment } from '@/lib/local-store';
+import { getAssignment, updateAssignment, saveAssignment } from '@/lib/local-store';
 import { ArrowLeft, CheckCircle2, Clock, BookOpen } from 'lucide-react';
 import { VocabForm, QuizForm, RewriteVocabForm, DictationForm, VocabularyForm, ShadowingForm } from '@/components/forms/AssignmentForms';
 
@@ -37,7 +37,20 @@ export default function EditAssignmentPage() {
   const handleSave = (data: any) => {
     setIsSaving(true);
     const createdAtISO = new Date(createdAtDate + 'T00:00:00Z').toISOString();
-    updateAssignment(assignmentId, { ...data, skill, createdAt: createdAtISO });
+    
+    const { createShadowing, ...assignmentData } = data;
+    updateAssignment(assignmentId, { ...assignmentData, skill, createdAt: createdAtISO });
+    
+    if (assignment.type === 'dictation' && createShadowing) {
+      saveAssignment({
+        ...assignmentData,
+        title: `Shadowing: ${assignmentData.title}`,
+        type: 'shadowing',
+        skill: 'Speaking',
+        createdAt: createdAtISO
+      } as any);
+    }
+
     setTimeout(() => { 
       setSuccess(true); 
       setTimeout(() => router.push('/?tab=assignments_mgmt'), 1200); 
@@ -57,7 +70,7 @@ export default function EditAssignmentPage() {
         </button>
         <div>
           <h1 className="text-2xl font-bold font-heading gradient-text">Chỉnh Sửa Bài Tập</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Sửa nội dung cho bài "{assignment.title}"</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Sửa nội dung cho bài &quot;{assignment.title}&quot;</p>
         </div>
       </div>
 

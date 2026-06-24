@@ -10,6 +10,7 @@ import { DictationBlock } from './vocabulary-blocks/DictationBlock';
 import { TestBlock } from './vocabulary-blocks/TestBlock';
 import { MatchGameBlock } from './vocabulary-blocks/MatchGameBlock';
 import { ShadowingBlock } from './vocabulary-blocks/ShadowingBlock';
+import { audioManager } from '@/lib/audio';
 
 interface Props {
   vocabCards: VocabCard[];
@@ -115,14 +116,8 @@ export function VocabularyExercise({
     }
   }, [isRequirementWorkflow]);
 
-  const handleSpeak = useCallback((text: string, rate: number = 1.0) => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.rate = rate;
-      window.speechSynthesis.speak(utterance);
-    }
+  const handleSpeak = useCallback((text: string, rate: number = 1.0, audioUrl?: string) => {
+    audioManager.speak(text, rate, audioUrl);
   }, []);
 
   const handleTextAnswerChange = (word: string, val: string) => {

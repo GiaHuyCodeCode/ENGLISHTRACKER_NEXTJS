@@ -73,6 +73,7 @@ export function TestBlock({
       opts[card.id] = generateOptions(card, shuffledCards, answers[card.id]); 
     });
     setMcOptions(opts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shuffledCards]);
 
   const handleJumpToQuestion = (idx: number) => {
@@ -129,6 +130,7 @@ export function TestBlock({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shuffledCards, currentActiveIdx, mcOptions, mcRevealed, isSubmitted]);
 
   // Listen to top status bar jump event
@@ -242,7 +244,7 @@ export function TestBlock({
                   ) : (
                     <div className="space-y-1">
                       <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Câu hỏi</p>
-                      <p className="text-base font-semibold text-foreground/80 leading-relaxed">Chọn từ đúng cho "{c.meaning}"</p>
+                      <p className="text-base font-semibold text-foreground/80 leading-relaxed">Chọn từ đúng cho &quot;{c.meaning}&quot;</p>
                     </div>
                   )}
                 </div>
@@ -317,7 +319,7 @@ export function TestBlock({
                     {c.example && (
                       <div>
                         <span className="font-semibold text-foreground">📝 Ví dụ: </span>
-                        <span className="italic">"{c.example}"</span>
+                        <span className="italic">&quot;{c.example}&quot;</span>
                       </div>
                     )}
                   </div>

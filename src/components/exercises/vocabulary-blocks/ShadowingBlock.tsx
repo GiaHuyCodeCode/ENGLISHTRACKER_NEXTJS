@@ -5,15 +5,18 @@ import {
   CheckCircle2, XCircle, RotateCcw, AlertCircle,
 } from 'lucide-react';
 import { useSpeechRecognition } from './useSpeechRecognition';
+import { usePhonetic } from '@/lib/usePhonetic';
 
 interface ShadowingWordResult {
   recognized: string;
   accuracy: number;
+  wordDiff?: { word: string; ok: boolean }[];
+  audioBlobUrl?: string;
 }
 
 interface ShadowingBlockProps {
   vocabCards: VocabCard[];
-  handleSpeak: (text: string, rate?: number) => void;
+  handleSpeak: (text: string, rate?: number, audioUrl?: string) => void;
   isSubmitted: boolean;
   onShadowingResult?: (word: string, result: { recognized: string; accuracy: number; attempts: number }) => void;
   onProgressUpdate?: (stats: {
@@ -27,12 +30,11 @@ interface ShadowingBlockProps {
   }) => void;
 }
 
-// Levenshtein-based accuracy (0–100), mirrors isFuzzyMatch threshold logic
-function calcAccuracy(recognized: string, target: string): number {
-  const a = recognized.trim().toLowerCase();
-  const b = target.trim().toLowerCase();
-  if (!a) return 0;
-  if (a === b) return 100;
+function normalize(s: string) {
+  return s.trim().toLowerCase().replace(/[^a-z0-9\s']/g, '').replace(/\s+/g, ' ');
+}
+
+function levenshtein(a: string, b: string): number {
   const m = a.length, n = b.length;
   const dp = Array.from({ length: m + 1 }, (_, i) =>
     Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)),
@@ -42,7 +44,13 @@ function calcAccuracy(recognized: string, target: string): number {
       dp[i][j] = a[i - 1] === b[j - 1]
         ? dp[i - 1][j - 1]
         : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-  return Math.round((1 - dp[m][n] / Math.max(m, n)) * 100);
+  return dp[m][n];
+}
+
+function fuzzyOk(a: string, b: string): boolean {
+  if (a === b) return true;
+  const maxLen = Math.max(a.length, b.length);
+  return maxLen === 0 ? true : 1 - levenshtein(a, b) / maxLen >= 0.8;
 }
 
 export function ShadowingBlock({
@@ -63,11 +71,17 @@ export function ShadowingBlock({
   // Refs to avoid stale closures inside start() callbacks
   const phaseRef = useRef(phase);
   const attemptsRef = useRef(attempts);
+  const currentIdxRef = useRef(currentIdx);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { attemptsRef.current = attempts; }, [attempts]);
+  useEffect(() => { currentIdxRef.current = currentIdx; }, [currentIdx]);
 
-  const { isListening, isSupported, error: speechError, start, stop } = useSpeechRecognition();
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
   const currentCard = vocabCards[currentIdx];
+  const { phonetic: displayPhonetic, loading: phoneticLoading } = usePhonetic(currentCard?.word, currentCard?.phonetic);
 
   // Reset when vocab list changes (new assignment)
   useEffect(() => {
@@ -82,7 +96,7 @@ export function ShadowingBlock({
   useEffect(() => {
     if (!currentCard || isSubmitted || isFinished) return;
     setPhase('ready');
-    const t = setTimeout(() => handleSpeak(currentCard.word, speed), 400);
+    const t = setTimeout(() => handleSpeak(currentCard.word, speed, currentCard.audioUrl), 400);
     return () => clearTimeout(t);
   }, [currentIdx, isSubmitted, isFinished, handleSpeak, currentCard, speed]);
 
@@ -122,26 +136,96 @@ export function ShadowingBlock({
     });
   }, [vocabCards, wordResults, currentCard, currentIdx, isFinished, onProgressUpdate]);
 
-  const handleRecord = useCallback(() => {
+  const handleRecordStart = async () => {
     if (!currentCard) return;
-    if (isListening) { stop(); return; }
     if (phase !== 'ready' && phase !== 'result') return;
 
-    const word = currentCard.word;
-    setPhase('recording');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
 
-    start((transcript, _confidence) => {
-      const acc = calcAccuracy(transcript, word);
-      const count = (attemptsRef.current[word] || 0) + 1;
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
 
-      setWordResults(prev => ({ ...prev, [word]: { recognized: transcript, accuracy: acc } }));
-      setAttempts(prev => ({ ...prev, [word]: count }));
-      onShadowingResult?.(word, { recognized: transcript, accuracy: acc, attempts: count });
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        // Mock scoring logic using API
+        setPhase('recording'); // Wait for API
+        const word = currentCard.word;
+        
+        try {
+          const formData = new FormData();
+          formData.append('audio', audioBlob, 'audio.webm');
+          formData.append('word', word);
 
-      if (!transcript) setShake(true);
-      setPhase('result');
-    });
-  }, [currentCard, isListening, phase, start, stop, onShadowingResult]);
+          const res = await fetch('/api/transcribe', {
+            method: 'POST',
+            body: formData,
+          });
+
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+
+          const acc = data.accuracy;
+          const transcript = data.recognized;
+          const count = (attemptsRef.current[word] || 0) + 1;
+
+          const recWords = normalize(transcript).split(' ').filter(Boolean);
+          const wordDiff = word.trim().split(/\s+/).map((w, i) => {
+            const ok = i < recWords.length ? fuzzyOk(recWords[i], normalize(w)) : false;
+            return { word: w, ok };
+          });
+
+          setWordResults(prev => ({ ...prev, [word]: { recognized: transcript, accuracy: acc, audioBlobUrl: audioUrl, wordDiff } }));
+          setAttempts(prev => ({ ...prev, [word]: count }));
+          onShadowingResult?.(word, { recognized: transcript, accuracy: acc, attempts: count });
+
+          const isSuccess = acc >= 80;
+          if (isSuccess) {
+            setTimeout(() => {
+              if (currentIdxRef.current < vocabCards.length - 1) {
+                setCurrentIdx(prev => prev + 1);
+                setPhase('ready');
+              } else {
+                setIsFinished(true);
+              }
+            }, 2000);
+          }
+        } catch (error) {
+          console.error('Transcription failed:', error);
+          setShake(true);
+          setPhase('result');
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Mic access denied', err);
+      alert('Không thể truy cập microphone. Vui lòng cấp quyền.');
+    }
+  };
+
+  const handleRecordStop = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const toggleRecord = useCallback(() => {
+    if (isRecording) {
+      handleRecordStop();
+    } else {
+      handleRecordStart();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecording]);
 
   useEffect(() => {
     if (shake) {
@@ -174,24 +258,28 @@ export function ShadowingBlock({
 
   // Keyboard: Space = record, arrows = navigate
   useEffect(() => {
+    // Keep currentIdx in ref for the setTimeout
+    currentIdxRef.current = currentIdx;
+    
     if (isSubmitted) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === ' ') {
         if ((e.target as HTMLElement).tagName === 'BUTTON') return;
         e.preventDefault();
-        if (!isFinished) handleRecord();
+        toggleRecord();
       } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
         if ((e.target as HTMLElement).tagName === 'INPUT') return;
         if (!isFinished) goToNext();
       } else if (e.key === 'ArrowLeft') {
         if (!isFinished) goToPrev();
       } else if (e.key === 'Control' && !isFinished && currentCard) {
-        handleSpeak(currentCard.word, speed);
+        handleSpeak(currentCard.word, speed, currentCard.audioUrl);
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [isSubmitted, isFinished, handleRecord, goToNext, goToPrev, currentCard, handleSpeak, speed]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSubmitted, isFinished, goToNext, goToPrev, currentCard, handleSpeak, speed, toggleRecord, currentIdx]);
 
   // ── FINISHED SCREEN ──────────────────────────────────────────────────────
   if (isFinished) {
@@ -243,17 +331,6 @@ export function ShadowingBlock({
   return (
     <div className={`space-y-6 max-w-3xl mx-auto w-full slide-up px-1 md:px-0 ${shake ? 'animate-shake' : ''}`}>
 
-      {/* Browser compatibility warning */}
-      {!isSupported && (
-        <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-sm">
-          <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
-          <p className="text-amber-200">
-            Trình duyệt chưa hỗ trợ nhận diện giọng nói.
-            Hãy dùng <strong>Chrome</strong> hoặc <strong>Edge</strong> để dùng tính năng Shadowing.
-          </p>
-        </div>
-      )}
-
       {/* Progress */}
       <div className="space-y-1.5">
         <div className="flex justify-between text-xs font-semibold text-muted-foreground">
@@ -288,8 +365,8 @@ export function ShadowingBlock({
           <div className="relative">
             <div className="absolute inset-0 bg-emerald-500/15 rounded-full blur-xl" />
             <button
-              onClick={() => handleSpeak(currentCard.word, speed)}
-              disabled={isListening}
+              onClick={() => handleSpeak(currentCard.word, speed, currentCard.audioUrl)}
+              disabled={isRecording}
               className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white text-emerald-400 flex items-center justify-center transition-all shadow-md hover-lift disabled:opacity-50 mx-auto"
             >
               <Volume2 className="h-10 w-10 md:h-12 md:w-12" strokeWidth={1.5} />
@@ -301,8 +378,10 @@ export function ShadowingBlock({
         <div className="space-y-2">
           <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Nghĩa tiếng Việt</p>
           <p className="text-xl md:text-2xl font-bold text-foreground">{currentCard.meaning}</p>
-          {currentCard.phonetic && (
-            <p className="text-base font-mono text-emerald-400/80">{currentCard.phonetic}</p>
+          {(displayPhonetic || phoneticLoading) && (
+            <p className="text-base font-mono text-emerald-400/80">
+              {phoneticLoading ? <span className="animate-pulse">...</span> : displayPhonetic}
+            </p>
           )}
           <p className="text-2xl md:text-3xl font-extrabold tracking-wide text-foreground">{currentCard.word}</p>
         </div>
@@ -310,15 +389,14 @@ export function ShadowingBlock({
         {/* Recording zone */}
         <div className="w-full max-w-md space-y-4">
           <button
-            onClick={handleRecord}
-            disabled={!isSupported}
-            className={`w-full h-16 md:h-20 rounded-2xl font-bold text-sm transition-all hover-lift flex items-center justify-center gap-3 ${
-              isListening
-                ? 'bg-red-500/15 border border-red-500/40 text-red-400'
-                : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-500'
+            onClick={toggleRecord}
+            className={`w-full h-16 md:h-20 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-3 select-none ${
+              isRecording
+                ? 'bg-red-500/15 border border-red-500/40 text-red-400 scale-95 shadow-[0_0_20px_rgba(239,68,68,0.4)]'
+                : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 hover-lift'
             } disabled:opacity-40 disabled:cursor-not-allowed`}
           >
-            {isListening ? (
+            {isRecording ? (
               <>
                 {/* Animated waveform bars */}
                 <div className="flex items-end gap-[3px]" style={{ height: 28 }}>
@@ -334,14 +412,18 @@ export function ShadowingBlock({
                     />
                   ))}
                 </div>
-                <span>Đang nghe… (nhấn để dừng)</span>
+                <span>Đang thu... (chạm để dừng)</span>
+              </>
+            ) : phase === 'recording' ? (
+              <>
+                <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                <span>Đang chấm điểm bằng AI...</span>
               </>
             ) : (
               <>
                 <Mic className="w-6 h-6" strokeWidth={1.5} />
                 <span>
-                  {phase === 'result' ? 'Thử Lại' : 'Nhấn & Shadow'}
-                  <span className="ml-2 text-[10px] opacity-50 font-normal">Space</span>
+                  {phase === 'result' ? 'Chạm để thử lại' : 'Chạm để ghi âm'}
                 </span>
               </>
             )}
@@ -370,27 +452,38 @@ export function ShadowingBlock({
                   {currentResult.accuracy}%
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground w-full text-left">
-                Bạn nói:{' '}
-                <span className="font-semibold text-foreground italic">
-                  &ldquo;{currentResult.recognized || '(không nhận diện được)'}&rdquo;
-                </span>
-              </p>
-              {!isCorrect && (
-                <p className="text-xs text-muted-foreground w-full text-left">
-                  Đáp án:{' '}
-                  <span className="font-bold text-foreground">{currentCard.word}</span>
-                </p>
+              <div className="flex flex-col items-center gap-2 w-full mt-2">
+                <p className="text-xs text-muted-foreground w-full text-left">Chi tiết phát âm:</p>
+                <div className="flex flex-wrap justify-center gap-x-1.5 gap-y-1 py-1">
+                  {currentResult.wordDiff?.map((w, i) => (
+                    <span
+                      key={i}
+                      className={`text-lg md:text-xl font-semibold ${
+                        w.ok ? 'text-emerald-400' : 'text-red-400 line-through decoration-red-400/60'
+                      }`}
+                    >
+                      {w.word}
+                    </span>
+                  ))}
+                </div>
+                {!isCorrect && (
+                  <p className="text-xs text-muted-foreground w-full text-left mt-2">
+                    Nhận diện AI:{' '}
+                    <span className="font-semibold text-foreground italic">
+                      &ldquo;{currentResult.recognized || '(không nhận diện được)'}&rdquo;
+                    </span>
+                  </p>
+                )}
+              </div>
+              {currentResult.audioBlobUrl && (
+                <button
+                  onClick={() => new Audio(currentResult.audioBlobUrl!).play()}
+                  className="mt-2 w-full py-2 bg-sky-500/10 border border-sky-500/20 text-sky-400 font-semibold rounded-lg text-xs hover:bg-sky-500/20 transition-all flex justify-center items-center gap-2"
+                >
+                  <Volume2 className="w-3 h-3" /> Nghe lại giọng của tôi
+                </button>
               )}
             </div>
-          )}
-
-          {speechError && (
-            <p className="text-xs text-red-400 text-center">
-              {speechError === 'not-allowed'
-                ? 'Cần cấp quyền microphone cho trình duyệt.'
-                : `Lỗi nhận diện: ${speechError}`}
-            </p>
           )}
         </div>
       </div>

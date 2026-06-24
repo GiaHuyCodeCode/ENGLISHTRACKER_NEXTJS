@@ -126,6 +126,7 @@ export default function StudentAssignmentsPage() {
   useEffect(() => {
     seedIfEmpty();
     refreshData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

@@ -7,7 +7,7 @@ interface DictationBlockProps {
   answers: Record<string, string>;
   attemptsRecord?: Record<string, number>;
   onAnswerChange: (word: string, val: string) => void;
-  handleSpeak: (text: string) => void;
+  handleSpeak: (text: string, rate?: number, audioUrl?: string) => void;
   isSubmitted: boolean;
   isRequirementWorkflow?: boolean;
   onFinishDictation?: (score: number, answers: Record<string, string>, attempts?: Record<string, number>) => void;
@@ -218,7 +218,7 @@ export function DictationBlock({
   useEffect(() => {
     if (!currentCard || isSubmitted || isFinished || wrongTimerActive) return;
     if (speakMode === 'before') {
-      const timer = setTimeout(() => handleSpeak(currentCard.word), 300);
+      const timer = setTimeout(() => handleSpeak(currentCard.word, 1.0, currentCard.audioUrl), 300);
       return () => clearTimeout(timer);
     }
   }, [currentIdx, currentCard, isSubmitted, isFinished, handleSpeak, wrongTimerActive, speakMode]);
@@ -228,7 +228,7 @@ export function DictationBlock({
     if (!currentCard || isSubmitted || isFinished || speakMode !== 'before') return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Control') {
-        handleSpeak(currentCard.word);
+        handleSpeak(currentCard.word, 1.0, currentCard.audioUrl);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -257,6 +257,7 @@ export function DictationBlock({
       });
     }, 1000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFinished, isSubmitted]);
 
   // Window listener cho phím Enter chuyển tiếp / bỏ qua
@@ -289,6 +290,7 @@ export function DictationBlock({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wrongTimerActive, showEndScreen, wrongCountInRound, isFinished, currentCard, onAnswerChange, isSubmitted]);
 
   const handleCheckSpelling = () => {
@@ -318,7 +320,7 @@ export function DictationBlock({
         ...prev,
         [word]: { isCorrect: true, show: true }
       }));
-      handleSpeak(word);
+      handleSpeak(word, 1.0, currentCard.audioUrl);
       
       // Nếu là từ cuối cùng, hiển thị màn hình kết thúc ngay lập tức
       if (currentIdx === roundWords.length - 1) {
@@ -420,7 +422,7 @@ export function DictationBlock({
               <div key={card.id} className="glass-strong rounded-2xl p-4 md:p-5 border border-white/5 flex flex-col md:flex-row gap-4 items-start md:items-center">
                 {/* Play Button */}
                 <button 
-                  onClick={() => handleSpeak(card.word)}
+                  onClick={() => handleSpeak(card.word, 1.0, card.audioUrl)}
                   className="shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full bg-[#0071e3]/10 border border-[#0071e3]/20 hover:bg-[#0071e3] hover:text-white text-[#0071e3] flex items-center justify-center transition-all shadow-sm hover-lift"
                 >
                   <Volume2 className="w-5 h-5 md:w-6 md:h-6" />
@@ -587,7 +589,7 @@ export function DictationBlock({
         <div className="relative">
           <div className="absolute inset-0 bg-[#0071e3]/20 rounded-full blur-xl pulse-dot"></div>
           <button 
-            onClick={() => handleSpeak(currentCard.word)} 
+            onClick={() => handleSpeak(currentCard.word, 1.0, currentCard.audioUrl)} 
             disabled={wrongTimerActive}
             className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-[#0071e3]/10 border border-[#0071e3]/20 hover:bg-[#0071e3] hover:text-white text-[#0071e3] flex items-center justify-center transition-all shadow-md hover-lift disabled:opacity-50"
           >
@@ -720,7 +722,7 @@ export function DictationBlock({
                 {currentCard.example && (
                   <div>
                     <span className="font-semibold text-foreground">📝 Ví dụ: </span>
-                    <span className="italic">"{currentCard.example}"</span>
+                    <span className="italic">&quot;{currentCard.example}&quot;</span>
                   </div>
                 )}
               </div>

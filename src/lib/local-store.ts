@@ -42,15 +42,18 @@ export const STAGE_CONFIG = [
 export interface VocabKeyword { word: string; answer: string; }
 export interface QuizQuestion {
   id: number; question: string; options: string[]; answer: string; explanation: string;
-  knowledgeArea?: string; hint?: string;
+  knowledgeArea?: string; hint?: string; translation?: string;
 }
 // ─── Dictation Types ─────────────────────────────────────────────────────────
 
 export interface DictationSentence {
   id: number;
   text: string;       // Nội dung câu chuẩn (giáo viên nhập)
+  translation?: string; // Nghĩa tiếng Việt của câu
+  phonetic?: string;  // Phiên âm của câu
   startTime: number;  // Giây bắt đầu trong video YouTube
   endTime?: number;   // Giây kết thúc (tuỳ chọn)
+  audioUrl?: string;  // File âm thanh đọc tự nhiên
 }
 
 export interface DictationResult {
@@ -132,6 +135,7 @@ export interface VocabCard {
   synonyms: string[];
   meaning: string;
   example: string;
+  audioUrl?: string; // File âm thanh đọc tự nhiên
   createdAt?: string;
 }
 
@@ -505,10 +509,7 @@ export function syncAllFromCloud(cloudData: any): boolean {
       }
       return cloudA; // Cloud is authoritative otherwise
     });
-    // Preserve local-only assignments not present in cloud at all
-    const cloudIds = new Set(cloudData.assignments.map((a: any) => a.id));
-    const localOnly = local.filter(a => !cloudIds.has(a.id));
-    write(KEYS.assignments, [...merged, ...localOnly]);
+    write(KEYS.assignments, merged);
     hasChanges = true;
   }
 
@@ -927,6 +928,7 @@ export function submitSentenceShadowing(payload: {
     submittedAt: new Date().toISOString(),
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);
+  syncSubmissionToSheet(sub);
   return sub;
 }
 

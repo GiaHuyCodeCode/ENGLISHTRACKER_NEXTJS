@@ -6,6 +6,7 @@ import { getAssignment, submitDictation, getSubmissions, getStudentColors, getSt
 import { RaceTrackLeaderboard } from '@/components/ui/RaceTrackLeaderboard';
 import { ArrowLeft, Volume2, CheckCircle2, X, ChevronRight, Headphones, RotateCcw, AlertCircle, Trophy, Star, Clock, XCircle } from 'lucide-react';
 import { ExerciseTimer } from '@/components/ui/ExerciseTimer';
+import { audioManager } from '@/lib/audio';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -38,15 +39,7 @@ function calcSentenceScore(baseScore: number, wrongAttempts: number): number {
 }
 
 // ── TTS ──────────────────────────────────────────────────────────────────────
-
-function speak(text: string, rate: number = 0.85) {
-  if (typeof window === 'undefined') return;
-  window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = 'en-US';
-  utt.rate = rate;
-  window.speechSynthesis.speak(utt);
-}
+// Removed local speak in favor of audioManager
 
 // ── Result Screen ─────────────────────────────────────────────────────────────
 
@@ -158,9 +151,15 @@ export default function DictationExercisePage() {
   }, []);
 
   const speakCurrent = useCallback(() => {
-    if (!sentences[currentIdx]) return;
+    const currentSentence = sentences[currentIdx];
+    if (!currentSentence) return;
     if (isMounted.current) setIsSpeaking(true);
-    speak(sentences[currentIdx].text, speed);
+    
+    const nextSentence = sentences[currentIdx + 1];
+    const endTime = nextSentence?.startTime;
+    
+    audioManager.speak(currentSentence.text, speed, currentSentence.audioUrl, currentSentence.startTime, endTime);
+    
     setTimeout(() => {
       if (isMounted.current) setIsSpeaking(false);
     }, 3000);
@@ -281,6 +280,36 @@ export default function DictationExercisePage() {
 
   const progress = sentences.length > 0 ? Math.round((completedIdx.size / sentences.length) * 100) : 0;
   const currentSentence = sentences[currentIdx];
+
+  const getHint = () => {
+    const attempts = attemptsByIdx[currentIdx] || 0;
+    if (attempts === 0) return null;
+    
+    const sw = normalizeText(input).split(' ').filter(Boolean);
+    const cw = normalizeText(currentSentence.text).split(' ').filter(Boolean);
+    const originalWords = currentSentence.text.split(' ').filter(Boolean);
+    
+    let firstWrongIdx = -1;
+    for (let i = 0; i < cw.length; i++) {
+      if (i >= sw.length || !isFuzzyMatch(sw[i], cw[i], 0.85)) {
+        firstWrongIdx = i;
+        break;
+      }
+    }
+    
+    if (firstWrongIdx === -1) return null;
+    
+    const hintWords = originalWords.map((word, i) => {
+      if (i < firstWrongIdx) return word;
+      if (i === firstWrongIdx) {
+        if (attempts === 1) return word[0] + '_'.repeat(Math.max(0, word.length - 1));
+        return word;
+      }
+      return '***';
+    });
+    
+    return hintWords.join(' ');
+  };
 
   const failedPeers = getSubmissions().filter(s => s.assignmentId === assignmentId)
     .filter(sub => {
@@ -491,18 +520,26 @@ export default function DictationExercisePage() {
                 </button>
               )}
               {completedIdx.has(currentIdx) && (
-                 <div className="w-full py-3 rounded-xl bg-emerald-500/10 text-emerald-400 font-bold text-sm flex items-center justify-center gap-2 border border-emerald-500/20">
-                   <CheckCircle2 className="h-4 w-4" /> Đã hoàn thành câu này
+                 <div className="space-y-3 fade-in">
+                   <div className="w-full py-3 rounded-xl bg-emerald-500/10 text-emerald-400 font-bold text-sm flex items-center justify-center gap-2 border border-emerald-500/20">
+                     <CheckCircle2 className="h-4 w-4" /> Đã hoàn thành câu này
+                   </div>
+                   {currentSentence?.translation && (
+                     <div className="p-4 rounded-xl bg-secondary/30 border border-white/5 animate-in slide-in-from-top-2 duration-500">
+                       <p className="text-xs font-semibold text-sky-400 uppercase tracking-wider mb-1">Nghĩa tiếng Việt</p>
+                       <p className="text-sm text-foreground">{currentSentence.translation}</p>
+                     </div>
+                   )}
                  </div>
               )}
             </div>
 
             {/* Hint: current wrong attempts */}
-            {attemptsByIdx[currentIdx] >= 3 && feedback !== 'correct' && (
+            {attemptsByIdx[currentIdx] >= 1 && feedback !== 'correct' && getHint() && (
               <div className="glass rounded-2xl border border-amber-500/20 p-4 text-center fade-in">
                 <p className="text-xs text-amber-400 font-medium">
-                  💡 Gợi ý: <span className="font-mono tracking-widest">
-                    {currentSentence.text.split(' ').map(w => w[0] + '_'.repeat(Math.max(0, w.length - 1))).join(' ')}
+                  💡 Gợi ý: <span className="font-mono tracking-widest text-sm ml-1">
+                    {getHint()}
                   </span>
                 </p>
               </div>

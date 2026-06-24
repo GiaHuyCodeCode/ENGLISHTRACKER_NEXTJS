@@ -38,45 +38,48 @@ export default function DictationResultPage() {
     const allSubs = getSubmissions();
     const sub = allSubs.find(s => s.id === submissionId && s.assignmentId === assignmentId);
     if (sub) setSubmission(sub);
-  }, [assignmentId, submissionId]);
+  }, [assignmentId, submissionId, router]);
 
   useEffect(() => {
     if (!submission || !assignment) return;
+
+    const fetchAiFeedback = async () => {
+      if (!submission?.dictationResults?.length) return;
+      setAiLoading(true);
+      setAiError('');
+      try {
+        const sentences = submission.dictationResults.map((r: DictationResult, i: number) => ({
+          sentenceId: r.sentenceId,
+          correct: assignment.sentences?.[i]?.text || '',
+          studentText: r.studentText,
+          accuracy: r.accuracy,
+          errors: r.errors,
+        }));
+
+        const res = await fetch('/api/ai-feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentName: submission.studentName,
+            assignmentTitle: assignment.title,
+            sentences,
+            overallScore: submission.score,
+          }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        setAiFeedback(data);
+      } catch (err: any) {
+        setAiError('Không thể tải nhận xét AI lúc này.');
+      } finally {
+        setAiLoading(false);
+      }
+    };
+
     fetchAiFeedback();
   }, [submission, assignment]);
 
-  const fetchAiFeedback = async () => {
-    if (!submission?.dictationResults?.length) return;
-    setAiLoading(true);
-    setAiError('');
-    try {
-      const sentences = submission.dictationResults.map((r: DictationResult, i: number) => ({
-        sentenceId: r.sentenceId,
-        correct: assignment.sentences?.[i]?.text || '',
-        studentText: r.studentText,
-        accuracy: r.accuracy,
-        errors: r.errors,
-      }));
 
-      const res = await fetch('/api/ai-feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentName: submission.studentName,
-          assignmentTitle: assignment.title,
-          sentences,
-          overallScore: submission.score,
-        }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setAiFeedback(data);
-    } catch (err: any) {
-      setAiError('Không thể tải nhận xét AI lúc này.');
-    } finally {
-      setAiLoading(false);
-    }
-  };
 
   if (!submission || !assignment) return (
     <div className="flex items-center justify-center h-64">
@@ -207,7 +210,7 @@ export default function DictationResultPage() {
             )}
 
             {aiFeedback.encouragement && (
-              <p className="text-sm text-center font-semibold text-violet-300 italic">"{aiFeedback.encouragement}"</p>
+              <p className="text-sm text-center font-semibold text-violet-300 italic">&quot;{aiFeedback.encouragement}&quot;</p>
             )}
           </div>
         )}
@@ -232,11 +235,11 @@ export default function DictationResultPage() {
               </div>
               <div className="text-sm text-muted-foreground">
                 <span className="font-bold text-foreground/60">Bản gốc: </span>
-                <span className="italic">"{original}"</span>
+                <span className="italic">&quot;{original}&quot;</span>
               </div>
               <div className="text-sm">
                 <span className="font-bold text-foreground/60">Bạn viết: </span>
-                <span className={`italic ${acc >= 80 ? 'text-emerald-300' : 'text-foreground/80'}`}>"{r.studentText || '(bỏ trống)'}"</span>
+                <span className={`italic ${acc >= 80 ? 'text-emerald-300' : 'text-foreground/80'}`}>&quot;{r.studentText || '(bỏ trống)'}&quot;</span>
               </div>
               {r.errors.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">

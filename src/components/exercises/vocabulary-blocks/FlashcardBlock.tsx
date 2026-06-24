@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { VocabCard } from '@/lib/local-store';
 import { Volume2, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
+import { usePhonetic } from '@/lib/usePhonetic';
 
 interface FlashcardBlockProps {
   vocabCards: VocabCard[];
-  handleSpeak: (text: string) => void;
+  handleSpeak: (text: string, rate?: number, audioUrl?: string) => void;
   isSubmitted: boolean;
 }
 
@@ -15,6 +16,7 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
   const [slideAnimation, setSlideAnimation] = useState<'slide-out-left' | 'slide-out-right' | 'slide-in-left' | 'slide-in-right' | ''>('');
   
   const currentCard = vocabCards[currentIdx];
+  const { phonetic: displayPhonetic, loading: phoneticLoading } = usePhonetic(currentCard?.word, currentCard?.phonetic);
 
   const handleNext = () => {
     if (animating || currentIdx === vocabCards.length - 1) return;
@@ -63,6 +65,7 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCard, isSubmitted, currentIdx, animating, vocabCards.length]);
 
   // Touch Swipe Gestures
@@ -97,7 +100,7 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
   // Auto-speak on card change
   useEffect(() => {
     if (!currentCard || isSubmitted) return;
-    const timer = setTimeout(() => handleSpeak(currentCard.word), 300);
+    const timer = setTimeout(() => handleSpeak(currentCard.word, 1.0, currentCard.audioUrl), 300);
     return () => clearTimeout(timer);
   }, [currentIdx, currentCard, isSubmitted, handleSpeak]);
 
@@ -146,7 +149,7 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
             <div className="absolute top-4 right-4">
               <button 
                 type="button" 
-                onClick={(e) => { e.stopPropagation(); handleSpeak(currentCard.word); }} 
+                onClick={(e) => { e.stopPropagation(); handleSpeak(currentCard.word, 1.0, currentCard.audioUrl); }} 
                 className="p-2.5 rounded-full bg-secondary/50 hover:bg-primary/20 transition-all text-muted-foreground hover:text-primary backdrop-blur-md"
               >
                 <Volume2 className="h-4 w-4" />
@@ -155,9 +158,9 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
             
             <div className="space-y-2">
               <div className="text-4xl md:text-5xl font-bold tracking-tight text-foreground gradient-text">{currentCard.word}</div>
-              {currentCard.phonetic && (
+              {(displayPhonetic || phoneticLoading) && (
                 <div className="text-base font-mono text-primary/80">
-                  {currentCard.phonetic}
+                  {phoneticLoading ? <span className="animate-pulse">...</span> : displayPhonetic}
                 </div>
               )}
             </div>
@@ -193,7 +196,7 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
               <div className="space-y-1 pt-4 border-t border-white/5">
                 <span className="text-[10px] uppercase tracking-wider font-bold text-amber-400">Ví dụ minh họa</span>
                 <div className="text-sm md:text-base italic text-muted-foreground leading-relaxed">
-                  "{currentCard.example}"
+                  &quot;{currentCard.example}&quot;
                 </div>
               </div>
             )}

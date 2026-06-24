@@ -7,6 +7,7 @@ const outfit = Outfit({ variable: "--font-outfit", subsets: ["latin"] });
 
 import { AuthGuard } from "@/components/layout/AuthGuard";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { DictionaryPopup } from "@/components/ui/DictionaryPopup";
 
 export const metadata: Metadata = {
   title: "EnglishTracker – Nền Tảng Học Tiếng Anh",
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <MainLayout>
             {children}
           </MainLayout>
+          <DictionaryPopup />
         </AuthGuard>
       </body>
     </html>

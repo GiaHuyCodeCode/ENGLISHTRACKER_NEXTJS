@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { QuizQuestion, QuizAnswerResult, Submission, getStudentAvatar, getStudentColors } from '@/lib/local-store';
 import { CheckCircle2, XCircle, Send, Star, X } from 'lucide-react';
 import { ExerciseTimer } from '@/components/ui/ExerciseTimer';
@@ -42,6 +42,10 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
     }
   }, [remaining, isSubmitted, isSubmitting, questions.length]);
 
+  const handleSubmit = useCallback(() => {
+    onSubmit(questions.map(q => ({ questionId: q.id, studentAnswer: selected[q.id] || '' })));
+  }, [onSubmit, questions, selected]);
+
   useEffect(() => {
     if (autoSubmitCountdown === null || autoSubmitCountdown <= 0) return;
     const timer = setTimeout(() => {
@@ -53,7 +57,7 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
       }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [autoSubmitCountdown]);
+  }, [autoSubmitCountdown, handleSubmit]);
 
   const getResult = (qid: number) => result?.find(r => String(r.questionId) === String(qid));
 
@@ -64,9 +68,6 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
     return trimmed.replace(regex, '');
   };
 
-  const handleSubmit = () => {
-    onSubmit(questions.map(q => ({ questionId: q.id, studentAnswer: selected[q.id] || '' })));
-  };
 
   const correctCount = result?.filter(r => r.isCorrect).length ?? 0;
 
@@ -321,7 +322,7 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                     key={optIdx}
                     onClick={() => !showAnswer && setSelected(prev => ({ ...prev, [q.id]: label }))}
                     disabled={showAnswer}
-                    className={`flex items-center gap-3 p-3 rounded-xl text-left text-sm transition-all ${cls}`}
+                    className={`allow-dictionary flex items-center gap-3 p-3 rounded-xl text-left text-sm transition-all ${cls}`}
                   >
                     <span className="w-6 h-6 rounded-full border-current border flex items-center justify-center text-[11px] font-bold flex-shrink-0">
                       {label}
@@ -340,6 +341,12 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                     {q.answer.toUpperCase()}. {cleanOptionText(q.options[LABELS.indexOf(q.answer.toUpperCase())] || '', q.answer.toUpperCase())}
                   </span>
                 </div>
+                {q.translation && (
+                  <div className="pt-2 border-t border-white/5 text-muted-foreground">
+                    <span className="font-semibold text-foreground">🇻🇳 Dịch câu hỏi: </span>
+                    {q.translation}
+                  </div>
+                )}
                 {q.explanation && (
                   <div className="pt-2 border-t border-white/5 text-muted-foreground">
                     <span className="font-semibold text-foreground">📝 Giải thích: </span>

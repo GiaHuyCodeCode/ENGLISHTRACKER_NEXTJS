@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   getVocabularyCards,
@@ -169,12 +169,12 @@ export default function StudentVocabularyPage() {
       return new Date(prog.nextReviewDate) <= now;
     });
 
-    // Shuffle queue
     const shuffled = [...queue].sort(() => Math.random() - 0.5);
     setReviewQueue(shuffled);
     setCurrentIdx(0);
-    resetCardState();
-  }, [progressList, cards]);
+    resetCardState(0, shuffled);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progressList, cards, studentName]);
 
   // Prepare options for Synonym Matching mode
   useEffect(() => {
@@ -193,9 +193,9 @@ export default function StudentVocabularyPage() {
       const combined = [correct, ...distractors].sort(() => Math.random() - 0.5);
       setSynonymOptions(combined);
     }
-  }, [currentIdx, reviewQueue, testMode]);
+  }, [currentIdx, reviewQueue, testMode, cards]);
 
-  const resetCardState = (nextIdx?: number) => {
+  const resetCardState = useCallback((nextIdx?: number, customQueue?: VocabCard[]) => {
     setShowAnswer(false);
     setSelectedSynonymOption(null);
     setFillAnswer('');
@@ -205,8 +205,9 @@ export default function StudentVocabularyPage() {
     
     // Choose test mode randomly using nextIdx if provided
     const idxToUse = nextIdx !== undefined ? nextIdx : currentIdx;
-    if (reviewQueue.length > 0 && idxToUse < reviewQueue.length) {
-      const card = reviewQueue[idxToUse];
+    const q = customQueue !== undefined ? customQueue : reviewQueue;
+    if (q.length > 0 && idxToUse < q.length) {
+      const card = q[idxToUse];
       const modes: ('flashcard' | 'synonym' | 'fill' | 'dictation')[] = ['flashcard'];
       if (card.synonyms.length > 0) modes.push('synonym');
       if (card.example) modes.push('fill');
@@ -215,7 +216,7 @@ export default function StudentVocabularyPage() {
       const randomMode = modes[Math.floor(Math.random() * modes.length)];
       setTestMode(randomMode);
     }
-  };
+  }, [currentIdx, reviewQueue]);
 
   const handleSpeak = (text: string) => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -630,7 +631,7 @@ export default function StudentVocabularyPage() {
                       
                       {c.example && (
                         <p className="text-xs text-muted-foreground italic bg-secondary/20 p-2.5 rounded-xl">
-                          "{c.example}"
+                          &quot;{c.example}&quot;
                         </p>
                       )}
                     </div>

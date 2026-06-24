@@ -217,7 +217,8 @@ export function QuizForm({ onSave, isSaving, initialData }: {
           answer: String(q.answer).trim().toUpperCase(),
           explanation: String(q.explanation || ''),
           hint: String(q.hint || ''),
-          knowledgeArea: String(q.knowledgeArea || '')
+          knowledgeArea: String(q.knowledgeArea || ''),
+          translation: String(q.translation || '')
         };
       });
 
@@ -238,6 +239,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
       "question": "'Give up' có nghĩa là?",
       "options": ["Bắt đầu", "Từ bỏ", "Tiếp tục", "Hoàn thành"],
       "answer": "B",
+      "translation": "'Give up' có nghĩa là gì trong tiếng Việt?",
       "explanation": "Give up = từ bỏ",
       "hint": "Cụm động từ này thường dùng khi bạn không muốn làm gì nữa vì quá khó.",
       "knowledgeArea": "Phrasal Verbs"
@@ -385,6 +387,20 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                       }}
                     />
                   </div>
+                  <div className="space-y-1 sm:col-span-3">
+                    <label className="text-xs text-blue-400 flex items-center gap-1">🇻🇳 Dịch câu hỏi (hiện sau khi chọn đáp án)</label>
+                    <textarea 
+                      className="input-field w-full text-xs py-1.5 resize-y border-blue-500/30 focus:border-blue-400"
+                      rows={1}
+                      placeholder="Nghĩa tiếng Việt của câu hỏi để học viên đối chiếu..."
+                      value={q.translation || ''}
+                      onChange={e => {
+                        const newQs = [...questions];
+                        newQs[i] = { ...q, translation: e.target.value };
+                        setQuestions(newQs);
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -508,7 +524,17 @@ export function DictationForm({ onSave, isSaving, initialData }: {
   };
 
   const [sentences, setSentences] = useState<DictationSentence[]>(initSentences());
+  const [sharedAudioUrl, setSharedAudioUrl] = useState(() => {
+    const sents = initSentences();
+    if (sents.length > 0) {
+      const firstUrl = sents[0].audioUrl;
+      if (firstUrl && sents.every((s: any) => s.audioUrl === firstUrl)) return firstUrl;
+    }
+    return '';
+  });
   const [error, setError] = useState('');
+  const [createShadowing, setCreateShadowing] = useState(false);
+  const [fallbackTTS, setFallbackTTS] = useState(true);
   const [jsonText, setJsonText] = useState(() => {
     if (initialData?.sentences || initialData?.passage) return JSON.stringify({ title: initialData.title, sentences: initSentences() }, null, 2);
     return '';
@@ -524,7 +550,9 @@ export function DictationForm({ onSave, isSaving, initialData }: {
       const parsed: DictationSentence[] = json.sentences.map((s: any, i: number) => ({
         id: s.id ?? i + 1,
         text: s.text || '',
+        phonetic: s.phonetic || '',
         startTime: s.startTime ?? 0,
+        audioUrl: s.audioUrl || '',
       }));
       setSentences(parsed);
       if (json.title && !title) setTitle(json.title);
@@ -542,17 +570,27 @@ export function DictationForm({ onSave, isSaving, initialData }: {
 
   const handleSave = () => {
     if (!title.trim()) { setError('Vui lòng nhập tiêu đề bài tập'); return; }
-    const validSentences = sentences.filter(s => s.text.trim());
+    const validSentences = sentences.filter(s => s.text.trim()).map(s => {
+      // Nếu có fallbackTTS và không có startTime (startTime <= 0) thì bỏ qua audioUrl
+      const finalAudioUrl = (fallbackTTS && (!s.startTime || s.startTime <= 0)) 
+        ? '' 
+        : (s.audioUrl || sharedAudioUrl);
+        
+      return {
+        ...s,
+        audioUrl: finalAudioUrl
+      };
+    });
     if (validSentences.length === 0) { setError('Vui lòng nhập ít nhất 1 câu'); return; }
     setError('');
-    onSave({ title, sentences: validSentences, passage: JSON.stringify(validSentences) });
+    onSave({ title, sentences: validSentences, passage: JSON.stringify(validSentences), createShadowing });
   };
 
   const jsonSample = `{
   "title": "Tên bài dictation",
   "sentences": [
-    { "id": 1, "text": "The weather today is really nice." },
-    { "id": 2, "text": "I usually wake up early in the morning." }
+    { "id": 1, "text": "The weather today is really nice.", "phonetic": "/ðə ˈweðər/", "startTime": 0 },
+    { "id": 2, "text": "I usually wake up early.", "phonetic": "/aɪ ˈjuːʒəli/", "startTime": 3.5 }
   ]
 }`;
 
@@ -581,6 +619,21 @@ export function DictationForm({ onSave, isSaving, initialData }: {
         <label className="text-sm font-medium text-foreground/80">Tiêu đề bài tập</label>
         <input value={title} onChange={e => setTitle(e.target.value)} className="input-field"
           placeholder="VD: Dictation Unit 5 – Daily Routines" />
+      </div>
+
+      {/* Shared Audio URL */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-foreground/80">URL Audio / Video chung (Tùy chọn)</label>
+        <div className="flex items-center gap-2 relative">
+          <Volume2 className="h-4 w-4 absolute left-3 text-muted-foreground" />
+          <input 
+            value={sharedAudioUrl} 
+            onChange={e => setSharedAudioUrl(e.target.value)} 
+            className="input-field pl-9"
+            placeholder="VD: https://youtube.com/watch?v=... hoặc link mp3" 
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">Tất cả các câu bên dưới sẽ dùng chung URL này nếu không có URL riêng.</p>
       </div>
 
       {/* Paste JSON */}
@@ -619,6 +672,40 @@ export function DictationForm({ onSave, isSaving, initialData }: {
               <textarea value={s.text} onChange={e => updateSentence(idx, e.target.value)}
                 rows={2} className="input-field text-sm w-full resize-none"
                 placeholder={`Nội dung câu ${idx + 1}...`} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase shrink-0 w-16">Phiên âm</span>
+                  <input 
+                    type="text" 
+                    value={s.phonetic || ''} 
+                    onChange={e => setSentences(prev => prev.map((item, i) => i === idx ? { ...item, phonetic: e.target.value } : item))}
+                    className="input-field text-xs w-full py-1.5 font-mono"
+                    placeholder="/ˈevri ˈmɔːrnɪŋ/" 
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase shrink-0 w-16">Bắt đầu (s)</span>
+                  <input 
+                    type="number" 
+                    step="0.1"
+                    min="0"
+                    value={s.startTime || 0} 
+                    onChange={e => setSentences(prev => prev.map((item, i) => i === idx ? { ...item, startTime: parseFloat(e.target.value) || 0 } : item))}
+                    className="input-field text-xs w-full py-1.5 font-mono"
+                    placeholder="0" 
+                  />
+                </div>
+                <div className="flex items-center gap-2 sm:col-span-2">
+                  <Volume2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <input 
+                    type="text" 
+                    value={s.audioUrl || ''} 
+                    onChange={e => setSentences(prev => prev.map((item, i) => i === idx ? { ...item, audioUrl: e.target.value } : item))}
+                    className="input-field text-xs w-full py-1.5"
+                    placeholder={sharedAudioUrl ? "Dùng URL chung" : "URL Audio (tuỳ chọn)..."} 
+                  />
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -632,6 +719,36 @@ export function DictationForm({ onSave, isSaving, initialData }: {
           <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
         </div>
       )}
+
+      {/* Fallback TTS Checkbox */}
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
+        <input 
+          type="checkbox" 
+          id="fallbackTTS" 
+          checked={fallbackTTS}
+          onChange={(e) => setFallbackTTS(e.target.checked)}
+          className="mt-1 w-4 h-4 rounded border-amber-500/30 bg-background text-amber-500 focus:ring-amber-500/30"
+        />
+        <label htmlFor="fallbackTTS" className="text-sm cursor-pointer select-none">
+          <span className="font-semibold text-amber-400 block mb-0.5">Dùng Giọng đọc mặc định (TTS) nếu thiếu Giây bắt đầu</span>
+          <span className="text-muted-foreground text-xs">Nếu đánh dấu, các câu có startTime = 0 sẽ tự động sử dụng Giọng đọc AI thay vì phát toàn bộ file Audio chung.</span>
+        </label>
+      </div>
+
+      {/* Auto-create Shadowing Checkbox */}
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+        <input 
+          type="checkbox" 
+          id="createShadowing" 
+          checked={createShadowing}
+          onChange={(e) => setCreateShadowing(e.target.checked)}
+          className="mt-1 w-4 h-4 rounded border-emerald-500/30 bg-background text-emerald-500 focus:ring-emerald-500/30"
+        />
+        <label htmlFor="createShadowing" className="text-sm cursor-pointer select-none">
+          <span className="font-semibold text-emerald-400 block mb-0.5">Tạo kèm bài Shadowing</span>
+          <span className="text-muted-foreground text-xs">Hệ thống sẽ tự động tạo thêm một bài tập Shadowing độc lập sử dụng chung danh sách câu này để học viên luyện nói.</span>
+        </label>
+      </div>
 
       <button onClick={handleSave} disabled={isSaving}
         className="w-full py-3.5 rounded-xl bg-sky-500 text-white font-semibold text-sm hover:bg-sky-400 disabled:opacity-40 transition-all shadow-[0_0_20px_rgba(14,165,233,0.25)] flex items-center justify-center gap-2">
@@ -683,7 +800,8 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
           phonetic: (c.phonetic || '').trim(),
           synonyms: Array.isArray(c.synonyms) ? c.synonyms.map((s: any) => String(s).trim()) : [],
           meaning: c.meaning.trim(),
-          example: (c.example || '').trim()
+          example: (c.example || '').trim(),
+          audioUrl: (c.audioUrl || '').trim()
         };
       });
 
@@ -771,6 +889,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                   <th className="p-3">Từ đồng nghĩa</th>
                   <th className="p-3">Nghĩa</th>
                   <th className="p-3">Ví dụ</th>
+                  <th className="p-3">Audio URL</th>
                   <th className="p-3 text-center w-12">Xóa</th>
                 </tr>
               </thead>
@@ -844,6 +963,18 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                         placeholder="Ví dụ"
                       />
                     </td>
+                    <td className="p-3">
+                      <input 
+                        className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1 text-[11px]"
+                        value={c.audioUrl || ''}
+                        onChange={(e) => {
+                          const newCards = [...vocabCards];
+                          newCards[idx] = { ...newCards[idx], audioUrl: e.target.value };
+                          setVocabCards(newCards);
+                        }}
+                        placeholder="Link Audio..."
+                      />
+                    </td>
                     <td className="p-3 text-center">
                       <button 
                         type="button"
@@ -914,6 +1045,8 @@ export function ShadowingForm({ onSave, isSaving, initialData }: {
       const parsed: DictationSentence[] = json.sentences.map((s: any, i: number) => ({
         id: s.id ?? i + 1,
         text: s.text || '',
+        phonetic: s.phonetic || '',
+        audioUrl: s.audioUrl || '',
         startTime: s.startTime ?? 0,
       }));
       setSentences(parsed);
@@ -1028,11 +1161,33 @@ export function ShadowingForm({ onSave, isSaving, initialData }: {
               </div>
               <textarea
                 value={s.text}
-                onChange={e => updateSentence(idx, e.target.value)}
+                onChange={e => setSentences(prev => prev.map((item, i) => i === idx ? { ...item, text: e.target.value } : item))}
                 rows={2}
                 className="input-field text-sm w-full resize-none"
                 placeholder={`Nội dung câu ${idx + 1}...`}
               />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase shrink-0 w-16">Phiên âm</span>
+                  <input 
+                    type="text" 
+                    value={s.phonetic || ''} 
+                    onChange={e => setSentences(prev => prev.map((item, i) => i === idx ? { ...item, phonetic: e.target.value } : item))}
+                    className="input-field text-xs w-full py-1.5 font-mono"
+                    placeholder="/ˈevri ˈmɔːrnɪŋ/" 
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Volume2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <input 
+                    type="text" 
+                    value={s.audioUrl || ''} 
+                    onChange={e => setSentences(prev => prev.map((item, i) => i === idx ? { ...item, audioUrl: e.target.value } : item))}
+                    className="input-field text-xs w-full py-1.5"
+                    placeholder="URL Audio (Voice tự nhiên)..." 
+                  />
+                </div>
+              </div>
             </div>
           ))}
         </div>

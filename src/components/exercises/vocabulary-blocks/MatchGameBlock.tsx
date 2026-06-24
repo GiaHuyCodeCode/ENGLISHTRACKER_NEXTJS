@@ -6,7 +6,7 @@ interface MatchGameBlockProps {
   vocabCards: VocabCard[];
   gameMatchedIds: string[];
   setGameMatchedIds: React.Dispatch<React.SetStateAction<string[]>>;
-  handleSpeak: (text: string) => void;
+  handleSpeak: (text: string, rate?: number, audioUrl?: string) => void;
   isSubmitted: boolean;
 }
 
@@ -51,9 +51,9 @@ export function MatchGameBlock({ vocabCards, gameMatchedIds, setGameMatchedIds, 
           setGameMatchedIds(prev => [...prev, first.id, second.id]);
           setGameSelectedIds([]);
           
-          // Auto-speak word when matched
           const wordText = first.type === 'word' ? first.text : second.text;
-          handleSpeak(wordText);
+          const card = vocabCards.find(c => c.word === wordText);
+          handleSpeak(wordText, 1.0, card?.audioUrl);
         }, 400); // Wait a bit to show selection before disappearing
       } else {
         // MISMATCH!

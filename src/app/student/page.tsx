@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -64,7 +64,7 @@ export default function StudentDashboard() {
   const [forgettingCurveData, setForgettingCurveData] = useState<any[]>([]);
   const [srActiveSubTab, setSrActiveSubTab] = useState<'assignments' | 'words'>('assignments');
 
-  const calculateStats = (student: string) => {
+  const calculateStats = useCallback((student: string) => {
     const subs = getSubmissions().filter(s => s.studentName === student);
     const trks = getDailyTrackings().filter(t => t.studentName === student);
     setSubmissions(subs);
@@ -181,7 +181,7 @@ export default function StudentDashboard() {
       };
     });
     setForgettingCurveData(curvePoints);
-  };
+  }, []);
 
   const refreshData = async () => {
     setAssignments(getAssignments());
@@ -244,6 +244,7 @@ export default function StudentDashboard() {
       })
       .catch(e => console.error('Lỗi khi đồng bộ dữ liệu:', e))
       .finally(() => setIsSyncing(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStudent, user]);
 
   const formatDuration = (ms?: number) => {
@@ -562,7 +563,7 @@ export default function StudentDashboard() {
                           <ul className="text-sm space-y-2 list-disc list-inside text-foreground/80">
                             {weakestSkill.key === 'Vocab' && (
                               <>
-                                <li>Làm lại các bài tập "Điền từ vào chỗ trống" để ôn lại ngữ cảnh.</li>
+                                <li>Làm lại các bài tập &quot;Điền từ vào chỗ trống&quot; để ôn lại ngữ cảnh.</li>
                                 <li>Mỗi ngày hãy cố gắng nộp 1 Báo cáo Từ vựng.</li>
                               </>
                             )}
@@ -733,7 +734,7 @@ export default function StudentDashboard() {
                     <h3 className="font-semibold font-heading flex items-center gap-2 mb-2">
                       <Brain className="h-5 w-5 text-violet-400" /> Mức Độ Phân Bổ Kỹ Năng
                     </h3>
-                    <p className="text-sm text-muted-foreground mb-6">Giúp bạn nhận biết thói quen "học lệch" để điều chỉnh cân bằng hơn.</p>
+                    <p className="text-sm text-muted-foreground mb-6">Giúp bạn nhận biết thói quen &quot;học lệch&quot; để điều chỉnh cân bằng hơn.</p>
 
                     {skillFocusData.length > 0 ? (
                       <div className="w-full h-[300px] min-h-[300px] flex items-center justify-center">
