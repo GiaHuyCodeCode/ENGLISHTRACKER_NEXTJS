@@ -68,6 +68,9 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const mimeTypeRef = useRef<string>('audio/webm');
+  // Tracks whether a recording session is still active (used in async continuations)
+  const recordingActiveRef = useRef(false);
+  const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const { isListening: srListening, isSupported, start: startSR, stop: stopSR } = useSpeechRecognition('en-US');
 
@@ -93,7 +96,21 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
     setAttempts({});
     setIsFinished(false);
     setIsTextRevealed(false);
+    if (autoStopTimerRef.current) {
+      clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
+    }
   }, [sentences]);
+
+  // Clear auto-stop timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoStopTimerRef.current) {
+        clearTimeout(autoStopTimerRef.current);
+        autoStopTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!currentSentence || isFinished) return;
@@ -108,36 +125,32 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
   }, [shake]);
 
   const handleRecordStart = async () => {
-    if (!currentSentence || phase === 'recording' || !isSupported) return;
-    
+    // Use phaseRef.current (not phase from closure) to avoid stale-closure bugs
+    // when toggleRecord captures this function before phase transitions to 'result'.
+    if (!currentSentence || phaseRef.current === 'recording' || !isSupported) return;
+
     setPhase('recording');
     setIsRecording(true);
+    recordingActiveRef.current = true;
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-      mimeTypeRef.current = mimeType;
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      mediaRecorder.start();
-    } catch (err) {
-      console.warn('Could not start MediaRecorder for playback', err);
-    }
-    
+    // IMPORTANT: startSR must be called BEFORE any await.
+    // iOS Safari requires SpeechRecognition.start() to be invoked synchronously
+    // within a user gesture handler. Awaiting getUserMedia first loses that
+    // gesture context, causing an immediate NotAllowedError → recording resets.
     startSR((transcript, confidence) => {
+      if (autoStopTimerRef.current) {
+        clearTimeout(autoStopTimerRef.current);
+        autoStopTimerRef.current = null;
+      }
+      recordingActiveRef.current = false;
       setIsRecording(false);
-      
+
       const targetText = currentSentence.text;
       const sentenceId = currentSentence.id;
-      
+
       const recWords = normalize(transcript).split(' ').filter(Boolean);
       const tgtWords = normalize(targetText).split(' ').filter(Boolean);
-      
+
       let hits = 0;
       const wordDiff = targetText.trim().split(/\s+/).map((w, i) => {
         const ok = i < recWords.length ? fuzzyOk(recWords[i], normalize(w)) : false;
@@ -145,7 +158,6 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
         return { word: w, ok };
       });
 
-      // If transcript is totally empty, score is 0
       const acc = transcript.trim() === '' ? 0 : (tgtWords.length ? Math.round((hits / tgtWords.length) * 100) : 0);
       const count = (attemptsRef.current[sentenceId] || 0) + 1;
 
@@ -182,10 +194,46 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
         saveResult(undefined);
       }
     });
+
+    // Auto-stop after 4 seconds so the user doesn't have to press stop manually.
+    autoStopTimerRef.current = setTimeout(() => {
+      autoStopTimerRef.current = null;
+      if (recordingActiveRef.current) {
+        recordingActiveRef.current = false;
+        stopSR();
+        setIsRecording(false);
+      }
+    }, 4000);
+
+    // MediaRecorder is optional — used only for audio playback after recording.
+    // If getUserMedia fails or the recording was already stopped, skip gracefully.
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!recordingActiveRef.current) {
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+      const mimeType = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+      mimeTypeRef.current = mimeType;
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mediaRecorder.start();
+    } catch (err) {
+      console.warn('Could not set up audio recording for playback:', err);
+    }
   };
 
   const handleRecordStop = () => {
+    if (autoStopTimerRef.current) {
+      clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
+    }
     if (isRecording) {
+      recordingActiveRef.current = false;
       stopSR();
       setIsRecording(false);
     }

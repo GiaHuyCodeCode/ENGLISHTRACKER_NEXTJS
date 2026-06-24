@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import {
-  getAssignments, getSubmissions, getDailyTrackings, deleteAssignment,
+  getAssignments, getSubmissions, getDailyTrackings, deleteAssignment, deleteVirtualShadowingSubmissions,
   updateSubmissionScore, updateTrackingScore, deleteSubmission, deleteTracking, clearAllData,
   Assignment, Submission, DailyTracking, getStudentNames, getStudentColors, getStudentAvatar,
   seedIfEmpty, getGamificationProfiles, getBadges, GamificationProfile, importAssignment, updateAssignment, syncAllFromCloud, createStudent,
@@ -148,12 +148,14 @@ export default function TeacherDashboard() {
 
   const handleDelete = (id: string) => {
     if (id.startsWith('shadowing_')) {
+      // Đây là bài Shadowing ảo được sinh tự động từ Dictation.
+      // Chỉ xóa các submissions của nó, KHÔNG xóa bài Dictation gốc.
       setConfirmDialog({
         isOpen: true,
-        title: 'Xóa bài tập',
-        message: 'Đây là bài tập Shadowing được tạo tự động từ bài Nghe chép. Xóa bài này sẽ xóa luôn bài Nghe chép gốc. Bạn có chắc chắn muốn xóa không?',
+        title: 'Xóa bài Shadowing',
+        message: 'Bạn có chắc chắn muốn xóa bài Shadowing này không? Bài Nghe Chép (Dictation) gốc sẽ không bị ảnh hưởng.',
         action: () => {
-          deleteAssignment(id.replace('shadowing_', ''));
+          deleteVirtualShadowingSubmissions(id);
           refreshData();
           setConfirmDialog(null);
         }

@@ -184,6 +184,7 @@ export function ShadowingBlock({
           setWordResults(prev => ({ ...prev, [word]: { recognized: transcript, accuracy: acc, audioBlobUrl: audioUrl, wordDiff } }));
           setAttempts(prev => ({ ...prev, [word]: count }));
           onShadowingResult?.(word, { recognized: transcript, accuracy: acc, attempts: count });
+          setPhase('result');
 
           const isSuccess = acc >= 80;
           if (isSuccess) {

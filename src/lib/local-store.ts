@@ -575,6 +575,15 @@ export function deleteAssignment(id: string): void {
   syncActionToSheet({ action: 'delete_assignment', id });
 }
 
+/**
+ * Xóa chỉ các submissions của bài Shadowing ảo (có assignmentId = 'shadowing_<dictationId>').
+ * Không xóa bài Dictation gốc. Dùng khi user xóa "Shadowing: ..." được sinh tự động từ Dictation.
+ */
+export function deleteVirtualShadowingSubmissions(shadowingAssignmentId: string): void {
+  write(KEYS.submissions, getSubmissions().filter(s => s.assignmentId !== shadowingAssignmentId));
+  // Không gọi delete_assignment trên server vì record gốc là Dictation, không phải Shadowing
+}
+
 // ─── CRUD – Submissions ───────────────────────────────────────────────────────
 
 export function getSubmissions(): Submission[] {
@@ -984,6 +993,63 @@ export function submitDailyTracking(payload: {
   return record;
 }
 
+// ─── Data Migrations ──────────────────────────────────────────────────────────
+
+const MIGRATION_KEY = 'et_migration_v1_submittedAt';
+
+/**
+ * Caps any submission whose submittedAt falls on a day AFTER the assignment's
+ * creation day to 23:59:59.999 of that creation day.
+ *
+ * Uses a localStorage flag so the full scan only runs once per device.
+ * The flag is cleared on each new app version bump (change MIGRATION_KEY).
+ */
+export function migrateStaleSubmitTimestamps(): void {
+  if (typeof window === 'undefined') return;
+  if (localStorage.getItem(MIGRATION_KEY)) return;
+
+  const assignments = getAssignments();
+  const submissions = getSubmissions();
+  let changed = false;
+
+  const updated = submissions.map(sub => {
+    // Shadowing submissions use "shadowing_<id>" — strip the prefix when looking up.
+    const assignment = assignments.find(
+      a => a.id === sub.assignmentId || a.id === sub.assignmentId.replace('shadowing_', '')
+    );
+    if (assignment?.createdAt && sub.submittedAt) {
+      const cDate = new Date(assignment.createdAt);
+      const sDate = new Date(sub.submittedAt);
+      if (!isNaN(cDate.getTime()) && !isNaN(sDate.getTime())) {
+        const cDay = new Date(cDate.getFullYear(), cDate.getMonth(), cDate.getDate());
+        const sDay = new Date(sDate.getFullYear(), sDate.getMonth(), sDate.getDate());
+        if (sDay > cDay) {
+          const adjusted = new Date(cDay);
+          adjusted.setHours(23, 59, 59, 999);
+          changed = true;
+          return { ...sub, submittedAt: adjusted.toISOString() };
+        }
+      }
+    }
+    return sub;
+  });
+
+  if (changed) write(KEYS.submissions, updated);
+
+  // Trigger GAS to run the same fix on the Google Sheets database.
+  // Fire-and-forget (no-cors) — GAS handles the 'fix_submitted_at' action
+  // by calling fixPastSubmissionsTime() on the server side.
+  void syncActionToSheet({ action: 'fix_submitted_at' });
+
+  localStorage.setItem(MIGRATION_KEY, '1');
+}
+
+// Auto-run on every page that imports this module (client-side only).
+// setTimeout defers past React's hydration so localStorage is definitely available.
+if (typeof window !== 'undefined') {
+  setTimeout(migrateStaleSubmitTimestamps, 0);
+}
+
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 
 let initializedSwitch = false;
@@ -1023,6 +1089,8 @@ export function seedIfEmpty(): void {
   if (changed) {
     write(KEYS.assignments, updatedAssignments);
   }
+
+  migrateStaleSubmitTimestamps();
 
   if (localStorage.getItem(KEYS.seeded)) return;
 

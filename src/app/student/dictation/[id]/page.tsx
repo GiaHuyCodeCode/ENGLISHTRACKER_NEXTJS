@@ -489,14 +489,10 @@ export default function DictationExercisePage() {
                     <X className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-red-400 text-sm mb-2">Chưa chính xác, thử lại nhé!</p>
-                      {wrongWords.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {wrongWords.map((w, i) => (
-                            <span key={i} className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                              w.ok ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
-                            }`}>{w.word}</span>
-                          ))}
-                        </div>
+                      {getHint() && (
+                        <p className="text-xs text-amber-400 font-medium bg-amber-500/10 p-2 rounded-lg mt-2 inline-block border border-amber-500/20">
+                          💡 Gợi ý: <span className="font-mono tracking-widest text-sm ml-1">{getHint()}</span>
+                        </p>
                       )}
                     </div>
                   </div>
@@ -534,16 +530,6 @@ export default function DictationExercisePage() {
               )}
             </div>
 
-            {/* Hint: current wrong attempts */}
-            {attemptsByIdx[currentIdx] >= 1 && feedback !== 'correct' && getHint() && (
-              <div className="glass rounded-2xl border border-amber-500/20 p-4 text-center fade-in">
-                <p className="text-xs text-amber-400 font-medium">
-                  💡 Gợi ý: <span className="font-mono tracking-widest text-sm ml-1">
-                    {getHint()}
-                  </span>
-                </p>
-              </div>
-            )}
           </div>
 
           {/* Sidebar Tracking (Desktop Only) */}
