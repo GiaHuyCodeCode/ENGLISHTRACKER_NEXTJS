@@ -210,7 +210,7 @@ export default function DictationExercisePage() {
         if (newCompleted.size >= sentences.length) {
           // All done — submit dictation then move to shadowing phase
           const results: DictationResult[] = sentences.map((s, i) => ({
-            sentenceId: s.id,
+            sentenceId: Number(s.id),
             studentText: '',
             accuracy: Math.max(0, 100 - (attemptsByIdx[i] || 0) * 20),
             errors: [],
