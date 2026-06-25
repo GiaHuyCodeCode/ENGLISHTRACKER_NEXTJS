@@ -32,7 +32,7 @@ function fuzzyOk(a: string, b: string): boolean {
 }
 
 export interface SentenceShadowingResult {
-  sentenceId: number;
+  sentenceId: string | number; // UUID string cho Shadowing mới, number cho legacy
   recognized: string;
   accuracy: number;
   attempts: number;
@@ -54,8 +54,8 @@ interface SentenceResult {
 export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [phase, setPhase] = useState<'ready' | 'recording' | 'result'>('ready');
-  const [results, setResults] = useState<Record<number, SentenceResult>>({});
-  const [attempts, setAttempts] = useState<Record<number, number>>({});
+  const [results, setResults] = useState<Record<string, SentenceResult>>({});
+  const [attempts, setAttempts] = useState<Record<string, number>>({});
   const [isFinished, setIsFinished] = useState(false);
   const [isTextRevealed, setIsTextRevealed] = useState(false);
   const [shake, setShake] = useState(false);
@@ -169,17 +169,6 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
         if (!transcript) setShake(true);
         setPhase('result');
 
-        const isSuccess = acc >= 80;
-        if (isSuccess) {
-          setTimeout(() => {
-            if (currentIdxRef.current < sentences.length - 1) {
-              setCurrentIdx(prev => prev + 1);
-              setPhase('ready');
-            } else {
-              setIsFinished(true);
-            }
-          }, 2000);
-        }
       };
 
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {

@@ -47,7 +47,7 @@ export interface QuizQuestion {
 // ─── Dictation Types ─────────────────────────────────────────────────────────
 
 export interface DictationSentence {
-  id: number;
+  id: string | number; // string UUID cho Shadowing, number cho Dictation legacy
   text: string;       // Nội dung câu chuẩn (giáo viên nhập)
   translation?: string; // Nghĩa tiếng Việt của câu
   phonetic?: string;  // Phiên âm của câu
@@ -85,6 +85,8 @@ export interface Assignment {
   skill?: 'Vocab' | 'Grammar' | 'Reading' | 'Listening' | 'Writing' | 'Speaking';
   // Dictation / Shadowing fields
   sentences?: DictationSentence[];
+  /** ID của bài Dictation gốc nếu bài Shadowing này được tạo tự động từ Dictation */
+  sourceDictationId?: string;
 }
 
 export interface VocabAnswerResult {
@@ -464,11 +466,26 @@ export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { cr
       id: crypto.randomUUID(),
       type: 'rewrite_vocab'
     };
-    
-    // Đọc lại danh sách mới nhất bao gồm bài tập vừa thêm
     const updatedAll = getAssignments();
     write(KEYS.assignments, [...updatedAll, rewriteAssignment]);
     syncAssignmentToSheet(rewriteAssignment);
+  }
+
+  // Tạo bài Shadowing thực (uuid riêng) chỉ khi teacher chọn "Tạo kèm bài Shadowing"
+  // Không dùng virtual shadowing nữa để tránh nhầm lẫn id khi xóa.
+  if (a.type === 'dictation' && (data as any).createShadowing === true && Array.isArray(a.sentences) && a.sentences.length > 0) {
+    const shadowingAssignment: Assignment = {
+      id: crypto.randomUUID(),
+      title: `Shadowing: ${a.title}`,
+      type: 'shadowing',
+      skill: 'Speaking',
+      createdAt: a.createdAt,
+      sentences: a.sentences,
+      sourceDictationId: a.id,   // Lưu id Dictation gốc để phân biệt khi cần
+    };
+    const updatedAll2 = getAssignments();
+    write(KEYS.assignments, [...updatedAll2, shadowingAssignment]);
+    syncAssignmentToSheet(shadowingAssignment);
   }
 
   return a;
@@ -544,9 +561,25 @@ export function updateAssignment(id: string, partial: Partial<Assignment>) {
   const current = getAssignments();
   const index = current.findIndex(a => a.id === id);
   if (index !== -1) {
+    const oldTitle = current[index].title;
     current[index] = { ...current[index], ...partial };
     write(KEYS.assignments, current);
     syncAssignmentToSheet(current[index], 'update_assignment');
+
+    // Nếu tên bài tập thay đổi → cập nhật assignmentTitle trong tất cả submissions liên quan
+    const newTitle = current[index].title;
+    if (partial.title !== undefined && newTitle !== oldTitle) {
+      const allSubs = getSubmissions();
+      const updatedSubs = allSubs.map(s => {
+        if (s.assignmentId === id) {
+          return { ...s, assignmentTitle: newTitle };
+        }
+        return s;
+      });
+      write(KEYS.submissions, updatedSubs);
+      // Sync tên mới lên Google Sheets (Submissions + sheet học sinh)
+      syncActionToSheet({ action: 'rename_assignment_title', id, newTitle, oldTitle });
+    }
 
     if (current[index].type === 'vocabulary' && current[index].vocabCards) {
       const currentCards = getVocabularyCards();
@@ -625,6 +658,26 @@ export function updateSubmissionScore(id: string, newScore: number): void {
     all[idx].score = newScore;
     write(KEYS.submissions, all);
     syncActionToSheet({ action: 'update_submission_score', id, score: newScore });
+  }
+}
+
+export function updateSubmissionDate(id: string, newDateStr: string): void {
+  const all = getSubmissions();
+  const idx = all.findIndex(s => s.id === id);
+  if (idx !== -1) {
+    all[idx].submittedAt = new Date(newDateStr + 'T12:00:00').toISOString();
+    write(KEYS.submissions, all);
+    syncActionToSheet({ action: 'update_submission_score', id, score: all[idx].score, submittedAt: all[idx].submittedAt });
+  }
+}
+
+export function updateTrackingDate(id: string, newDateStr: string): void {
+  const all = getDailyTrackings();
+  const idx = all.findIndex(t => t.id === id);
+  if (idx !== -1) {
+    all[idx].submittedAt = new Date(newDateStr + 'T12:00:00').toISOString();
+    write(KEYS.dailyTracking, all);
+    syncActionToSheet({ action: 'update_tracking_score', id, score: all[idx].score, submittedAt: all[idx].submittedAt });
   }
 }
 
@@ -932,10 +985,10 @@ export function submitDictation(payload: {
 }
 
 export function submitSentenceShadowing(payload: {
-  assignmentId: string;      // 'shadowing_' + dictationId OR standalone shadowingId
+  assignmentId: string;      // UUID của bài Shadowing (standalone hoặc sinh từ Dictation)
   assignmentTitle: string;
   studentName: string;
-  results: { sentenceId: number; recognized: string; accuracy: number; attempts: number }[];
+  results: { sentenceId: string | number; recognized: string; accuracy: number; attempts: number }[];
   durationMs?: number;
 }): Submission {
   const score = payload.results.length > 0
@@ -956,7 +1009,8 @@ export function submitSentenceShadowing(payload: {
       attempts: r.attempts,
     })),
     durationMs: payload.durationMs,
-    submittedAt: getAdjustedSubmitTime(getAssignment(payload.assignmentId.replace('shadowing_', ''))?.createdAt),
+    // Dùng id trực tiếp — không cần strip prefix nữa
+    submittedAt: getAdjustedSubmitTime(getAssignment(payload.assignmentId)?.createdAt),
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);
   syncSubmissionToSheet(sub);
@@ -1013,9 +1067,9 @@ export function migrateStaleSubmitTimestamps(): void {
   let changed = false;
 
   const updated = submissions.map(sub => {
-    // Shadowing submissions use "shadowing_<id>" — strip the prefix when looking up.
+    // Tất cả Shadowing submissions giờ dùng UUID trực tiếp, không có prefix
     const assignment = assignments.find(
-      a => a.id === sub.assignmentId || a.id === sub.assignmentId.replace('shadowing_', '')
+      a => a.id === sub.assignmentId
     );
     if (assignment?.createdAt && sub.submittedAt) {
       const cDate = new Date(assignment.createdAt);

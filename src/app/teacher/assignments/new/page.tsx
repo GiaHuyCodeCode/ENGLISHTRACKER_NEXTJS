@@ -44,18 +44,7 @@ export default function NewAssignmentPage() {
     setIsSaving(true);
     const createdAtISO = new Date(createdAtDate + 'T00:00:00Z').toISOString();
     
-    const { createShadowing, ...assignmentData } = data;
-    saveAssignment({ ...assignmentData, type, skill, createdAt: createdAtISO } as any);
-    
-    if (type === 'dictation' && createShadowing) {
-      saveAssignment({
-        ...assignmentData,
-        title: `Shadowing: ${assignmentData.title}`,
-        type: 'shadowing',
-        skill: 'Speaking',
-        createdAt: createdAtISO
-      } as any);
-    }
+    saveAssignment({ ...data, type, skill, createdAt: createdAtISO } as any);
     
     setTimeout(() => { setSuccess(true); setTimeout(() => router.push('/?tab=assignments_mgmt'), 1200); }, 300);
     setIsSaving(false);

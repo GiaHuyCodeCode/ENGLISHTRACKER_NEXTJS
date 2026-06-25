@@ -79,8 +79,12 @@ export function ShadowingBlock({
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const recordingActiveRef = useRef(false);
+  const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mimeTypeRef = useRef<string>('audio/webm');
 
   const currentCard = vocabCards[currentIdx];
+  const { isSupported, start: startSR, stop: stopSR } = useSpeechRecognition('en-US');
   const { phonetic: displayPhonetic, loading: phoneticLoading } = usePhonetic(currentCard?.word, currentCard?.phonetic);
 
   // Reset when vocab list changes (new assignment)
@@ -137,84 +141,108 @@ export function ShadowingBlock({
   }, [vocabCards, wordResults, currentCard, currentIdx, isFinished, onProgressUpdate]);
 
   const handleRecordStart = async () => {
-    if (!currentCard) return;
-    if (phase !== 'ready' && phase !== 'result') return;
+    if (!currentCard || phaseRef.current === 'recording' || !isSupported) return;
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
+    setPhase('recording');
+    setIsRecording(true);
+    recordingActiveRef.current = true;
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) audioChunksRef.current.push(event.data);
-      };
+    const word = currentCard.word;
 
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const audioUrl = URL.createObjectURL(audioBlob);
-        
-        // Mock scoring logic using API
-        setPhase('recording'); // Wait for API
-        const word = currentCard.word;
-        
-        try {
-          const formData = new FormData();
-          formData.append('audio', audioBlob, 'audio.webm');
-          formData.append('word', word);
+    // IMPORTANT: startSR must be called BEFORE any await.
+    // iOS Safari requires SpeechRecognition.start() to be invoked synchronously
+    // within a user gesture handler. Awaiting getUserMedia first loses that
+    // gesture context, causing an immediate NotAllowedError.
+    startSR((transcript, confidence) => {
+      if (autoStopTimerRef.current) {
+        clearTimeout(autoStopTimerRef.current);
+        autoStopTimerRef.current = null;
+      }
+      recordingActiveRef.current = false;
+      setIsRecording(false);
 
-          const res = await fetch('/api/transcribe', {
-            method: 'POST',
-            body: formData,
-          });
+      const recWords = normalize(transcript).split(' ').filter(Boolean);
+      const tgtWords = normalize(word).split(' ').filter(Boolean);
+      let hits = 0;
+      const wordDiff = word.trim().split(/\s+/).map((w, i) => {
+        const ok = i < recWords.length ? fuzzyOk(recWords[i], normalize(w)) : false;
+        if (ok) hits++;
+        return { word: w, ok };
+      });
+      const acc = transcript.trim() === '' ? 0 : (tgtWords.length ? Math.round((hits / tgtWords.length) * 100) : 0);
+      const count = (attemptsRef.current[word] || 0) + 1;
 
-          const data = await res.json();
-          if (data.error) throw new Error(data.error);
+      const saveResult = (audioBlobUrl?: string) => {
+        setWordResults(prev => ({ ...prev, [word]: { recognized: transcript, accuracy: acc, wordDiff, audioBlobUrl } }));
+        setAttempts(prev => ({ ...prev, [word]: count }));
+        onShadowingResult?.(word, { recognized: transcript, accuracy: acc, attempts: count });
+        if (!transcript) setShake(true);
+        setPhase('result');
 
-          const acc = data.accuracy;
-          const transcript = data.recognized;
-          const count = (attemptsRef.current[word] || 0) + 1;
-
-          const recWords = normalize(transcript).split(' ').filter(Boolean);
-          const wordDiff = word.trim().split(/\s+/).map((w, i) => {
-            const ok = i < recWords.length ? fuzzyOk(recWords[i], normalize(w)) : false;
-            return { word: w, ok };
-          });
-
-          setWordResults(prev => ({ ...prev, [word]: { recognized: transcript, accuracy: acc, audioBlobUrl: audioUrl, wordDiff } }));
-          setAttempts(prev => ({ ...prev, [word]: count }));
-          onShadowingResult?.(word, { recognized: transcript, accuracy: acc, attempts: count });
-          setPhase('result');
-
-          const isSuccess = acc >= 80;
-          if (isSuccess) {
-            setTimeout(() => {
-              if (currentIdxRef.current < vocabCards.length - 1) {
-                setCurrentIdx(prev => prev + 1);
-                setPhase('ready');
-              } else {
-                setIsFinished(true);
-              }
-            }, 2000);
-          }
-        } catch (error) {
-          console.error('Transcription failed:', error);
-          setShake(true);
-          setPhase('result');
+        if (acc >= 80) {
+          setTimeout(() => {
+            if (currentIdxRef.current < vocabCards.length - 1) {
+              setCurrentIdx(prev => prev + 1);
+              setPhase('ready');
+            } else {
+              setIsFinished(true);
+            }
+          }, 2000);
         }
       };
 
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.onstop = () => {
+          mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
+          const audioBlob = new Blob(audioChunksRef.current, { type: mimeTypeRef.current });
+          const url = URL.createObjectURL(audioBlob);
+          saveResult(url);
+        };
+        mediaRecorderRef.current.stop();
+      } else {
+        saveResult(undefined);
+      }
+    });
+
+    // Auto-stop after 4 seconds so the user doesn't have to press stop manually.
+    autoStopTimerRef.current = setTimeout(() => {
+      autoStopTimerRef.current = null;
+      if (recordingActiveRef.current) {
+        recordingActiveRef.current = false;
+        stopSR();
+        setIsRecording(false);
+      }
+    }, 4000);
+
+    // MediaRecorder is optional — used only for audio playback after recording.
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!recordingActiveRef.current) {
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+      const mimeType = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+      mimeTypeRef.current = mimeType;
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
       mediaRecorder.start();
-      setIsRecording(true);
     } catch (err) {
-      console.error('Mic access denied', err);
-      alert('Không thể truy cập microphone. Vui lòng cấp quyền.');
+      console.warn('Could not set up audio recording for playback:', err);
     }
   };
 
   const handleRecordStop = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+    if (autoStopTimerRef.current) {
+      clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
+    }
+    if (isRecording) {
+      recordingActiveRef.current = false;
+      stopSR();
       setIsRecording(false);
     }
   };
@@ -234,6 +262,15 @@ export function ShadowingBlock({
       return () => clearTimeout(t);
     }
   }, [shake]);
+
+  useEffect(() => {
+    return () => {
+      if (autoStopTimerRef.current) {
+        clearTimeout(autoStopTimerRef.current);
+        autoStopTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const goToNext = useCallback(() => {
     if (phase === 'recording') return;
@@ -419,7 +456,7 @@ export function ShadowingBlock({
             ) : phase === 'recording' ? (
               <>
                 <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-                <span>Đang chấm điểm bằng AI...</span>
+                <span>Đang nhận diện...</span>
               </>
             ) : (
               <>
@@ -430,6 +467,13 @@ export function ShadowingBlock({
               </>
             )}
           </button>
+
+          {!isSupported && (
+            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm text-center flex items-center justify-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>Trình duyệt của bạn không hỗ trợ nhận diện giọng nói. Vui lòng sử dụng Chrome/Edge/Safari.</span>
+            </div>
+          )}
 
           {/* Result feedback */}
           {phase === 'result' && currentResult !== undefined && (

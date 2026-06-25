@@ -145,8 +145,8 @@ export default function ShadowingExercisePage() {
     }
     setAssignment(a);
 
-    // Standalone shadowing uses its own id; dictation-derived uses 'shadowing_'+id
-    setShadowingAssignmentId(a.type === 'shadowing' ? dictationId : `shadowing_${dictationId}`);
+    // Shadowing (standalone hoặc sinh từ Dictation) đều có id UUID riêng — dùng trực tiếp
+    setShadowingAssignmentId(dictationId);
 
     let parsed = a.sentences || a.passage;
     if (typeof parsed === 'string') {

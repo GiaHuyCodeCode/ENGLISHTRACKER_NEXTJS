@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  getAssignments, getSubmissions, getDailyTrackings, deleteAssignment, deleteVirtualShadowingSubmissions,
+  getAssignments, getSubmissions, getDailyTrackings, deleteAssignment,
   updateSubmissionScore, updateTrackingScore, deleteSubmission, deleteTracking, clearAllData,
   Assignment, Submission, DailyTracking, getStudentNames, getStudentColors, getStudentAvatar,
   seedIfEmpty, getGamificationProfiles, getBadges, GamificationProfile, importAssignment, updateAssignment, syncAllFromCloud, createStudent,
@@ -57,18 +57,8 @@ export default function TeacherDashboard() {
   const [mgmtDateFilter, setMgmtDateFilter] = useState<string>('');
   const [mgmtSkillFilter, setMgmtSkillFilter] = useState<string>('all');
 
-  // Inject virtual shadowing assignments derived from dictation
-  const allAssignments = useMemo(() => {
-    const dictations = assignments.filter(a => a.type === 'dictation');
-    const virtualShadowing = dictations.map(a => ({
-      ...a,
-      id: `shadowing_${a.id}`,
-      title: `Shadowing: ${a.title}`,
-      type: 'shadowing' as const,
-      skill: 'Speaking' as const,
-    }));
-    return [...assignments, ...virtualShadowing];
-  }, [assignments]);
+  // allAssignments = assignments thực từ localStorage (Shadowing được tạo thực khi teacher chọn, không dùng virtual shadowing nữa)
+  const allAssignments = assignments;
 
   useEffect(() => {
     if (tabParam === 'assignments_mgmt' || tabParam === 'overview' || tabParam === 'analytics' || tabParam === 'vocabulary') {
@@ -147,22 +137,6 @@ export default function TeacherDashboard() {
   };
 
   const handleDelete = (id: string) => {
-    if (id.startsWith('shadowing_')) {
-      // Đây là bài Shadowing ảo được sinh tự động từ Dictation.
-      // Chỉ xóa các submissions của nó, KHÔNG xóa bài Dictation gốc.
-      setConfirmDialog({
-        isOpen: true,
-        title: 'Xóa bài Shadowing',
-        message: 'Bạn có chắc chắn muốn xóa bài Shadowing này không? Bài Nghe Chép (Dictation) gốc sẽ không bị ảnh hưởng.',
-        action: () => {
-          deleteVirtualShadowingSubmissions(id);
-          refreshData();
-          setConfirmDialog(null);
-        }
-      });
-      return;
-    }
-
     setConfirmDialog({
       isOpen: true,
       title: 'Xóa bài tập',
@@ -900,7 +874,7 @@ export default function TeacherDashboard() {
                   const skill = a.skill || 'Vocab';
                   return (
                     <div key={a.id} className="flex items-start justify-between gap-4 p-5 rounded-2xl bg-white/5 border border-white/5 hover:border-primary/30 transition-all group">
-                      <Link href={a.id.startsWith('shadowing_') ? `/teacher/assignments/${a.id.replace('shadowing_', '')}/edit` : `/teacher/assignments/${a.id}/edit`} className="flex-1 flex items-start gap-3.5 min-w-0 cursor-pointer">
+                      <Link href={`/teacher/assignments/${a.id}/edit`} className="flex-1 flex items-start gap-3.5 min-w-0 cursor-pointer">
                         <div className={`p-3 rounded-xl flex-shrink-0 ${
                           skill === 'Vocab' ? 'bg-violet-500/10 text-violet-400' :
                           skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-400' :

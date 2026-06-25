@@ -27,7 +27,7 @@ export function VocabForm({ onSave, isSaving, initialData }: {
   const [parsedData, setParsedData] = useState<{ title: string; passage: string; keywords: VocabKeyword[] } | null>(
     initialData ? { title: initialData.title || '', passage: initialData.passage || '', keywords: initialData.keywords || [] } : null
   );
-  
+
   const [jsonText, setJsonText] = useState(() => {
     if (initialData) return JSON.stringify(initialData, null, 2);
     return '';
@@ -73,7 +73,7 @@ export function VocabForm({ onSave, isSaving, initialData }: {
 
   return (
     <div className="space-y-5">
-      
+
       {/* JSON Template Alert */}
       <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20 text-sm">
         <div className="flex items-center gap-2 font-semibold text-violet-400 mb-2">
@@ -89,12 +89,12 @@ export function VocabForm({ onSave, isSaving, initialData }: {
           <span>Dán JSON vào đây</span>
           <span className="text-xs text-muted-foreground font-normal">Sẽ tự động sinh ra bảng Preview bên dưới</span>
         </label>
-        <textarea 
-          value={jsonText} 
-          onChange={e => { setJsonText(e.target.value); if (e.target.value.trim()) parseJson(e.target.value); }} 
-          rows={6} 
+        <textarea
+          value={jsonText}
+          onChange={e => { setJsonText(e.target.value); if (e.target.value.trim()) parseJson(e.target.value); }}
+          rows={6}
           className="input-field resize-y font-mono text-xs w-full p-4"
-          placeholder={'Dán cấu trúc JSON chứa bài tập vào đây...'} 
+          placeholder={'Dán cấu trúc JSON chứa bài tập vào đây...'}
         />
       </div>
 
@@ -109,7 +109,7 @@ export function VocabForm({ onSave, isSaving, initialData }: {
         <div className="space-y-4 p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">Tiêu đề bài học</label>
-            <input 
+            <input
               className="input-field text-sm w-full font-bold text-violet-400"
               value={parsedData.title}
               onChange={e => setParsedData(p => p ? { ...p, title: e.target.value } : null)}
@@ -117,27 +117,27 @@ export function VocabForm({ onSave, isSaving, initialData }: {
           </div>
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">Đoạn văn (passage)</label>
-            <textarea 
+            <textarea
               className="input-field text-sm w-full resize-y"
               rows={3}
               value={parsedData.passage}
               onChange={e => setParsedData(p => p ? { ...p, passage: e.target.value } : null)}
             />
           </div>
-          
+
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">Từ khóa (Có thể sửa trực tiếp)</label>
             <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
               {parsedData.keywords.map((k, i) => (
                 <div key={i} className="flex flex-col gap-1 p-2 rounded-lg bg-black/20 border border-white/5 relative group">
-                  <button 
+                  <button
                     onClick={() => setParsedData(p => p ? { ...p, keywords: p.keywords.filter((_, idx) => idx !== i) } : null)}
                     className="absolute top-1 right-1 p-1 text-muted-foreground hover:text-red-400 rounded opacity-0 group-hover:opacity-100 transition-all z-10"
                     title="Xóa"
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
-                  <input 
+                  <input
                     className="bg-transparent border-b border-white/10 focus:border-violet-400 outline-none w-full text-sm font-semibold pb-1 pr-6"
                     value={k.word}
                     placeholder="Từ tiếng Anh"
@@ -147,7 +147,7 @@ export function VocabForm({ onSave, isSaving, initialData }: {
                       setParsedData(p => p ? { ...p, keywords: newKw } : null);
                     }}
                   />
-                  <input 
+                  <input
                     className="bg-transparent outline-none w-full text-xs text-muted-foreground focus:text-foreground mt-1"
                     value={k.answer}
                     placeholder="Nghĩa tiếng Việt"
@@ -195,7 +195,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
       if (!Array.isArray(qs) || !qs.length) {
         throw new Error('Không tìm thấy danh sách câu hỏi hợp lệ. JSON phải là một mảng hoặc có trường "questions" là một mảng.');
       }
-      
+
       const validated: QuizQuestion[] = qs.map((q: any, index: number) => {
         const qNum = index + 1;
         if (typeof q !== 'object' || q === null) {
@@ -210,7 +210,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
         if (!q.answer || typeof q.answer !== 'string' || !q.answer.trim()) {
           throw new Error(`Câu hỏi thứ ${qNum} thiếu đáp án đúng ("answer").`);
         }
-        
+
         return {
           id: q.id ?? qNum,
           question: String(q.question),
@@ -291,7 +291,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
           <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
             {questions.map((q, i) => (
               <div key={i} className="p-4 rounded-xl bg-teal-500/5 border border-teal-500/20 space-y-3 relative group">
-                <button 
+                <button
                   onClick={() => setQuestions(qs => qs!.filter((_, idx) => idx !== i))}
                   className="absolute top-3 right-3 p-1.5 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
                   title="Xóa câu hỏi này"
@@ -300,7 +300,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                 </button>
                 <div className="pr-8">
                   <label className="text-xs text-muted-foreground mb-1 block">Câu hỏi {i + 1}</label>
-                  <textarea 
+                  <textarea
                     className="input-field w-full text-sm font-medium resize-y"
                     rows={2}
                     value={q.question}
@@ -317,7 +317,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                       <span className="text-xs font-bold text-muted-foreground w-4 flex-shrink-0 text-center">
                         {['A', 'B', 'C', 'D'][optIdx] || String.fromCharCode(65 + optIdx)}
                       </span>
-                      <input 
+                      <input
                         className="input-field w-full text-xs py-1.5"
                         value={opt}
                         onChange={e => {
@@ -335,7 +335,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">Đáp án đúng (A/B/C/D)</label>
-                    <input 
+                    <input
                       className="input-field w-full text-xs py-1.5 font-bold text-teal-400 uppercase"
                       value={q.answer}
                       maxLength={1}
@@ -349,7 +349,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">Mảng kiến thức</label>
-                    <input 
+                    <input
                       className="input-field w-full text-xs py-1.5"
                       value={q.knowledgeArea || ''}
                       placeholder="VD: Phrasal Verbs"
@@ -362,7 +362,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                   </div>
                   <div className="space-y-1 sm:col-span-3">
                     <label className="text-xs text-amber-400 flex items-center gap-1">💡 Gợi ý (hint) — hiện trước khi chọn đáp án</label>
-                    <textarea 
+                    <textarea
                       className="input-field w-full text-xs py-1.5 resize-y border-amber-500/30 focus:border-amber-400"
                       rows={1}
                       placeholder="Gợi ý để học viên suy nghĩ trước khi chọn..."
@@ -376,7 +376,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                   </div>
                   <div className="space-y-1 sm:col-span-3">
                     <label className="text-xs text-teal-400 flex items-center gap-1">📝 Giải thích (explanation) — hiện sau khi chọn đáp án</label>
-                    <textarea 
+                    <textarea
                       className="input-field w-full text-xs py-1.5 resize-y"
                       rows={2}
                       placeholder="Giải thích đáp án đúng sau khi học viên đã chọn..."
@@ -390,7 +390,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                   </div>
                   <div className="space-y-1 sm:col-span-3">
                     <label className="text-xs text-blue-400 flex items-center gap-1">🇻🇳 Dịch câu hỏi (hiện sau khi chọn đáp án)</label>
-                    <textarea 
+                    <textarea
                       className="input-field w-full text-xs py-1.5 resize-y border-blue-500/30 focus:border-blue-400"
                       rows={1}
                       placeholder="Nghĩa tiếng Việt của câu hỏi để học viên đối chiếu..."
@@ -439,16 +439,16 @@ export function RewriteVocabForm({ onSave, isSaving, initialData }: {
 
   const handleSave = () => {
     if (!title.trim()) { setError('Vui lòng nhập tiêu đề'); return; }
-    
+
     const validKeywords = keywords.filter(k => k.word.trim() !== '');
     if (validKeywords.length === 0) { setError('Vui lòng nhập ít nhất 1 từ khóa'); return; }
 
     setError('');
     // For rewrite, we just need the 'word' part of the VocabKeyword.
-    onSave({ 
-      title, 
-      passage: passage || 'Viết một đoạn văn ngắn (chuyện chêm) bằng tiếng Việt, có sử dụng các từ khóa tiếng Anh dưới đây.', 
-      keywords: validKeywords.map(k => ({ word: k.word.trim(), answer: '' })) 
+    onSave({
+      title,
+      passage: passage || 'Viết một đoạn văn ngắn (chuyện chêm) bằng tiếng Việt, có sử dụng các từ khóa tiếng Anh dưới đây.',
+      keywords: validKeywords.map(k => ({ word: k.word.trim(), answer: '' }))
     });
   };
 
@@ -510,7 +510,7 @@ export function DictationForm({ onSave, isSaving, initialData }: {
   initialData?: any;
 }) {
   const [title, setTitle] = useState(initialData?.title || '');
-  
+
   // Safe parse sentences for Dictation
   const initSentences = () => {
     let s = initialData?.sentences || initialData?.passage;
@@ -573,10 +573,10 @@ export function DictationForm({ onSave, isSaving, initialData }: {
     if (!title.trim()) { setError('Vui lòng nhập tiêu đề bài tập'); return; }
     const validSentences = sentences.filter(s => s.text.trim()).map(s => {
       // Nếu có fallbackTTS và không có startTime (startTime <= 0) thì bỏ qua audioUrl
-      const finalAudioUrl = (fallbackTTS && (!s.startTime || s.startTime <= 0)) 
-        ? '' 
+      const finalAudioUrl = (fallbackTTS && (!s.startTime || s.startTime <= 0))
+        ? ''
         : (s.audioUrl || sharedAudioUrl);
-        
+
       return {
         ...s,
         audioUrl: finalAudioUrl
@@ -627,11 +627,11 @@ export function DictationForm({ onSave, isSaving, initialData }: {
         <label className="text-sm font-medium text-foreground/80">URL Audio / Video chung (Tùy chọn)</label>
         <div className="flex items-center gap-2 relative">
           <Volume2 className="h-4 w-4 absolute left-3 text-muted-foreground" />
-          <input 
-            value={sharedAudioUrl} 
-            onChange={e => setSharedAudioUrl(e.target.value)} 
+          <input
+            value={sharedAudioUrl}
+            onChange={e => setSharedAudioUrl(e.target.value)}
             className="input-field pl-9"
-            placeholder="VD: https://youtube.com/watch?v=... hoặc link mp3" 
+            placeholder="VD: https://youtube.com/watch?v=... hoặc link mp3"
           />
         </div>
         <p className="text-xs text-muted-foreground">Tất cả các câu bên dưới sẽ dùng chung URL này nếu không có URL riêng.</p>
@@ -643,12 +643,12 @@ export function DictationForm({ onSave, isSaving, initialData }: {
           <span>Dán JSON vào đây</span>
           <span className="text-xs text-muted-foreground font-normal">Sẽ tự động điền danh sách câu bên dưới</span>
         </label>
-        <textarea 
-          value={jsonText} 
+        <textarea
+          value={jsonText}
           onChange={e => { setJsonText(e.target.value); if (e.target.value.trim()) parseJson(e.target.value); }}
-          rows={8} 
+          rows={8}
           className="input-field font-mono text-xs w-full p-4 resize-y"
-          placeholder="Dán cấu trúc JSON chứa bài tập vào đây..." 
+          placeholder="Dán cấu trúc JSON chứa bài tập vào đây..."
         />
       </div>
 
@@ -676,34 +676,34 @@ export function DictationForm({ onSave, isSaving, initialData }: {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase shrink-0 w-16">Phiên âm</span>
-                  <input 
-                    type="text" 
-                    value={s.phonetic || ''} 
+                  <input
+                    type="text"
+                    value={s.phonetic || ''}
                     onChange={e => setSentences(prev => prev.map((item, i) => i === idx ? { ...item, phonetic: e.target.value } : item))}
                     className="input-field text-xs w-full py-1.5 font-mono"
-                    placeholder="/ˈevri ˈmɔːrnɪŋ/" 
+                    placeholder="/ˈevri ˈmɔːrnɪŋ/"
                   />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase shrink-0 w-16">Bắt đầu (s)</span>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     step="0.1"
                     min="0"
-                    value={s.startTime || 0} 
+                    value={s.startTime || 0}
                     onChange={e => setSentences(prev => prev.map((item, i) => i === idx ? { ...item, startTime: parseFloat(e.target.value) || 0 } : item))}
                     className="input-field text-xs w-full py-1.5 font-mono"
-                    placeholder="0" 
+                    placeholder="0"
                   />
                 </div>
                 <div className="flex items-center gap-2 sm:col-span-2">
                   <Volume2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <input 
-                    type="text" 
-                    value={s.audioUrl || ''} 
+                  <input
+                    type="text"
+                    value={s.audioUrl || ''}
                     onChange={e => setSentences(prev => prev.map((item, i) => i === idx ? { ...item, audioUrl: e.target.value } : item))}
                     className="input-field text-xs w-full py-1.5"
-                    placeholder={sharedAudioUrl ? "Dùng URL chung" : "URL Audio (tuỳ chọn)..."} 
+                    placeholder={sharedAudioUrl ? "Dùng URL chung" : "URL Audio (tuỳ chọn)..."}
                   />
                 </div>
               </div>
@@ -723,9 +723,9 @@ export function DictationForm({ onSave, isSaving, initialData }: {
 
       {/* Fallback TTS Checkbox */}
       <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
-        <input 
-          type="checkbox" 
-          id="fallbackTTS" 
+        <input
+          type="checkbox"
+          id="fallbackTTS"
           checked={fallbackTTS}
           onChange={(e) => setFallbackTTS(e.target.checked)}
           className="mt-1 w-4 h-4 rounded border-amber-500/30 bg-background text-amber-500 focus:ring-amber-500/30"
@@ -738,9 +738,9 @@ export function DictationForm({ onSave, isSaving, initialData }: {
 
       {/* Auto-create Shadowing Checkbox */}
       <div className="flex items-start gap-3 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-        <input 
-          type="checkbox" 
-          id="createShadowing" 
+        <input
+          type="checkbox"
+          id="createShadowing"
           checked={createShadowing}
           onChange={(e) => setCreateShadowing(e.target.checked)}
           className="mt-1 w-4 h-4 rounded border-emerald-500/30 bg-background text-emerald-500 focus:ring-emerald-500/30"
@@ -784,7 +784,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
       const parsed = JSON.parse(raw);
       const cards = Array.isArray(parsed) ? parsed : parsed.vocabCards || parsed.cards;
       if (!Array.isArray(cards) || !cards.length) throw new Error('Không tìm thấy mảng từ vựng hợp lệ');
-      
+
       // Validate each card
       const validated = cards.map((c: any, index: number) => {
         if (!c.word) throw new Error(`Từ vựng thứ ${index + 1} thiếu trường "word"`);
@@ -837,7 +837,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
         <pre className="text-xs text-muted-foreground bg-black/30 p-3 rounded-lg overflow-x-auto font-mono">
           {jsonTemplate}
         </pre>
-        <button 
+        <button
           type="button"
           onClick={() => {
             navigator.clipboard.writeText(jsonTemplate);
@@ -892,7 +892,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                 {vocabCards.map((c, idx) => (
                   <tr key={idx} className="hover:bg-white/5 transition-colors">
                     <td className="p-3 font-bold text-foreground text-sm">
-                      <input 
+                      <input
                         className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1"
                         value={c.word}
                         onChange={(e) => {
@@ -903,7 +903,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                       />
                     </td>
                     <td className="p-3 font-mono text-primary flex items-center gap-1.5">
-                      <input 
+                      <input
                         className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1"
                         value={c.phonetic || ''}
                         onChange={(e) => {
@@ -913,7 +913,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                         }}
                         placeholder="Phiên âm"
                       />
-                      <button 
+                      <button
                         type="button"
                         onClick={() => handleSpeak(c.word)}
                         className="p-1 rounded bg-secondary hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all flex-shrink-0"
@@ -923,7 +923,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                       </button>
                     </td>
                     <td className="p-3">
-                      <input 
+                      <input
                         className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1 text-[11px]"
                         value={c.synonyms.join(', ')}
                         onChange={(e) => {
@@ -935,7 +935,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                       />
                     </td>
                     <td className="p-3 text-muted-foreground">
-                      <input 
+                      <input
                         className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1 text-xs"
                         value={c.meaning}
                         onChange={(e) => {
@@ -946,7 +946,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                       />
                     </td>
                     <td className="p-3 italic text-muted-foreground">
-                      <textarea 
+                      <textarea
                         className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full text-xs resize-y"
                         rows={1}
                         value={c.example || ''}
@@ -959,7 +959,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                       />
                     </td>
                     <td className="p-3">
-                      <input 
+                      <input
                         className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1 text-[11px]"
                         value={c.audioUrl || ''}
                         onChange={(e) => {
@@ -971,7 +971,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                       />
                     </td>
                     <td className="p-3 text-center">
-                      <button 
+                      <button
                         type="button"
                         onClick={() => handleDeleteCard(idx)}
                         className="p-1 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded transition-all"
@@ -1037,8 +1037,9 @@ export function ShadowingForm({ onSave, isSaving, initialData }: {
         setError('File JSON phải có trường "sentences" là mảng không rỗng.');
         return;
       }
-      const parsed: DictationSentence[] = json.sentences.map((s: any, i: number) => ({
-        id: s.id ?? i + 1,
+      const parsed: DictationSentence[] = json.sentences.map((s: any) => ({
+        // Giữ UUID nếu đã có, ngược lại tạo UUID mới — không dùng số thứ tự
+        id: s.id && typeof s.id === 'string' && s.id.includes('-') ? s.id : crypto.randomUUID(),
         text: s.text || '',
         phonetic: s.phonetic || '',
         audioUrl: s.audioUrl || '',
@@ -1159,22 +1160,22 @@ export function ShadowingForm({ onSave, isSaving, initialData }: {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase shrink-0 w-16">Phiên âm</span>
-                  <input 
-                    type="text" 
-                    value={s.phonetic || ''} 
+                  <input
+                    type="text"
+                    value={s.phonetic || ''}
                     onChange={e => setSentences(prev => prev.map((item, i) => i === idx ? { ...item, phonetic: e.target.value } : item))}
                     className="input-field text-xs w-full py-1.5 font-mono"
-                    placeholder="/ˈevri ˈmɔːrnɪŋ/" 
+                    placeholder="/ˈevri ˈmɔːrnɪŋ/"
                   />
                 </div>
                 <div className="flex items-center gap-2">
                   <Volume2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <input 
-                    type="text" 
-                    value={s.audioUrl || ''} 
+                  <input
+                    type="text"
+                    value={s.audioUrl || ''}
                     onChange={e => setSentences(prev => prev.map((item, i) => i === idx ? { ...item, audioUrl: e.target.value } : item))}
                     className="input-field text-xs w-full py-1.5"
-                    placeholder="URL Audio (Voice tự nhiên)..." 
+                    placeholder="URL Audio (Voice tự nhiên)..."
                   />
                 </div>
               </div>
@@ -1208,8 +1209,8 @@ function VocabLibrarySidebar_REMOVED() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const cards = getVocabularyCards();
 
-  const filtered = cards.filter(c => 
-    c.word.toLowerCase().includes(search.toLowerCase()) || 
+  const filtered = cards.filter(c =>
+    c.word.toLowerCase().includes(search.toLowerCase()) ||
     c.meaning.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -1237,14 +1238,14 @@ function VocabLibrarySidebar_REMOVED() {
       </div>
 
       <div className="flex gap-2">
-        <input 
-          type="text" 
-          value={search} 
-          onChange={e => setSearch(e.target.value)} 
-          placeholder="Tìm từ khóa..." 
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Tìm từ khóa..."
           className="input-field text-xs py-2 px-3 flex-1"
         />
-        <button 
+        <button
           onClick={handleCopyRawJson}
           className="px-2.5 py-2 text-xs bg-secondary hover:bg-secondary/80 rounded-lg font-semibold transition-colors flex items-center gap-1 shrink-0"
           title="Copy toàn bộ dưới dạng mảng JSON bài tập"
@@ -1262,7 +1263,7 @@ function VocabLibrarySidebar_REMOVED() {
             <div key={c.id} className="p-2.5 rounded-xl bg-secondary/30 border border-white/5 space-y-1 text-xs">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-foreground">{c.word}</span>
-                <button 
+                <button
                   onClick={() => handleCopySnippet(c.word, c.meaning, i)}
                   className="px-2 py-0.5 rounded bg-primary/10 text-[10px] font-bold text-primary hover:bg-primary/20 transition-colors"
                 >

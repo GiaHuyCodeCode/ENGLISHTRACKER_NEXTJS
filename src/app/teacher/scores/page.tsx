@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import {
-  getSubmissions, getDailyTrackings, updateSubmissionScore, updateTrackingScore, deleteSubmission, deleteTracking,
-  Submission, DailyTracking, getStudentNames, getStudentColors, getStudentAvatar, seedIfEmpty
+  getSubmissions, getDailyTrackings, updateSubmissionScore, updateTrackingScore,
+  updateSubmissionDate, updateTrackingDate,
+  deleteSubmission, deleteTracking,
+  Submission, DailyTracking, getStudentNames, getStudentColors, getStudentAvatar, seedIfEmpty,
+  syncAllFromCloud,
 } from '@/lib/local-store';
-import { Edit2, CheckCircle2, XCircle, Trash2, ArrowLeft, Clock } from 'lucide-react';
+import { Edit2, CheckCircle2, XCircle, Trash2, ArrowLeft, Clock, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
 function ScoreBadge({ score }: { score: number }) {
@@ -36,6 +39,8 @@ export default function ScoreManagementPage() {
   const [selectedStudent, setSelectedStudent] = useState<string>(getStudentNames()[0] || '');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editScore, setEditScore] = useState<string>('');
+  const [editDate, setEditDate] = useState<string>('');
+  const [isSyncing, setIsSyncing] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean, action: () => void, title: string, message: string } | null>(null);
 
   const refreshData = () => {
@@ -86,12 +91,33 @@ export default function ScoreManagementPage() {
   const handleSave = (id: string, isTracking: boolean) => {
     const num = parseInt(editScore, 10);
     if (isNaN(num) || num < 0 || num > 100) return alert('Điểm phải từ 0-100');
-    
-    if (isTracking) updateTrackingScore(id, num);
-    else updateSubmissionScore(id, num);
-    
+
+    if (isTracking) {
+      updateTrackingScore(id, num);
+      if (editDate) updateTrackingDate(id, editDate);
+    } else {
+      updateSubmissionScore(id, num);
+      if (editDate) updateSubmissionDate(id, editDate);
+    }
+
     setEditingId(null);
     refreshData();
+  };
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/assignments');
+      if (res.ok) {
+        const data = await res.json();
+        syncAllFromCloud(data);
+        refreshData();
+      }
+    } catch (e) {
+      console.error('Sync failed:', e);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleDelete = (id: string, isTracking: boolean) => {
@@ -131,12 +157,21 @@ export default function ScoreManagementPage() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-bold font-heading flex items-center gap-2">
             Quản Lý Điểm Số
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">Chỉnh sửa hoặc xóa điểm lịch sử của học viên</p>
         </div>
+        <button
+          onClick={handleSync}
+          disabled={isSyncing}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-sky-500/30 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 transition-all text-sm font-semibold disabled:opacity-50"
+          title="Đồng bộ dữ liệu từ Cloud"
+        >
+          <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+          {isSyncing ? 'Đang sync...' : 'Sync Cloud'}
+        </button>
       </div>
 
       {/* Overall Statistics Board */}
@@ -211,28 +246,39 @@ export default function ScoreManagementPage() {
 
                 <div className="flex items-center gap-3">
                   {editingId === r.id ? (
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="number" 
-                        value={editScore} 
-                        onChange={e => setEditScore(e.target.value)}
-                        className="input-field w-20 text-center py-1 text-sm font-bold" 
-                        autoFocus
-                        onKeyDown={e => e.key === 'Enter' && handleSave(r.id, r.isTracking)}
-                      />
-                      <button onClick={() => handleSave(r.id, r.isTracking)} className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30">
-                        <CheckCircle2 className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg bg-slate-500/20 text-slate-400 hover:bg-slate-500/30">
-                        <XCircle className="h-4 w-4" />
-                      </button>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={editScore}
+                          onChange={e => setEditScore(e.target.value)}
+                          className="input-field w-20 text-center py-1 text-sm font-bold"
+                          autoFocus
+                          onKeyDown={e => e.key === 'Enter' && handleSave(r.id, r.isTracking)}
+                          placeholder="0-100"
+                        />
+                        <input
+                          type="date"
+                          value={editDate}
+                          onChange={e => setEditDate(e.target.value)}
+                          className="input-field py-1 text-sm"
+                          title="Ngày nộp bài"
+                        />
+                        <button onClick={() => handleSave(r.id, r.isTracking)} className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30">
+                          <CheckCircle2 className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg bg-slate-500/20 text-slate-400 hover:bg-slate-500/30">
+                          <XCircle className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Ngày nộp bài (để trống = giữ nguyên)</p>
                     </div>
                   ) : (
                     <>
                       <ScoreBadge score={r.score} />
                       <div className="flex items-center gap-1">
-                        <button 
-                          onClick={() => { setEditingId(r.id); setEditScore(r.score.toString()); }}
+                        <button
+                          onClick={() => { setEditingId(r.id); setEditScore(r.score.toString()); setEditDate(''); }}
                           className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
                           title="Sửa điểm"
                         >
