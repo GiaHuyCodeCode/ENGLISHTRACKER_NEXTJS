@@ -42,12 +42,17 @@ export default function EditAssignmentPage() {
     updateAssignment(assignmentId, { ...assignmentData, skill, createdAt: createdAtISO });
     
     if (assignment.type === 'dictation' && createShadowing) {
+      // Lấy sentences từ dữ liệu form mới (ưu tiên) hoặc fallback về dữ liệu assignment cũ
+      const shadowingSentences = assignmentData.sentences || assignment.sentences || [];
+      const shadowingPassage = JSON.stringify(shadowingSentences);
       saveAssignment({
-        ...assignmentData,
         title: `Shadowing: ${assignmentData.title}`,
         type: 'shadowing',
         skill: 'Speaking',
-        createdAt: createdAtISO
+        createdAt: createdAtISO,
+        sentences: shadowingSentences,
+        passage: shadowingPassage,
+        sourceDictationId: assignmentId,
       } as any);
     }
 

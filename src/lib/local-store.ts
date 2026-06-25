@@ -481,6 +481,7 @@ export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { cr
       skill: 'Speaking',
       createdAt: a.createdAt,
       sentences: a.sentences,
+      passage: JSON.stringify(a.sentences), // GAS lưu sentences vào cột Passage
       sourceDictationId: a.id,   // Lưu id Dictation gốc để phân biệt khi cần
     };
     const updatedAll2 = getAssignments();

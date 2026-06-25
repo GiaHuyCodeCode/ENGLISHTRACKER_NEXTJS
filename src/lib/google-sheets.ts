@@ -42,7 +42,15 @@ export async function syncAssignmentToSheet(assignment: any, action: 'add_assign
   }
 
   try {
-    const payload = { ...assignment, action };
+    // Đảm bảo cột Passage luôn chứa JSON sentences cho dictation/shadowing
+    let safeAssignment = { ...assignment };
+    if ((safeAssignment.type === 'dictation' || safeAssignment.type === 'shadowing') &&
+        Array.isArray(safeAssignment.sentences) && safeAssignment.sentences.length > 0 &&
+        !safeAssignment.passage) {
+      safeAssignment.passage = JSON.stringify(safeAssignment.sentences);
+    }
+
+    const payload = { ...safeAssignment, action };
     const response = await fetch(url, {
       method: 'POST',
       mode: 'no-cors',
