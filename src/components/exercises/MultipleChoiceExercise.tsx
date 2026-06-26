@@ -124,7 +124,7 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                 className="bg-[#1a1a1a] border border-white/15 rounded-xl px-3 py-2 shadow-2xl text-xs max-w-[220px] text-center"
                 style={{ color: 'hsl(150 10% 70%)' }}
               >
-                <span className="font-semibold text-white block mb-0.5 truncate">"{selectionTooltip.text}"</span>
+                <span className="font-semibold text-white block mb-0.5 truncate">&ldquo;{selectionTooltip.text}&rdquo;</span>
                 <span className="opacity-60">Bôi đen để tra từ điển</span>
               </div>
               <button
