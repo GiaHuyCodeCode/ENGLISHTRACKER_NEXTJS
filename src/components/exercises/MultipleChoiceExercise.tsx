@@ -25,6 +25,28 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
   const [revealedHints, setRevealedHints] = useState<Set<number>>(new Set());
   const [isMobileMapOpen, setIsMobileMapOpen] = useState(false);
   const [autoSubmitCountdown, setAutoSubmitCountdown] = useState<number | null>(null);
+  // Mobile selection-based translation
+  const [selectionTooltip, setSelectionTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
+
+  // Handle text selection for mobile translation (bôi đen = dịch)
+  const handleTextSelection = () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+      setSelectionTooltip(null);
+      return;
+    }
+    const text = sel.toString().trim();
+    if (text.length < 2 || text.length > 200) return;
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    setSelectionTooltip({
+      text,
+      x: rect.left + rect.width / 2,
+      y: rect.top + window.scrollY - 8,
+    });
+  };
+
+  const dismissTooltip = () => setSelectionTooltip(null);
   
   const isSubmitted = !!result;
   const answered = Object.keys(selected).length;
@@ -81,6 +103,41 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
 
   return (
     <>
+      {/* ── Mobile Selection Tooltip (bôi đen từ để dịch) ─────────── */}
+      {selectionTooltip && (
+        <>
+          <div
+            className="fixed inset-0 z-[60]"
+            onClick={dismissTooltip}
+            style={{ pointerEvents: 'none' }}
+          />
+          <div
+            className="fixed z-[70] pointer-events-auto"
+            style={{
+              left: Math.min(selectionTooltip.x, window.innerWidth - 200),
+              top: selectionTooltip.y - 52,
+              transform: 'translateX(-50%)',
+            }}
+          >
+            <div className="flex flex-col items-center gap-1">
+              <div
+                className="bg-[#1a1a1a] border border-white/15 rounded-xl px-3 py-2 shadow-2xl text-xs max-w-[220px] text-center"
+                style={{ color: 'hsl(150 10% 70%)' }}
+              >
+                <span className="font-semibold text-white block mb-0.5 truncate">"{selectionTooltip.text}"</span>
+                <span className="opacity-60">Bôi đen để tra từ điển</span>
+              </div>
+              <button
+                onClick={dismissTooltip}
+                className="text-[10px] text-white/40 hover:text-white/70 transition-colors"
+              >
+                ✕ Đóng
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Sticky Mobile Status Bar */}
       {!hideSidebar && (
         <div className="sticky top-16 z-40 lg:hidden -mx-4 px-4 py-3 bg-black/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between gap-3 shadow-md">
@@ -243,7 +300,9 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                       : 'bg-red-500/20 text-red-400 border-red-500/40'
                     : 'bg-secondary text-muted-foreground border-border'
                 }`}>{idx + 1}</span>
+
                 <div className="flex-1 min-w-0">
+                  {/* Tags */}
                   {(q.knowledgeArea || uniqueFailedPeersForQuestion.length > 0) && (
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
                       {q.knowledgeArea && (
@@ -256,7 +315,8 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                           {uniqueFailedPeersForQuestion.map(peer => {
                             const colors = getStudentColors(peer || 'Unknown');
                             return (
-                              <div key={peer || 'unknown'} title={`${peer} đã làm sai câu này`} className={`relative w-7 h-7 rounded-full border-2 border-red-500 flex items-center justify-center text-[9px] font-bold shadow-md z-10 hover:z-20 transition-all hover:scale-110 ${colors.bg} ${colors.text}`}>
+                              <div key={peer || 'unknown'} title={`${peer} đã làm sai câu này`}
+                                className={`relative w-7 h-7 rounded-full border-2 border-red-500 flex items-center justify-center text-[9px] font-bold shadow-md z-10 hover:z-20 transition-all hover:scale-110 ${colors.bg} ${colors.text}`}>
                                 {getStudentAvatar(peer || 'Unknown')}
                               </div>
                             );
@@ -265,23 +325,39 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                       )}
                     </div>
                   )}
-                  <p className="font-medium text-sm leading-relaxed">
+
+                  {/* Câu hỏi */}
+                  <p className="font-medium text-sm leading-relaxed select-text"
+                    onMouseUp={handleTextSelection}
+                    onTouchEnd={handleTextSelection}
+                  >
                     {q.question}
                   </p>
-                  {/* Nội dung gợi ý — chỉ hiện khi học sinh đã click icon 💡 */}
+
+                  {/* Hint — hiện dưới câu hỏi khi bấm 💡 (giữ nguyên vị trí cũ) */}
                   {allowHints && q.hint && !showAnswer && revealedHints.has(q.id) && (
-                    <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-400/80 bg-amber-500/5 border border-amber-500/15 rounded-lg px-2.5 py-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-400/80 bg-amber-500/5 border border-amber-500/15 rounded-lg px-2.5 py-1.5">
                       <span className="flex-shrink-0">💡</span>
                       <span>{q.hint}</span>
                     </div>
                   )}
+
+                  {/* Translate — hiện dưới câu hỏi CHỈ SAU KHI đã trả lời */}
+                  {showAnswer && q.translation && (
+                    <p className="mt-2 text-xs leading-relaxed" style={{ color: 'hsl(150 10% 58%)' }}>
+                      🇻🇳 {q.translation}
+                    </p>
+                  )}
                 </div>
+
+                {/* Trạng thái đúng/sai */}
                 {showAnswer && (
                   isCorrect
                     ? <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />
                     : <XCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
                 )}
-                {/* Icon gợi ý — chỉ hiện khi giáo viên bật allowHints và câu có hint và chưa chọn */}
+
+                {/* Nút hint 💡 — vị trí cũ */}
                 {allowHints && q.hint && !showAnswer && (
                   <button
                     onClick={() => setRevealedHints(prev => {
@@ -333,30 +409,21 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
               })}
             </div>
 
+            {/* ── Phần dưới: chỉ hiển thị đáp án đúng + giải thích ── */}
             {showAnswer && (
               <div className="mx-5 mb-5 p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2 text-xs">
-                <div>
-                  <span className="text-muted-foreground">Đáp án đúng: </span>
-                  <span className="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                {/* Đáp án đúng */}
+                <div className="flex items-start gap-2">
+                  <span className="text-muted-foreground whitespace-nowrap flex-shrink-0">Đáp án đúng:</span>
+                  <span className="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded leading-relaxed">
                     {q.answer.toUpperCase()}. {cleanOptionText(q.options[LABELS.indexOf(q.answer.toUpperCase())] || '', q.answer.toUpperCase())}
                   </span>
                 </div>
-                {q.translation && (
-                  <div className="pt-2 border-t border-white/5 text-muted-foreground">
-                    <span className="font-semibold text-foreground">🇻🇳 Dịch câu hỏi: </span>
-                    {q.translation}
-                  </div>
-                )}
+                {/* Giải thích — nếu có */}
                 {q.explanation && (
-                  <div className="pt-2 border-t border-white/5 text-muted-foreground">
-                    <span className="font-semibold text-foreground">📝 Giải thích: </span>
+                  <div className="pt-2 border-t border-white/5 text-muted-foreground leading-relaxed">
+                    <span className="font-semibold text-foreground">📝 </span>
                     {q.explanation}
-                  </div>
-                )}
-                {q.hint && (
-                  <div className="pt-2 border-t border-white/5">
-                    <span className="font-semibold text-amber-400">💡 Gợi ý: </span>
-                    <span className="text-muted-foreground">{q.hint}</span>
                   </div>
                 )}
               </div>

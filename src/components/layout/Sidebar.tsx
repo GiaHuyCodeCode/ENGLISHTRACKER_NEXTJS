@@ -256,6 +256,77 @@ export function Sidebar() {
         </button>
       </div>
 
+      {/* ── Mobile Bottom Navigation (Student) ─────────────────────────────── */}
+      {user?.role !== 'admin' && pathname !== '/login' && (
+        <nav
+          className="md:hidden fixed bottom-0 inset-x-0 z-50"
+          aria-label="Điều hướng học viên"
+          style={{
+            background: 'hsl(150 30% 2% / 0.96)',
+            backdropFilter: 'blur(32px) saturate(1.3)',
+            WebkitBackdropFilter: 'blur(32px) saturate(1.3)',
+            borderTop: '1px solid hsl(340 60% 58% / 0.12)',
+            boxShadow:
+              'inset 0 1px 0 hsl(0 0% 100% / 0.05), 0 -16px 56px hsl(150 30% 2% / 0.75)',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          }}
+        >
+          <div className="flex h-[3.75rem]">
+            {([
+              { href: '/student',             Icon: FlowerCherry, label: '🌸 Dashboard' },
+              { href: '/student/assignments', Icon: FlowerLotus,  label: 'Bài Tập'      },
+              { href: '/student/library',     Icon: FlowerRose,   label: 'Thư Viện'     },
+              { href: '/student/lessons',     Icon: FlowerFolder, label: 'Bài Học'      },
+            ] as const).map(({ href, Icon, label }) => {
+              const active = href === '/student'
+                ? pathname === '/student'
+                : pathname?.startsWith(href) ?? false;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className="flex-1 flex flex-col items-center justify-center gap-[3px] relative bloom-press select-none"
+                  style={{ color: active ? 'hsl(340 60% 72%)' : 'hsl(150 8% 42%)' }}
+                >
+                  {/* Bloom glow pill behind active icon */}
+                  {active && (
+                    <span
+                      aria-hidden="true"
+                      className="petal-pulse absolute rounded-[14px]"
+                      style={{
+                        inset: '7px 16%',
+                        background: 'hsl(340 60% 58% / 0.14)',
+                        border: '1px solid hsl(340 60% 58% / 0.24)',
+                      }}
+                    />
+                  )}
+                  <span
+                    className="relative z-10"
+                    style={{
+                      transform: active ? 'scale(1.15) translateY(-1px)' : 'scale(1)',
+                      transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)',
+                    }}
+                  >
+                    <Icon size={active ? 21 : 19} />
+                  </span>
+                  <span
+                    className="relative z-10 font-semibold leading-none"
+                    style={{
+                      fontSize: '9px',
+                      letterSpacing: '0.01em',
+                      opacity: active ? 1 : 0.45,
+                      transition: 'opacity 0.2s ease',
+                    }}
+                  >
+                    {label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      )}
+
       {/* ── Mobile backdrop ─────────────────────────────────────────────────── */}
       {isOpen && (
         <div

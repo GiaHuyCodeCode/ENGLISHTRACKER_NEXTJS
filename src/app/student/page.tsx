@@ -421,7 +421,7 @@ export default function StudentDashboard() {
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-6 md:space-y-8 max-w-7xl mx-auto">
 
       {/* ── HERO HEADER ──────────────────────────────────────────────────────── */}
       <div className="relative rounded-3xl overflow-hidden fade-in stagger-1"
@@ -442,9 +442,12 @@ export default function StudentDashboard() {
             WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,0.7) 0%, transparent 100%)',
           }}
         />
-        {/* Petal glow */}
+        {/* Petal glow — desktop: right side / mobile: center bloom */}
         <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 60% 80% at 80% 50%, hsl(340 60% 58% / 0.06) 0%, transparent 70%)' }}
+          style={{ background: [
+            'radial-gradient(ellipse 60% 80% at 80% 50%, hsl(340 60% 58% / 0.06) 0%, transparent 70%)',
+            'radial-gradient(ellipse 100% 60% at 50% 110%, hsl(340 60% 58% / 0.05) 0%, transparent 60%)',
+          ].join(',') }}
         />
 
         {/* 🌸 Floating petals — ambient floral scatter */}
@@ -570,10 +573,10 @@ export default function StudentDashboard() {
                   { label: 'Cần Làm', value: todo.length, icon: FBook, color: 'text-[#0071e3]' },
                   { label: 'Thời Gian Học', value: formatTotalTime(totalDurationMs), icon: FClock, color: 'text-violet-400' },
                 ].map(({ label, value, icon: Icon, color }) => (
-                  <div key={label} className="text-center p-4 rounded-xl bg-white/5 border border-white/5 flex flex-col items-center justify-center">
-                    <Icon className={`h-5 w-5 mb-2 ${color} icon-bloom-hover`} />
+                  <div key={label} className="bloom-press text-center p-4 min-h-[80px] rounded-xl bg-white/5 border border-white/5 flex flex-col items-center justify-center gap-1 active:bg-white/8 transition-colors">
+                    <Icon className={`h-5 w-5 ${color} icon-bloom-hover`} />
                     <p className={`text-xl md:text-2xl font-bold font-heading ${color}`}>{value}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{label}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">{label}</p>
                   </div>
                 ))}
               </div>

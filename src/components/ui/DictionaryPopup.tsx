@@ -109,34 +109,8 @@ export function DictionaryPopup() {
         }
       }
 
-      // 2. Fallback to tap-to-lookup for mobile devices (if no text is selected)
-      const isTouch = 'touches' in e;
-      if (!text && isTouch) {
-        // Prevent looking up text inside generic buttons like "Submit" or "Next"
-        // But allow it inside options if they have a specific class like 'allow-dictionary'
-        const target = e.target as HTMLElement;
-        const isButton = target.closest('button');
-        if (isButton && !isButton.classList.contains('allow-dictionary')) {
-           setIsVisible(false);
-           return;
-        }
-
-        let clientX = e.changedTouches[0].clientX;
-        let clientY = e.changedTouches[0].clientY;
-
-        const wordData = getWordAtPoint(clientX, clientY);
-        if (wordData && isValidWord(wordData.word)) {
-          let x = wordData.rect ? wordData.rect.left + wordData.rect.width / 2 : clientX;
-          let y = wordData.rect ? wordData.rect.top - 10 : clientY - 20;
-
-          setSelectedWord(wordData.word.toLowerCase());
-          setPosition({ x, y });
-          setIsVisible(true);
-          lookupWord(wordData.word.toLowerCase());
-          return;
-        }
-      }
-
+      // 2. Tap on mobile without selection → hide popup (no more accidental translation)
+      // On mobile: user must long-press/select text to translate
       // 3. Hide if clicked elsewhere and no valid word found
       setIsVisible(false);
     };
