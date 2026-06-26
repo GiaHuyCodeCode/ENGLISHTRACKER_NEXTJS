@@ -151,12 +151,24 @@ export function useSpeechRecognition(lang = 'en-US'): UseSpeechRecognitionReturn
   const stop = useCallback(() => {
     // Set flag BEFORE calling .stop() so onend/onerror know not to restart
     explicitlyStoppedRef.current = true;
-    // Clear failsafe — we're stopping intentionally.
+    
+    try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+
+    // Dành cho Mobile: Đôi khi gọi .stop() nhưng trình duyệt KHÔNG bao giờ fire onend.
+    // Thay vì clear failsafe, ta đặt một timeout ngắn (1.5s) để ép kết thúc (force settle)
+    // nếu trình duyệt bị treo.
     if (failsafeTimerRef.current) {
       clearTimeout(failsafeTimerRef.current);
-      failsafeTimerRef.current = null;
     }
-    try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+    failsafeTimerRef.current = setTimeout(() => {
+      failsafeTimerRef.current = null;
+      if (!settledRef.current) {
+        settledRef.current = true;
+        setIsListening(false);
+        try { recognitionRef.current?.abort(); } catch { /* ignore */ }
+        onCompleteRef.current?.(transcriptRef.current.trim(), confidenceRef.current);
+      }
+    }, 1500);
   }, []);
 
   // Abort and detach all handlers when the component unmounts.
