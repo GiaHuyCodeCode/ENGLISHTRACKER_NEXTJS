@@ -420,17 +420,24 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                   })}
                 </div>
 
-                {/* ── Phần dưới: chỉ hiển thị đáp án đúng + giải thích ── */}
+                {/* ── Phần dưới: gợi ý (nếu có) + đáp án đúng + giải thích ── */}
                 {showAnswer && (
                   <div className="mx-5 mb-5 p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 space-y-2 text-xs">
-                    {/* Đáp án đúng */}
+                    {/* 1. Gợi ý — hiện khi người dùng đã chọn đáp án */}
+                    {allowHints && q.hint && (
+                      <div className="flex items-start gap-2 pb-2 border-b border-black/10 dark:border-white/10">
+                        <span className="flex-shrink-0">💡</span>
+                        <span className="text-amber-600 dark:text-amber-400 leading-relaxed">{q.hint}</span>
+                      </div>
+                    )}
+                    {/* 2. Đáp án đúng */}
                     <div className="flex items-start gap-2">
                       <span className="text-muted-foreground whitespace-nowrap flex-shrink-0">Đáp án đúng:</span>
                       <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/10 px-2 py-0.5 rounded leading-relaxed">
                         {q.answer.toUpperCase()}. {cleanOptionText(q.options[LABELS.indexOf(q.answer.toUpperCase())] || '', q.answer.toUpperCase())}
                       </span>
                     </div>
-                    {/* Giải thích — nếu có */}
+                    {/* 3. Giải thích — nếu có */}
                     {q.explanation && (
                       <div className="pt-2 border-t border-white/5 text-muted-foreground leading-relaxed">
                         <span className="font-semibold text-foreground">📝 </span>

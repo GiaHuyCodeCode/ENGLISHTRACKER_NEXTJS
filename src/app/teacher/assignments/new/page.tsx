@@ -44,7 +44,18 @@ export default function NewAssignmentPage() {
     setIsSaving(true);
     const createdAtISO = new Date(createdAtDate + 'T00:00:00Z').toISOString();
     
-    saveAssignment({ ...data, type, skill, createdAt: createdAtISO } as any);
+    const { createShadowing, ...assignmentData } = data;
+    saveAssignment({ ...assignmentData, type, skill, createdAt: createdAtISO } as any);
+    
+    if (type === 'dictation' && createShadowing) {
+      saveAssignment({
+        ...assignmentData,
+        title: `Shadowing: ${assignmentData.title}`,
+        type: 'shadowing',
+        skill: 'Speaking',
+        createdAt: createdAtISO
+      } as any);
+    }
     
     setTimeout(() => { setSuccess(true); setTimeout(() => router.push('/?tab=assignments_mgmt'), 1200); }, 300);
     setIsSaving(false);
@@ -66,7 +77,7 @@ export default function NewAssignmentPage() {
 
       {/* Success banner */}
       {success && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-medium slide-up">
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium slide-up">
           <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
           Đã lưu thành công! Đang về trang quản lý bài tập...
         </div>
@@ -86,31 +97,31 @@ export default function NewAssignmentPage() {
             <button key={key} onClick={() => setTab(key)}
               className={`group glass hover-lift rounded-2xl p-5 text-left border-2 transition-all ${
                 tab === key
-                  ? color === 'violet'  ? 'border-violet-500/50 bg-violet-500/10 dark:bg-violet-500/10'
-                  : color === 'teal'    ? 'border-teal-500/50 bg-teal-500/10 dark:bg-teal-500/10'
-                  : color === 'amber'   ? 'border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/10'
-                  : color === 'indigo'  ? 'border-indigo-500/50 bg-indigo-500/10 dark:bg-indigo-500/10'
-                  : color === 'emerald' ? 'border-emerald-500/50 bg-emerald-500/10 dark:bg-emerald-500/10'
-                  : 'border-sky-500/50 bg-sky-500/10 dark:bg-sky-500/10'
+                  ? color === 'violet'  ? 'border-violet-500/50 bg-violet-500/10'
+                  : color === 'teal'    ? 'border-teal-500/50 bg-teal-500/10'
+                  : color === 'amber'   ? 'border-amber-500/50 bg-amber-500/10'
+                  : color === 'indigo'  ? 'border-indigo-500/50 bg-indigo-500/10'
+                  : color === 'emerald' ? 'border-emerald-500/50 bg-emerald-500/10'
+                  : 'border-sky-500/50 bg-sky-500/10'
                   : 'border-border hover:border-border/80'
               }`}>
               <Icon className={`h-6 w-6 mb-3 transition-colors ${
                 tab === key
-                  ? color === 'violet'  ? 'text-violet-600 dark:text-violet-400'
-                  : color === 'teal'    ? 'text-teal-600 dark:text-teal-400'
-                  : color === 'amber'   ? 'text-amber-600 dark:text-amber-400'
-                  : color === 'indigo'  ? 'text-indigo-600 dark:text-indigo-400'
-                  : color === 'emerald' ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-sky-600 dark:text-sky-400'
+                  ? color === 'violet'  ? 'text-violet-400'
+                  : color === 'teal'    ? 'text-teal-400'
+                  : color === 'amber'   ? 'text-amber-400'
+                  : color === 'indigo'  ? 'text-indigo-400'
+                  : color === 'emerald' ? 'text-emerald-400'
+                  : 'text-sky-400'
                   : 'text-muted-foreground group-hover:text-foreground'
               }`} />
               <p className={`font-semibold text-sm ${tab === key ? (
-                color === 'violet'  ? 'text-violet-700 dark:text-violet-300'
-                : color === 'teal'    ? 'text-teal-700 dark:text-teal-300'
-                : color === 'amber'   ? 'text-amber-700 dark:text-amber-300'
-                : color === 'indigo'  ? 'text-indigo-700 dark:text-indigo-300'
-                : color === 'emerald' ? 'text-emerald-700 dark:text-emerald-300'
-                : 'text-sky-700 dark:text-sky-300'
+                color === 'violet'  ? 'text-violet-300'
+                : color === 'teal'    ? 'text-teal-300'
+                : color === 'amber'   ? 'text-amber-300'
+                : color === 'indigo'  ? 'text-indigo-300'
+                : color === 'emerald' ? 'text-emerald-300'
+                : 'text-sky-300'
               ) : ''}`}>{label}</p>
               <p className="text-xs text-muted-foreground mt-1">{desc}</p>
             </button>

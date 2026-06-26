@@ -7,6 +7,54 @@ import {
 import { useSpeechRecognition } from './useSpeechRecognition';
 import { usePhonetic } from '@/lib/usePhonetic';
 
+// ── Real-time waveform from microphone via Web Audio API ─────────────────────
+function useWaveform(stream: MediaStream | null): number[] {
+  const [bars, setBars] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
+  const rafRef = useRef<number>(0);
+  const ctxRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => {
+    if (!stream) {
+      setBars([0, 0, 0, 0, 0, 0, 0]);
+      return;
+    }
+    // AudioContext must be created inside a user-gesture context.
+    // This effect runs after the user tapped "record", so it's safe.
+    const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx() as AudioContext;
+    ctxRef.current = ctx;
+    const source = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.6;
+    source.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const BAR_COUNT = 7;
+
+    const tick = () => {
+      analyser.getByteTimeDomainData(data);
+      const newBars = Array.from({ length: BAR_COUNT }, (_, i) => {
+        const idx = Math.floor((i / BAR_COUNT) * data.length);
+        // data values are 0-255, 128 = silence
+        return Math.min(1, Math.abs(data[idx] - 128) / 60);
+      });
+      setBars(newBars);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    tick();
+
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      try { ctx.close(); } catch { /* ignore */ }
+      ctxRef.current = null;
+      setBars([0, 0, 0, 0, 0, 0, 0]);
+    };
+  }, [stream]);
+
+  return bars;
+}
+
 interface ShadowingWordResult {
   recognized: string;
   accuracy: number;
@@ -77,11 +125,14 @@ export function ShadowingBlock({
   useEffect(() => { currentIdxRef.current = currentIdx; }, [currentIdx]);
 
   const [isRecording, setIsRecording] = useState(false);
+  const [waveformStream, setWaveformStream] = useState<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingActiveRef = useRef(false);
   const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mimeTypeRef = useRef<string>('audio/webm');
+
+  const waveformBars = useWaveform(waveformStream);
 
   const currentCard = vocabCards[currentIdx];
   const { isSupported, start: startSR, stop: stopSR } = useSpeechRecognition('en-US');
@@ -160,6 +211,7 @@ export function ShadowingBlock({
       }
       recordingActiveRef.current = false;
       setIsRecording(false);
+      setWaveformStream(null);
 
       const recWords = normalize(transcript).split(' ').filter(Boolean);
       const tgtWords = normalize(word).split(' ').filter(Boolean);
@@ -211,16 +263,20 @@ export function ShadowingBlock({
         recordingActiveRef.current = false;
         stopSR();
         setIsRecording(false);
+        setWaveformStream(null);
       }
     }, 4000);
 
     // MediaRecorder is optional — used only for audio playback after recording.
+    // We also pipe the stream to the waveform analyser for real-time visualization.
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       if (!recordingActiveRef.current) {
         stream.getTracks().forEach(t => t.stop());
         return;
       }
+      // Feed stream to real-time waveform
+      setWaveformStream(stream);
       const mimeType = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
       mimeTypeRef.current = mimeType;
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
@@ -244,6 +300,7 @@ export function ShadowingBlock({
       recordingActiveRef.current = false;
       stopSR();
       setIsRecording(false);
+      setWaveformStream(null);
     }
   };
 
@@ -437,16 +494,16 @@ export function ShadowingBlock({
           >
             {isRecording ? (
               <>
-                {/* Animated waveform bars */}
+                {/* Real-time waveform bars from microphone */}
                 <div className="flex items-end gap-[3px]" style={{ height: 28 }}>
-                  {[0.4, 0.75, 1, 0.6, 0.9, 0.5, 0.7].map((h, i) => (
+                  {waveformBars.map((amplitude, i) => (
                     <div
                       key={i}
-                      className="w-[3px] bg-red-400 rounded-full"
+                      className="w-[3px] bg-red-400 rounded-full transition-none"
                       style={{
-                        height: `${h * 100}%`,
+                        height: `${Math.max(0.08, amplitude) * 100}%`,
                         transformOrigin: 'bottom',
-                        animation: `waveformBar 0.5s ease-in-out ${i * 0.07}s infinite alternate`,
+                        transition: 'height 60ms linear',
                       }}
                     />
                   ))}

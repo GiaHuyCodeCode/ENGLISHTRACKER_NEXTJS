@@ -8,6 +8,48 @@ import { audioManager } from '@/lib/audio';
 import { useSpeechRecognition } from './useSpeechRecognition';
 import { usePhonetic } from '@/lib/usePhonetic';
 
+// ── Real-time waveform from microphone via Web Audio API ─────────────────────
+function useWaveform(stream: MediaStream | null): number[] {
+  const [bars, setBars] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
+  const rafRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (!stream) {
+      setBars([0, 0, 0, 0, 0, 0, 0]);
+      return;
+    }
+    const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx() as AudioContext;
+    const source = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.6;
+    source.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const BAR_COUNT = 7;
+
+    const tick = () => {
+      analyser.getByteTimeDomainData(data);
+      const newBars = Array.from({ length: BAR_COUNT }, (_, i) => {
+        const idx = Math.floor((i / BAR_COUNT) * data.length);
+        return Math.min(1, Math.abs(data[idx] - 128) / 60);
+      });
+      setBars(newBars);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    tick();
+
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      try { ctx.close(); } catch { /* ignore */ }
+      setBars([0, 0, 0, 0, 0, 0, 0]);
+    };
+  }, [stream]);
+
+  return bars;
+}
+
 function normalize(s: string) {
   return s.trim().toLowerCase().replace(/[^a-z0-9\s']/g, '').replace(/\s+/g, ' ');
 }
@@ -71,6 +113,9 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
   // Tracks whether a recording session is still active (used in async continuations)
   const recordingActiveRef = useRef(false);
   const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [waveformStream, setWaveformStream] = useState<MediaStream | null>(null);
+  const waveformBars = useWaveform(waveformStream);
   
   const { isListening: srListening, isSupported, start: startSR, stop: stopSR } = useSpeechRecognition('en-US');
 
@@ -144,6 +189,7 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
       }
       recordingActiveRef.current = false;
       setIsRecording(false);
+      setWaveformStream(null);
 
       const targetText = currentSentence.text;
       const sentenceId = currentSentence.id;
@@ -191,6 +237,7 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
         recordingActiveRef.current = false;
         stopSR();
         setIsRecording(false);
+        setWaveformStream(null);
       }
     }, 4000);
 
@@ -202,6 +249,8 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
         stream.getTracks().forEach(t => t.stop());
         return;
       }
+      // Feed stream to real-time waveform
+      setWaveformStream(stream);
       const mimeType = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
       mimeTypeRef.current = mimeType;
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
@@ -225,6 +274,7 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
       recordingActiveRef.current = false;
       stopSR();
       setIsRecording(false);
+      setWaveformStream(null);
     }
   };
 
@@ -446,15 +496,16 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
           >
             {isRecording ? (
               <>
+                {/* Real-time waveform bars from microphone */}
                 <div className="flex items-end gap-[3px]" style={{ height: 26 }}>
-                  {[0.4, 0.75, 1, 0.6, 0.9, 0.5, 0.7].map((h, i) => (
+                  {waveformBars.map((amplitude, i) => (
                     <div
                       key={i}
-                      className="w-[3px] bg-red-400 rounded-full"
+                      className="w-[3px] bg-red-400 rounded-full transition-none"
                       style={{
-                        height: `${h * 100}%`,
+                        height: `${Math.max(0.08, amplitude) * 100}%`,
                         transformOrigin: 'bottom',
-                        animation: `waveformBar 0.5s ease-in-out ${i * 0.07}s infinite alternate`,
+                        transition: 'height 60ms linear',
                       }}
                     />
                   ))}

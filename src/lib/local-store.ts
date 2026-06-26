@@ -992,25 +992,54 @@ export function submitSentenceShadowing(payload: {
   results: { sentenceId: string | number; recognized: string; accuracy: number; attempts: number }[];
   durationMs?: number;
 }): Submission {
-  const score = payload.results.length > 0
+  const newScore = payload.results.length > 0
     ? Math.round(payload.results.reduce((sum, r) => sum + r.accuracy, 0) / payload.results.length)
     : 0;
 
+  const newShadowingResults = payload.results.map(r => ({
+    word: String(r.sentenceId),
+    recognized: r.recognized,
+    accuracy: r.accuracy,
+    attempts: r.attempts,
+  }));
+
+  // Tự động lấy điểm cao nhất: nếu đã có submission cho bài này → cập nhật thay vì tạo mới.
+  // - Nếu điểm mới CAO hơn → cập nhật toàn bộ (score + results + duration).
+  // - Nếu điểm mới THẤP hơn → giữ score cũ nhưng vẫn cập nhật results để hiện lần luyện mới nhất.
+  const allSubs = getSubmissions();
+  const existingIdx = allSubs.findIndex(
+    s => s.assignmentId === payload.assignmentId && s.studentName === payload.studentName
+  );
+
+  if (existingIdx !== -1) {
+    const existing = allSubs[existingIdx];
+    const keepScore = Math.max(existing.score, newScore); // luôn giữ điểm cao hơn
+    const updated: Submission = {
+      ...existing,
+      score: keepScore,
+      shadowingResults: newShadowingResults,
+      durationMs: payload.durationMs ?? existing.durationMs,
+      // Giữ submittedAt gốc nếu điểm mới không vượt qua điểm cũ
+      submittedAt: newScore > existing.score
+        ? getAdjustedSubmitTime(getAssignment(payload.assignmentId)?.createdAt)
+        : existing.submittedAt,
+    };
+    allSubs[existingIdx] = updated;
+    write(KEYS.submissions, allSubs);
+    syncSubmissionToSheet(updated);
+    return updated;
+  }
+
+  // Lần đầu nộp → tạo mới bình thường
   const sub: Submission = {
     id: crypto.randomUUID(),
     assignmentId: payload.assignmentId,
     assignmentTitle: payload.assignmentTitle,
     assignmentType: 'shadowing',
     studentName: payload.studentName,
-    score,
-    shadowingResults: payload.results.map(r => ({
-      word: String(r.sentenceId),
-      recognized: r.recognized,
-      accuracy: r.accuracy,
-      attempts: r.attempts,
-    })),
+    score: newScore,
+    shadowingResults: newShadowingResults,
     durationMs: payload.durationMs,
-    // Dùng id trực tiếp — không cần strip prefix nữa
     submittedAt: getAdjustedSubmitTime(getAssignment(payload.assignmentId)?.createdAt),
   };
   write(KEYS.submissions, [...getSubmissions(), sub]);

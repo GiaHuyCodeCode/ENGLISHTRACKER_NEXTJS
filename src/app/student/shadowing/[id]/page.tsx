@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   getAssignment, submitSentenceShadowing, getStudentSubmission,
-  DictationSentence,
+  DictationSentence, ShadowingResult,
 } from '@/lib/local-store';
 import { ArrowLeft, Mic, CheckCircle2, RotateCcw, Trophy, Star } from 'lucide-react';
 import { SentenceShadowingBlock, SentenceShadowingResult } from '@/components/exercises/vocabulary-blocks/SentenceShadowingBlock';
@@ -14,19 +14,24 @@ import { SentenceShadowingBlock, SentenceShadowingResult } from '@/components/ex
 function ResultScreen({
   results,
   sentences,
+  bestScore,
+  onRetry,
 }: {
   results: SentenceShadowingResult[];
   sentences: DictationSentence[];
+  bestScore?: number; // Điểm cao nhất đã được lưu (có thể khác results hiện tại)
+  onRetry: () => void;
 }) {
   const overallScore = results.length > 0
     ? Math.round(results.reduce((sum, r) => sum + r.accuracy, 0) / results.length)
     : 0;
+  const displayScore = bestScore !== undefined ? bestScore : overallScore;
   const masteredCount = results.filter(r => r.accuracy >= 80).length;
 
   const grade =
-    overallScore >= 90 ? { label: 'Xuất Sắc', color: 'text-emerald-600 dark:text-emerald-400', icon: '🏆' } :
-    overallScore >= 75 ? { label: 'Giỏi', color: 'text-sky-600 dark:text-sky-400', icon: '⭐' } :
-    overallScore >= 55 ? { label: 'Khá', color: 'text-amber-600 dark:text-amber-400', icon: '📚' } :
+    displayScore >= 90 ? { label: 'Xuất Sắc', color: 'text-emerald-600 dark:text-emerald-400', icon: '🏆' } :
+    displayScore >= 75 ? { label: 'Giỏi', color: 'text-sky-600 dark:text-sky-400', icon: '⭐' } :
+    displayScore >= 55 ? { label: 'Khá', color: 'text-amber-600 dark:text-amber-400', icon: '📚' } :
     { label: 'Cần Cố Gắng', color: 'text-red-600 dark:text-red-400', icon: '💪' };
 
   return (
@@ -39,8 +44,14 @@ function ResultScreen({
           <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             Kết Quả Shadowing
           </p>
-          <p className={`text-7xl font-bold font-heading ${grade.color}`}>{overallScore}</p>
+          <p className={`text-7xl font-bold font-heading ${grade.color}`}>{displayScore}</p>
           <p className="text-lg text-muted-foreground">/ 100 điểm</p>
+          {/* Hiện badge điểm cao nhất nếu điểm hiện tại thấp hơn */}
+          {bestScore !== undefined && bestScore > overallScore && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+              🏅 Điểm cao nhất cũ ({bestScore}) được giữ nguyên
+            </p>
+          )}
           <span className={`inline-block text-sm font-bold px-4 py-1.5 rounded-full border ${grade.color.replace('text-', 'bg-').replace('400', '500/10')} ${grade.color.replace('text-', 'border-').replace('400', '500/20')} ${grade.color}`}>
             {grade.label}
           </span>
@@ -102,12 +113,21 @@ function ResultScreen({
         </div>
       </div>
 
-      <a
-        href="/student/assignments"
-        className="w-full py-4 bg-secondary hover:bg-secondary/80 text-foreground font-bold rounded-2xl transition-all flex items-center justify-center gap-2 hover-lift block text-center"
-      >
-        <ArrowLeft className="w-5 h-5" strokeWidth={1.5} /> Về Danh Sách Bài Tập
-      </a>
+      {/* Actions */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={onRetry}
+          className="py-4 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold rounded-2xl transition-all flex items-center justify-center gap-2 hover-lift"
+        >
+          <RotateCcw className="w-4 h-4" strokeWidth={1.5} /> Luyện lại
+        </button>
+        <a
+          href="/student/assignments"
+          className="py-4 bg-secondary hover:bg-secondary/80 text-foreground font-bold rounded-2xl transition-all flex items-center justify-center gap-2 hover-lift text-center"
+        >
+          <ArrowLeft className="w-5 h-5" strokeWidth={1.5} /> Về danh sách
+        </a>
+      </div>
     </div>
   );
 }
@@ -124,6 +144,7 @@ export default function ShadowingExercisePage() {
   const [studentName, setStudentName] = useState('');
   const [showDone, setShowDone] = useState(false);
   const [finalResults, setFinalResults] = useState<SentenceShadowingResult[]>([]);
+  const [savedBestScore, setSavedBestScore] = useState<number | undefined>(undefined);
   const startTimeRef = useRef(Date.now());
 
   const [shadowingAssignmentId, setShadowingAssignmentId] = useState('');
@@ -159,6 +180,27 @@ export default function ShadowingExercisePage() {
       setSentences(parsed);
     }
 
+    // Nếu đã có submission trước → hiện kết quả cũ ngay, học sinh có thể chọn “Luyện lại”
+    const currentName = session?.role === 'student' ? session.username :
+      localStorage.getItem('et_current_student') || '';
+    if (currentName) {
+      const prevSub = getStudentSubmission(dictationId, currentName);
+      if (prevSub) {
+        setSavedBestScore(prevSub.score);
+        // Map ShadowingResult[] sang SentenceShadowingResult[]
+        const prevResults: SentenceShadowingResult[] = (prevSub.shadowingResults || []).map(
+          (r: ShadowingResult) => ({
+            sentenceId: r.word, // word lưu sentenceId
+            recognized: r.recognized,
+            accuracy: r.accuracy,
+            attempts: r.attempts,
+          })
+        );
+        setFinalResults(prevResults);
+        setShowDone(true);
+      }
+    }
+
     startTimeRef.current = Date.now();
   }, [dictationId, router]);
 
@@ -167,17 +209,26 @@ export default function ShadowingExercisePage() {
       const title = assignment.type === 'shadowing'
         ? assignment.title
         : `Shadowing: ${assignment.title}`;
-      submitSentenceShadowing({
+      const saved = submitSentenceShadowing({
         assignmentId: shadowingAssignmentId,
         assignmentTitle: title,
         studentName,
         results,
         durationMs: Date.now() - startTimeRef.current,
       });
+      // Cập nhật điểm cao nhất hiển thị (có thể cao hơn lần vừa luyện)
+      setSavedBestScore(saved.score);
     }
     setFinalResults(results);
     setShowDone(true);
   }, [shadowingAssignmentId, assignment, studentName]);
+
+  // Reset để luyện lại từ đầu
+  const handleRetry = useCallback(() => {
+    setShowDone(false);
+    setFinalResults([]);
+    startTimeRef.current = Date.now();
+  }, []);
 
 
 
@@ -224,6 +275,8 @@ export default function ShadowingExercisePage() {
         <ResultScreen
           results={finalResults}
           sentences={sentences}
+          bestScore={savedBestScore}
+          onRetry={handleRetry}
         />
       ) : sentences.length > 0 ? (
         <SentenceShadowingBlock
