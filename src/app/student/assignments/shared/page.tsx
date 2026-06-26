@@ -40,7 +40,7 @@ function SharedAssignmentHandler() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center fade-in">
-        <div className="p-4 bg-red-500/10 rounded-full mb-4">
+        <div className="p-4 bg-red-500/10 dark:bg-red-500/10 rounded-full mb-4">
           <BookOpen className="w-10 h-10 text-red-500" />
         </div>
         <h1 className="text-2xl font-bold mb-2 text-foreground">Lỗi Mở Bài Tập</h1>

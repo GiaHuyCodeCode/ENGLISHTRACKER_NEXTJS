@@ -412,7 +412,7 @@ export function DictationBlock({
     return (
       <div className="space-y-4 max-w-4xl mx-auto w-full slide-up">
         <h3 className="text-lg font-bold font-heading mb-4 text-foreground flex items-center gap-2">
-          <Headphones className="w-5 h-5 text-sky-400" /> Script Nghe Chép & Phát Âm
+          <Headphones className="w-5 h-5 text-sky-600 dark:text-sky-400" /> Script Nghe Chép & Phát Âm
         </h3>
         <div className="grid gap-3">
           {vocabCards.map((card, idx) => {
@@ -438,13 +438,13 @@ export function DictationBlock({
                   {/* Answers */}
                   <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm mt-2 bg-black/20 p-2 rounded-xl w-fit">
                     <span className="text-muted-foreground uppercase font-bold text-[10px] md:text-xs tracking-widest">Lựa chọn:</span>
-                    <span className={`font-semibold ${isCorrect ? 'text-emerald-400' : 'text-red-400 line-through'}`}>
+                    <span className={`font-semibold ${isCorrect ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400 line-through'}`}>
                       {studentAns || 'Chưa điền'}
                     </span>
                     {!isCorrect && (
                       <>
                         <span className="text-muted-foreground mx-1">→</span>
-                        <span className="text-emerald-400 font-extrabold">{card.word}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">{card.word}</span>
                       </>
                     )}
                   </div>
@@ -468,7 +468,7 @@ export function DictationBlock({
     });
     return (
       <div className="glass-strong rounded-3xl border border-emerald-500/30 p-8 text-center max-w-xl mx-auto space-y-6 slide-up glow-success">
-        <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20">
+        <div className="w-16 h-16 bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20">
           <CheckCircle2 className="w-8 h-8" strokeWidth={1.5} />
         </div>
         <div className="space-y-2">
@@ -476,7 +476,7 @@ export function DictationBlock({
           <p className="text-sm text-muted-foreground">Bạn đã viết chính xác toàn bộ {N} từ vựng.</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 bg-white/5 p-5 rounded-2xl border border-white/5">
+        <div className="grid grid-cols-2 gap-4 bg-black/5 dark:bg-white/5 p-5 rounded-2xl border border-white/5">
           <div>
             <span className="text-xs text-muted-foreground uppercase font-bold block">Điểm Nghe Chép</span>
             <span className="text-2xl md:text-3xl font-extrabold text-primary">{calculatedScore}đ</span>
@@ -512,13 +512,13 @@ export function DictationBlock({
   if (!isSubmitted && showEndScreen && wrongCountInRound > 0) {
     return (
       <div className="glass-strong rounded-3xl border border-amber-500/30 p-8 text-center max-w-xl mx-auto space-y-6 slide-up">
-        <div className="w-16 h-16 bg-amber-500/10 text-amber-400 rounded-full flex items-center justify-center mx-auto border border-amber-500/20 animate-bounce">
+        <div className="w-16 h-16 bg-amber-500/10 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-full flex items-center justify-center mx-auto border border-amber-500/20 animate-bounce">
           <RotateCcw className="w-8 h-8" strokeWidth={1.5} />
         </div>
         <div className="space-y-2">
           <h3 className="text-xl md:text-2xl font-bold font-heading">Kết thúc Vòng {currentRound}!</h3>
           <p className="text-sm text-muted-foreground">
-            Bạn đã đi qua toàn bộ từ trong vòng này. Có <span className="text-amber-400 font-bold">{wrongCountInRound} từ</span> chưa chính xác.
+            Bạn đã đi qua toàn bộ từ trong vòng này. Có <span className="text-amber-600 dark:text-amber-400 font-bold">{wrongCountInRound} từ</span> chưa chính xác.
           </p>
         </div>
 
@@ -568,14 +568,14 @@ export function DictationBlock({
       {/* Class Statistics Board */}
       {isSubmitted && classErrorStats.length > 0 && (
         <div className="glass-strong rounded-3xl p-6 border border-red-500/20 bg-red-500/5 mb-8 slide-up">
-          <h3 className="text-lg font-bold font-heading text-red-400 mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-bold font-heading text-red-600 dark:text-red-400 mb-4 flex items-center gap-2">
             <XCircle className="w-5 h-5" strokeWidth={1.5} /> Bảng thống kê các từ sai nhiều nhất (Cả lớp)
           </h3>
           <div className="flex flex-wrap gap-3">
             {classErrorStats.map((stat) => (
               <div key={stat.word} className="px-4 py-2 rounded-xl bg-background/50 border border-red-500/10 flex items-center gap-3 hover:border-red-500/30 transition-colors group cursor-default">
-                <span className="text-sm font-bold text-foreground group-hover:text-red-400 transition-colors">{stat.word}</span>
-                <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-bold tracking-widest">{stat.classErrors} lỗi</span>
+                <span className="text-sm font-bold text-foreground group-hover:text-red-600 dark:text-red-400 transition-colors">{stat.word}</span>
+                <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 font-bold tracking-widest">{stat.classErrors} lỗi</span>
               </div>
             ))}
           </div>
@@ -638,10 +638,10 @@ export function DictationBlock({
               className={`input-field flex-1 text-center font-bold tracking-wider text-lg md:text-xl h-14 md:h-16 transition-all ${
                 isSubmitted
                   ? (answers[currentCard.word] || '').trim().toLowerCase() === currentCard.word.toLowerCase()
-                    ? 'border-emerald-500 ring-1 ring-emerald-500/50 text-emerald-400 bg-emerald-500/5'
-                    : 'border-red-500 ring-1 ring-red-500/50 text-red-400 bg-red-500/5'
-                  : currentFeedback?.isCorrect ? 'border-emerald-500 ring-1 ring-emerald-500/50 text-emerald-400' 
-                  : (isWordWrongFirstTime[currentCard.word] && !currentFeedback?.isCorrect) ? 'border-red-500 ring-1 ring-red-500/50 text-red-400' 
+                    ? 'border-emerald-500 ring-1 ring-emerald-500/50 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5'
+                    : 'border-red-500 ring-1 ring-red-500/50 text-red-600 dark:text-red-400 bg-red-500/5'
+                  : currentFeedback?.isCorrect ? 'border-emerald-500 ring-1 ring-emerald-500/50 text-emerald-600 dark:text-emerald-400' 
+                  : (isWordWrongFirstTime[currentCard.word] && !currentFeedback?.isCorrect) ? 'border-red-500 ring-1 ring-red-500/50 text-red-600 dark:text-red-400' 
                   : ''}`}
               autoFocus
             />
@@ -649,7 +649,7 @@ export function DictationBlock({
             {!isSubmitted && !isRequirementWorkflow && (
               <button 
                 onClick={handleCheckSpelling} 
-                className="px-4 md:px-6 h-14 md:h-16 bg-white/5 text-foreground hover:bg-white/10 font-semibold rounded-xl text-sm transition-all hover-lift"
+                className="px-4 md:px-6 h-14 md:h-16 bg-black/5 dark:bg-white/5 text-foreground hover:bg-black/10 dark:bg-white/10 font-semibold rounded-xl text-sm transition-all hover-lift"
               >
                 Kiểm tra
               </button>
@@ -682,8 +682,8 @@ export function DictationBlock({
           {!isSubmitted && !isRequirementWorkflow && currentFeedback?.show && (
             <div className={`p-3.5 rounded-xl border flex items-center justify-center gap-2 text-sm font-bold slide-up ${
               currentFeedback.isCorrect 
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 glow-success' 
-                : 'bg-red-500/10 border-red-500/30 text-red-400 glow-error'
+                ? 'bg-emerald-500/10 dark:bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 glow-success' 
+                : 'bg-red-500/10 dark:bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 glow-error'
             }`}>
               {currentFeedback.isCorrect ? (
                 <><CheckCircle2 className="h-5 w-5" strokeWidth={1.5} /> Chính xác! ({currentCard.word})</>
@@ -697,18 +697,18 @@ export function DictationBlock({
           {isSubmitted && (
             <div className="w-full space-y-4 pt-4 border-t border-white/5">
               <div className="flex flex-wrap gap-4 text-sm justify-center">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
                   <span className="text-muted-foreground">Lựa chọn của bạn:</span> 
-                  <span className={`font-bold ${(answers[currentCard.word] || '').trim().toLowerCase() === currentCard.word.toLowerCase() ? 'text-emerald-400' : 'text-red-400 line-through'}`}>
+                  <span className={`font-bold ${(answers[currentCard.word] || '').trim().toLowerCase() === currentCard.word.toLowerCase() ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400 line-through'}`}>
                     {answers[currentCard.word] || 'Chưa điền'}
                   </span>
                 </div>
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                  <span className="text-emerald-400 font-medium">Đáp án đúng:</span> 
-                  <span className="font-bold text-emerald-300">{currentCard.word}</span>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">Đáp án đúng:</span> 
+                  <span className="font-bold text-emerald-700 dark:text-emerald-300">{currentCard.word}</span>
                 </div>
               </div>
-              <div className="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2 text-xs text-left max-w-md mx-auto text-muted-foreground animate-fade-in">
+              <div className="bg-black/5 dark:bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2 text-xs text-left max-w-md mx-auto text-muted-foreground animate-fade-in">
                 <div>
                   <span className="font-semibold text-foreground">💡 Nghĩa của từ: </span>
                   {currentCard.meaning}
@@ -731,14 +731,14 @@ export function DictationBlock({
 
           {/* Required Mode: Wrong feedback (shows correct answer for 2.5s) */}
           {!isSubmitted && isRequirementWorkflow && showWrongFeedback && (
-            <div className="p-3.5 rounded-xl border bg-red-500/10 border-red-500/30 text-red-400 glow-error text-sm font-bold slide-up flex flex-col items-center gap-1.5 animate-pulse">
+            <div className="p-3.5 rounded-xl border bg-red-500/10 dark:bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 glow-error text-sm font-bold slide-up flex flex-col items-center gap-1.5 animate-pulse">
               <div className="flex items-center gap-2">
                 <XCircle className="h-5 w-5" strokeWidth={1.5} /> Sai rồi! Hãy ghi nhớ từ đúng dưới đây:
               </div>
               <div className="text-2xl font-extrabold tracking-widest uppercase text-white mt-1">
                 {currentCard.word}
               </div>
-              <div className="w-full bg-white/10 h-1 rounded-full mt-2 overflow-hidden">
+              <div className="w-full bg-black/10 dark:bg-white/10 h-1 rounded-full mt-2 overflow-hidden">
                 <div className="bg-red-500 h-full animate-countdown"></div>
               </div>
             </div>
@@ -746,7 +746,7 @@ export function DictationBlock({
 
           {/* Required Mode: Repeat prompt for errors */}
           {!isSubmitted && isRequirementWorkflow && !showWrongFeedback && currentFeedback?.show && !currentFeedback.isCorrect && (
-            <div className="p-3.5 rounded-xl border bg-red-500/10 border-red-500/30 text-red-400 glow-error text-sm font-bold slide-up flex flex-col items-center gap-1">
+            <div className="p-3.5 rounded-xl border bg-red-500/10 dark:bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 glow-error text-sm font-bold slide-up flex flex-col items-center gap-1">
               <div className="flex items-center gap-2">
                 <XCircle className="h-5 w-5" strokeWidth={1.5} /> Vẫn chưa chính xác! Hãy gõ đúng từ:
               </div>
@@ -758,7 +758,7 @@ export function DictationBlock({
 
           {/* Required Mode: Correct success block */}
           {!isSubmitted && isRequirementWorkflow && currentFeedback?.show && currentFeedback.isCorrect && (
-            <div className="p-3.5 rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 glow-success text-sm font-bold slide-up flex items-center justify-center gap-2">
+            <div className="p-3.5 rounded-xl border bg-emerald-500/10 dark:bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 glow-success text-sm font-bold slide-up flex items-center justify-center gap-2">
               <CheckCircle2 className="h-5 w-5 animate-bounce" strokeWidth={1.5} /> Tuyệt vời! Bạn đã gõ chính xác.
             </div>
           )}
@@ -771,14 +771,14 @@ export function DictationBlock({
           <button 
             onClick={() => { setCurrentIdx(prev => Math.max(0, prev - 1)); setFeedback({}); }} 
             disabled={currentIdx === 0} 
-            className="px-5 py-3 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 disabled:opacity-30 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
+            className="px-5 py-3 rounded-xl border border-white/5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:bg-white/10 disabled:opacity-30 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
           >
             <ChevronLeft className="h-4 w-4" strokeWidth={1.5} /> Từ trước
           </button>
           <button 
             onClick={() => { setCurrentIdx(prev => Math.min(vocabCards.length - 1, prev + 1)); setFeedback({}); }} 
             disabled={currentIdx === vocabCards.length - 1} 
-            className="px-5 py-3 rounded-xl bg-[#0071e3]/10 border border-[#0071e3]/20 text-sky-400 hover:bg-[#0071e3] hover:text-white disabled:opacity-30 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
+            className="px-5 py-3 rounded-xl bg-[#0071e3]/10 border border-[#0071e3]/20 text-sky-600 dark:text-sky-400 hover:bg-[#0071e3] hover:text-white disabled:opacity-30 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
           >
             Từ tiếp theo <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
           </button>

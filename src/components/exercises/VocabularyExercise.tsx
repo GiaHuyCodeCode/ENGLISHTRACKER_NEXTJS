@@ -319,14 +319,14 @@ export function VocabularyExercise({
       {/* Result Score */}
       {showScoreBanner && (
         <div className={`rounded-3xl p-8 text-center border-2 score-pop relative overflow-hidden ${
-          score >= 80 ? 'border-emerald-500/40 bg-emerald-500/10 glow-success' :
-          score >= 50 ? 'border-amber-500/40 bg-amber-500/10' :
-          'border-red-500/40 bg-red-500/10'
+          score >= 80 ? 'border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-500/10 glow-success' :
+          score >= 50 ? 'border-amber-500/40 bg-amber-500/10 dark:bg-amber-500/10' :
+          'border-red-500/40 bg-red-500/10 dark:bg-red-500/10'
         }`}>
           <div className="absolute inset-0 bg-dot-pattern opacity-30"></div>
           <div className="relative z-10">
             <div className={`text-5xl md:text-7xl font-extrabold font-heading tracking-tighter ${
-              score >= 80 ? 'text-emerald-400' : score >= 50 ? 'text-amber-400' : 'text-red-400'
+              score >= 80 ? 'text-emerald-600 dark:text-emerald-400' : score >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
             }`}>
               {score}<span className="text-xl md:text-3xl text-muted-foreground/80 font-medium">/100</span>
             </div>
@@ -348,16 +348,16 @@ export function VocabularyExercise({
 
       {/* Workflow Header Progress */}
       {isRequirementWorkflow && !isSubmitted && (
-        <div className="flex items-center justify-center gap-3 bg-white/5 p-4 rounded-2xl border border-white/5 backdrop-blur-sm">
+        <div className="flex items-center justify-center gap-3 bg-black/5 dark:bg-white/5 p-4 rounded-2xl border border-white/5 backdrop-blur-sm">
           <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${activeMode === 'dictation' ? 'text-[#0071e3]' : 'text-muted-foreground'}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${isDictationFinished ? 'bg-emerald-500 text-black' : activeMode === 'dictation' ? 'bg-[#0071e3] text-white' : 'bg-white/5 text-muted-foreground'}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${isDictationFinished ? 'bg-emerald-500 text-black' : activeMode === 'dictation' ? 'bg-[#0071e3] text-white' : 'bg-black/5 dark:bg-white/5 text-muted-foreground'}`}>
               {isDictationFinished ? '✓' : '1'}
             </span>
             Phần 1: Nghe Chép
           </div>
           <div className="w-12 h-px bg-white/10"></div>
           <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${activeMode === 'test' ? 'text-[#0071e3]' : 'text-muted-foreground'}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${activeMode === 'test' ? 'bg-[#0071e3] text-white' : 'bg-white/5 text-muted-foreground'}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${activeMode === 'test' ? 'bg-[#0071e3] text-white' : 'bg-black/5 dark:bg-white/5 text-muted-foreground'}`}>
               2
             </span>
             Phần 2: Trắc Nghiệm
@@ -367,7 +367,7 @@ export function VocabularyExercise({
 
       {/* Exercise Mode Selection Tabs (Apple segmented control styled) */}
       {!hideTabs && !isRequirementWorkflow && (
-        <div className="grid grid-cols-3 md:grid-cols-6 bg-white/5 border border-white/5 p-1 rounded-2xl gap-1 md:gap-1.5 w-full max-w-4xl mx-auto mb-8 select-none">
+        <div className="grid grid-cols-3 md:grid-cols-6 bg-black/5 dark:bg-white/5 border border-white/5 p-1 rounded-2xl gap-1 md:gap-1.5 w-full max-w-4xl mx-auto mb-8 select-none">
           <button 
             onClick={() => { setActiveMode('flashcard'); setProgressStats(null); onTabChange?.('flashcard'); }} 
             className={`flex flex-col items-center justify-center gap-1 md:gap-1.5 py-2 md:py-3 rounded-xl text-[10px] md:text-xs font-bold transition-all duration-300 ${activeMode === 'flashcard' ? 'bg-[#0071e3] text-white shadow-lg scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
@@ -472,15 +472,15 @@ export function VocabularyExercise({
 
               {/* Progress Statistics Badges */}
               <div className="grid grid-cols-3 gap-2.5">
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2.5 text-center">
-                  <span className="text-[9px] uppercase font-bold text-emerald-400 block mb-0.5">Đã xong</span>
-                  <span className="text-lg font-black text-emerald-300 leading-none">{progressStats.completed}</span>
+                <div className="bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2.5 text-center">
+                  <span className="text-[9px] uppercase font-bold text-emerald-600 dark:text-emerald-400 block mb-0.5">Đã xong</span>
+                  <span className="text-lg font-black text-emerald-700 dark:text-emerald-300 leading-none">{progressStats.completed}</span>
                 </div>
-                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-2.5 text-center">
-                  <span className="text-[9px] uppercase font-bold text-red-400 block mb-0.5">Sai/Lỗi</span>
-                  <span className="text-lg font-black text-red-300 leading-none">{progressStats.incorrect}</span>
+                <div className="bg-red-500/10 dark:bg-red-500/10 border border-red-500/20 rounded-xl p-2.5 text-center">
+                  <span className="text-[9px] uppercase font-bold text-red-600 dark:text-red-400 block mb-0.5">Sai/Lỗi</span>
+                  <span className="text-lg font-black text-red-700 dark:text-red-300 leading-none">{progressStats.incorrect}</span>
                 </div>
-                <div className="bg-white/5 border border-white/5 rounded-xl p-2.5 text-center">
+                <div className="bg-black/5 dark:bg-white/5 border border-white/5 rounded-xl p-2.5 text-center">
                   <span className="text-[9px] uppercase font-bold text-muted-foreground block mb-0.5">Chưa làm</span>
                   <span className="text-lg font-black text-muted-foreground leading-none">{progressStats.pending}</span>
                 </div>
@@ -495,11 +495,11 @@ export function VocabularyExercise({
                       const status = progressStats.statusMap[card.id] || 'pending';
                       const isActive = idx === progressStats.currentIdx;
                       
-                      let bgCls = 'bg-white/5 text-muted-foreground border-white/5';
+                      let bgCls = 'bg-black/5 dark:bg-white/5 text-muted-foreground border-white/5';
                       if (status === 'correct') {
-                        bgCls = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30';
+                        bgCls = 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30';
                       } else if (status === 'incorrect') {
-                        bgCls = 'bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30 glow-error';
+                        bgCls = 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/40 hover:bg-red-500/30 glow-error';
                       } else if (status === 'active' || isActive) {
                         bgCls = 'bg-[#0071e3]/20 text-[#0071e3] border-[#0071e3] scale-110';
                       }
@@ -523,7 +523,7 @@ export function VocabularyExercise({
               {activeMode === 'dictation' && (
                 <div className="pt-4 border-t border-white/5 space-y-2.5">
                   <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5"><Headphones className="h-3 w-3" /> Tùy chọn nghe</p>
-                  <select value={speakMode} onChange={e => setSpeakMode(e.target.value as 'before' | 'after')} className="w-full bg-secondary/50 border border-white/10 rounded-lg text-xs py-2 px-3 text-muted-foreground hover:text-foreground outline-none transition-colors">
+                  <select value={speakMode} onChange={e => setSpeakMode(e.target.value as 'before' | 'after')} className="w-full bg-secondary/50 border border-black/10 dark:border-white/10 rounded-lg text-xs py-2 px-3 text-muted-foreground hover:text-foreground outline-none transition-colors">
                     <option value="after">Nghe sau khi kiểm tra (Mặc định)</option>
                     <option value="before">Nghe trước khi gõ</option>
                   </select>
@@ -536,11 +536,11 @@ export function VocabularyExercise({
             <div className="glass-strong rounded-3xl border border-white/5 p-5 space-y-4 shadow-xl">
               <h4 className="text-xs uppercase font-bold tracking-widest text-muted-foreground">Chế độ học</h4>
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-white/5 rounded-xl text-sky-400">
+                <div className="p-2.5 bg-black/5 dark:bg-white/5 rounded-xl text-sky-600 dark:text-sky-400">
                   {activeMode === 'flashcard' ? <Layers className="w-5 h-5" strokeWidth={1.5} /> :
                    activeMode === 'synonym' ? <BookOpen className="w-5 h-5" strokeWidth={1.5} /> :
                    activeMode === 'game_match' ? <LayoutGrid className="w-5 h-5" strokeWidth={1.5} /> :
-                   activeMode === 'shadowing' ? <Mic className="w-5 h-5 text-emerald-400" strokeWidth={1.5} /> :
+                   activeMode === 'shadowing' ? <Mic className="w-5 h-5 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} /> :
                    <HelpCircle className="w-5 h-5" strokeWidth={1.5} />}
                 </div>
                 <div>
@@ -558,7 +558,7 @@ export function VocabularyExercise({
               {activeMode === 'dictation' && (
                 <div className="pt-4 border-t border-white/5 space-y-2.5">
                   <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5"><Headphones className="h-3 w-3" /> Tùy chọn nghe</p>
-                  <select value={speakMode} onChange={e => setSpeakMode(e.target.value as 'before' | 'after')} className="w-full bg-secondary/50 border border-white/10 rounded-lg text-xs py-2 px-3 text-muted-foreground hover:text-foreground outline-none transition-colors">
+                  <select value={speakMode} onChange={e => setSpeakMode(e.target.value as 'before' | 'after')} className="w-full bg-secondary/50 border border-black/10 dark:border-white/10 rounded-lg text-xs py-2 px-3 text-muted-foreground hover:text-foreground outline-none transition-colors">
                     <option value="after">Nghe sau khi kiểm tra (Mặc định)</option>
                     <option value="before">Nghe trước khi gõ</option>
                   </select>
@@ -650,7 +650,7 @@ export function VocabularyExercise({
                    activeMode === 'shadowing' ? `Đã shadow: ${Object.keys(shadowingResults).length} / ${vocabCards.length}` :
                    `Đã điền: ${vocabCards.filter(c => (textAnswers[c.word] || '').trim()).length} / ${vocabCards.length}`}
                 </span>
-                <span className={calculateScore() >= 80 ? 'text-emerald-400' : 'text-foreground'}>
+                <span className={calculateScore() >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'}>
                   {isRequirementWorkflow 
                     ? `Điểm trung bình dự kiến: ${calculateScore()}% (Nghe: ${dictationScore}đ)`
                     : `Dự kiến: ${calculateScore()}%`}
@@ -682,7 +682,7 @@ export function VocabularyExercise({
           />
           
           {/* Drawer Panel */}
-          <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-all duration-300 ease-out transform ${
+          <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-black/10 dark:border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-all duration-300 ease-out transform ${
             isMobileMapOpen ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-full opacity-0 pointer-events-none'
           }`}>
             <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-5" />
@@ -690,18 +690,18 @@ export function VocabularyExercise({
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold font-heading text-lg flex items-center gap-2">
-                  <Star className="h-5 w-5 text-amber-400" /> Sơ đồ câu hỏi từ vựng
+                  <Star className="h-5 w-5 text-amber-600 dark:text-amber-400" /> Sơ đồ câu hỏi từ vựng
                 </h3>
                 <button 
                   onClick={() => setIsMobileMapOpen(false)} 
-                  className="p-1.5 bg-white/5 border border-white/5 rounded-lg text-muted-foreground hover:text-foreground"
+                  className="p-1.5 bg-black/5 dark:bg-white/5 border border-white/5 rounded-lg text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
               {/* Progress Summary and Circular-style Ring */}
-              <div className="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/5">
+              <div className="flex items-center justify-between bg-black/5 dark:bg-white/5 p-4 rounded-2xl border border-white/5">
                 <div>
                   <h4 className="text-xs uppercase font-bold tracking-widest text-muted-foreground">Tiến độ bài làm</h4>
                   <p className="text-xl font-black font-heading mt-1 text-white">{progressPercentage}%</p>
@@ -734,15 +734,15 @@ export function VocabularyExercise({
 
               {/* Progress Statistics Badges */}
               <div className="grid grid-cols-3 gap-2.5">
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2 text-center">
-                  <span className="text-[9px] uppercase font-bold text-emerald-400 block mb-0.5">Đã xong</span>
-                  <span className="text-base font-black text-emerald-300 leading-none">{progressStats.completed}</span>
+                <div className="bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2 text-center">
+                  <span className="text-[9px] uppercase font-bold text-emerald-600 dark:text-emerald-400 block mb-0.5">Đã xong</span>
+                  <span className="text-base font-black text-emerald-700 dark:text-emerald-300 leading-none">{progressStats.completed}</span>
                 </div>
-                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-2 text-center">
-                  <span className="text-[9px] uppercase font-bold text-red-400 block mb-0.5">Sai/Lỗi</span>
-                  <span className="text-base font-black text-red-300 leading-none">{progressStats.incorrect}</span>
+                <div className="bg-red-500/10 dark:bg-red-500/10 border border-red-500/20 rounded-xl p-2 text-center">
+                  <span className="text-[9px] uppercase font-bold text-red-600 dark:text-red-400 block mb-0.5">Sai/Lỗi</span>
+                  <span className="text-base font-black text-red-700 dark:text-red-300 leading-none">{progressStats.incorrect}</span>
                 </div>
-                <div className="bg-white/5 border border-white/5 rounded-xl p-2 text-center">
+                <div className="bg-black/5 dark:bg-white/5 border border-white/5 rounded-xl p-2 text-center">
                   <span className="text-[9px] uppercase font-bold text-muted-foreground block mb-0.5">Chưa làm</span>
                   <span className="text-base font-black text-muted-foreground leading-none">{progressStats.pending}</span>
                 </div>
@@ -757,11 +757,11 @@ export function VocabularyExercise({
                       const status = progressStats.statusMap[card.id] || 'pending';
                       const isActive = idx === progressStats.currentIdx;
                       
-                      let bgCls = 'bg-white/5 text-muted-foreground border-white/5';
+                      let bgCls = 'bg-black/5 dark:bg-white/5 text-muted-foreground border-white/5';
                       if (status === 'correct') {
-                        bgCls = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30';
+                        bgCls = 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30';
                       } else if (status === 'incorrect') {
-                        bgCls = 'bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30 glow-error';
+                        bgCls = 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/40 hover:bg-red-500/30 glow-error';
                       } else if (status === 'active' || isActive) {
                         bgCls = 'bg-[#0071e3]/20 text-[#0071e3] border-[#0071e3] scale-110';
                       }
@@ -788,7 +788,7 @@ export function VocabularyExercise({
               {activeMode === 'dictation' && (
                 <div className="pt-4 border-t border-white/5 space-y-2.5">
                   <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5"><Headphones className="h-3 w-3" /> Tùy chọn nghe</p>
-                  <select value={speakMode} onChange={e => setSpeakMode(e.target.value as 'before' | 'after')} className="w-full bg-[#2c2c2e] border border-white/10 rounded-xl text-xs py-2.5 px-3 text-muted-foreground hover:text-foreground outline-none transition-colors">
+                  <select value={speakMode} onChange={e => setSpeakMode(e.target.value as 'before' | 'after')} className="w-full bg-[#2c2c2e] border border-black/10 dark:border-white/10 rounded-xl text-xs py-2.5 px-3 text-muted-foreground hover:text-foreground outline-none transition-colors">
                     <option value="after">Nghe sau khi kiểm tra (Mặc định)</option>
                     <option value="before">Nghe trước khi gõ</option>
                   </select>

@@ -424,10 +424,8 @@ export default function StudentDashboard() {
     <div className="space-y-6 md:space-y-8 max-w-7xl mx-auto">
 
       {/* ── HERO HEADER ──────────────────────────────────────────────────────── */}
-      <div className="relative rounded-3xl overflow-hidden fade-in stagger-1"
+      <div className="glass-strong relative rounded-3xl overflow-hidden fade-in stagger-1"
         style={{
-          background: 'hsl(150 20% 7%)',
-          border: '1px solid hsl(0 0% 100% / 0.07)',
           boxShadow: '0 8px 40px hsl(150 30% 2% / 0.5)',
         }}
       >
@@ -477,18 +475,17 @@ export default function StudentDashboard() {
               Dashboard Học Viên
               {isSyncing && <FLoader className="inline ml-3 h-6 w-6 text-petal animate-spin" />}
             </h1>
-            <p className="mt-2 text-sm" style={{ color: 'hsl(150 10% 60%)' }}>
+            <p className="mt-2 text-sm text-muted-foreground">
               {user?.role === 'student' ? 'Tổng quan tiến độ học tập của bạn hôm nay' : 'Chọn tên học viên để xem tiến độ'}
             </p>
           </div>
           <button
             onClick={() => refreshData()}
             disabled={isSyncing}
-            className="self-start sm:self-center flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 active:scale-[0.97]"
+            className="self-start sm:self-center flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 active:scale-[0.97] text-primary"
             style={{
-              background: 'hsl(340 60% 58% / 0.12)',
-              border: '1px solid hsl(340 60% 58% / 0.22)',
-              color: 'hsl(340 60% 68%)',
+              background: 'hsl(var(--petal) / 0.12)',
+              border: '1px solid hsl(var(--petal) / 0.22)',
             }}
             title="Đồng bộ dữ liệu"
           >
@@ -501,7 +498,7 @@ export default function StudentDashboard() {
       {/* Student Picker (Only for Admin) */}
       {user?.role !== 'student' && (
         <div className="fade-in stagger-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wider mb-3 flex items-center gap-2" style={{ color: 'hsl(150 10% 55%)' }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wider mb-3 flex items-center gap-2 text-muted-foreground">
             <FUser /> Chọn học viên
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -514,7 +511,7 @@ export default function StudentDashboard() {
 
       {/* LEADERBOARD SECTION */}
       <div className="fade-in stagger-4 space-y-4">
-        <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: 'hsl(47 72% 60%)' }}>
+        <h2 className="text-xl font-bold flex items-center gap-2 text-[hsl(var(--pollen))]">
           <FTrophy /> Biểu Đồ Thi Đua Học Tập
         </h2>
         <StudentPerformanceChart submissions={getSubmissions()} />
@@ -543,11 +540,11 @@ export default function StudentDashboard() {
 
                 {profile && (
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500/10 border border-orange-500/20">
-                      <FFlame className="h-5 w-5 text-orange-500 icon-sway" />
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500/10 dark:bg-orange-500/10 border border-orange-500/20">
+                      <FFlame className="h-5 w-5 text-orange-600 dark:text-orange-600 dark:text-orange-400 icon-sway" />
                       <div>
-                        <p className="text-xs text-orange-500/80 uppercase font-semibold">Streak</p>
-                        <p className="text-sm font-bold text-orange-400">{profile.streakCount} ngày</p>
+                        <p className="text-xs text-orange-600/80 dark:text-orange-500/80 uppercase font-semibold">Streak</p>
+                        <p className="text-sm font-bold text-orange-600 dark:text-orange-600 dark:text-orange-400">{profile.streakCount} ngày</p>
                       </div>
                     </div>
                     {profile.badges.slice(0, 2).map(b => {
@@ -568,12 +565,12 @@ export default function StudentDashboard() {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { label: 'Điểm Trung Bình', value: avg !== null ? `${avg}đ` : '—', icon: FTrophy, color: 'text-amber-400' },
-                  { label: 'Đã Hoàn Thành', value: `${submissions.length}/${visibleAssignments.length}`, icon: FCheck, color: 'text-emerald-400' },
-                  { label: 'Cần Làm', value: todo.length, icon: FBook, color: 'text-[#0071e3]' },
-                  { label: 'Thời Gian Học', value: formatTotalTime(totalDurationMs), icon: FClock, color: 'text-violet-400' },
+                  { label: 'Điểm Trung Bình', value: avg !== null ? `${avg}đ` : '—', icon: FTrophy, color: 'text-amber-600 dark:text-amber-600 dark:text-amber-400' },
+                  { label: 'Đã Hoàn Thành', value: `${submissions.length}/${visibleAssignments.length}`, icon: FCheck, color: 'text-emerald-600 dark:text-emerald-600 dark:text-emerald-400' },
+                  { label: 'Cần Làm', value: todo.length, icon: FBook, color: 'text-[#0071e3] dark:text-[#4da3f5]' },
+                  { label: 'Thời Gian Học', value: formatTotalTime(totalDurationMs), icon: FClock, color: 'text-violet-600 dark:text-violet-600 dark:text-violet-400' },
                 ].map(({ label, value, icon: Icon, color }) => (
-                  <div key={label} className="bloom-press text-center p-4 min-h-[80px] rounded-xl bg-white/5 border border-white/5 flex flex-col items-center justify-center gap-1 active:bg-white/8 transition-colors">
+                  <div key={label} className="bloom-press text-center p-4 min-h-[80px] rounded-xl bg-card border border-border flex flex-col items-center justify-center gap-1 active:bg-muted/60 transition-colors">
                     <Icon className={`h-5 w-5 ${color} icon-bloom-hover`} />
                     <p className={`text-xl md:text-2xl font-bold font-heading ${color}`}>{value}</p>
                     <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">{label}</p>
@@ -583,7 +580,7 @@ export default function StudentDashboard() {
             </div>
 
             {/* TABS */}
-            <div className="flex border-b border-white/10 gap-6 fade-in stagger-4">
+            <div className="flex border-b border-border gap-6 fade-in stagger-4">
               <button
                 onClick={() => setActiveTab('overview')}
                 className={`pb-3 font-semibold transition-colors border-b-2 ${activeTab === 'overview' ? 'text-primary border-primary' : 'text-muted-foreground border-transparent hover:text-foreground'}`}
@@ -626,15 +623,15 @@ export default function StudentDashboard() {
                   </div>
 
                   <div className="glass-strong rounded-3xl border border-white/5 p-6 flex flex-col">
-                    <h3 className="font-semibold font-heading flex items-center gap-2 mb-4 text-amber-400">
+                    <h3 className="font-semibold font-heading flex items-center gap-2 mb-4 text-amber-600 dark:text-amber-600 dark:text-amber-400">
                       <FAlert className="h-5 w-5" /> Cẩm Nang Học Tập
                     </h3>
                     {weakestSkill ? (
                       <div className="flex-1 space-y-4">
                         <p className="text-sm text-foreground">
-                          Dựa trên dữ liệu, kỹ năng <span className="font-bold text-amber-400">{weakestSkill.subject}</span> của bạn hiện đang cần được cải thiện nhất (Điểm trung bình: <span className="font-bold text-amber-400">{weakestSkill.A}</span>).
+                          Dựa trên dữ liệu, kỹ năng <span className="font-bold text-amber-600 dark:text-amber-600 dark:text-amber-400">{weakestSkill.subject}</span> của bạn hiện đang cần được cải thiện nhất (Điểm trung bình: <span className="font-bold text-amber-600 dark:text-amber-600 dark:text-amber-400">{weakestSkill.A}</span>).
                         </p>
-                        <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                        <div className="p-4 rounded-2xl bg-muted/40 border border-border">
                           <p className="text-sm text-muted-foreground font-medium mb-2">Lời khuyên dành cho bạn:</p>
                           <ul className="text-sm space-y-2 list-disc list-inside text-foreground/80">
                             {weakestSkill.key === 'Vocab' && (
@@ -680,7 +677,7 @@ export default function StudentDashboard() {
 
                 {/* Score Comparison */}
                 <div className="fade-in stagger-5">
-                  <h3 className="font-semibold font-heading text-lg flex items-center gap-2 mb-4 text-emerald-400">
+                  <h3 className="font-semibold font-heading text-lg flex items-center gap-2 mb-4 text-emerald-600 dark:text-emerald-600 dark:text-emerald-400">
                     <FTarget className="h-5 w-5" /> So Sánh Cùng Lớp Học
                   </h3>
                   <div className="glass-strong rounded-3xl p-6">
@@ -693,8 +690,8 @@ export default function StudentDashboard() {
                       </div>
 
                       {/* Class Average */}
-                      <div className="flex flex-col items-center justify-center p-6 bg-white/5 border border-white/5 rounded-2xl relative overflow-hidden group">
-                        <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                      <div className="flex flex-col items-center justify-center p-6 bg-muted/30 border border-border rounded-2xl relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-muted/40 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <p className="text-sm text-muted-foreground font-semibold uppercase tracking-wider mb-2 z-10">Trung Bình Lớp</p>
                         <p className="text-5xl font-bold text-foreground font-heading z-10">{classAvg !== null ? classAvg : '—'}</p>
                       </div>
@@ -703,8 +700,8 @@ export default function StudentDashboard() {
                     {/* Feedback Message */}
                     {avg !== null && classAvg !== null && (
                       <div className={`mt-6 p-4 rounded-xl border flex items-start gap-3 ${avg >= classAvg
-                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                          : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                          ? 'bg-emerald-500/10 dark:bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-600 dark:text-emerald-400'
+                          : 'bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-600 dark:text-amber-400'
                         }`}>
                         {avg >= classAvg ? <FTrophy className="h-5 w-5 flex-shrink-0 mt-0.5" /> : <FTrend className="h-5 w-5 flex-shrink-0 mt-0.5" />}
                         <p className="text-sm font-medium">
@@ -719,7 +716,7 @@ export default function StudentDashboard() {
 
                     {/* Detailed Skill Comparison */}
                     {skillData.some(s => s.A > 0 || s.B > 0) && (
-                      <div className="mt-6 pt-6 border-t border-white/5">
+                      <div className="mt-6 pt-6 border-t border-border">
                         <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 text-center">So Sánh Từng Kỹ Năng</h4>
                         <div className="w-full h-[220px]">
                           <ResponsiveContainer width="99%" height="100%">
@@ -744,7 +741,7 @@ export default function StudentDashboard() {
                   {/* Progress Trend */}
                   <div className="glass-strong rounded-3xl border border-white/5 p-6 flex flex-col">
                     <h3 className="font-semibold font-heading flex items-center gap-2 mb-6">
-                      <FTrend className="h-5 w-5 text-emerald-400" /> Tiến Độ Học Tập (7 Ngày)
+                      <FTrend className="h-5 w-5 text-emerald-600 dark:text-emerald-600 dark:text-emerald-400" /> Tiến Độ Học Tập (7 Ngày)
                     </h3>
                     <div className="w-full h-[250px] min-h-[250px]">
                       <ResponsiveContainer width="99%" height="100%">
@@ -777,7 +774,7 @@ export default function StudentDashboard() {
                   {/* Effort Chart */}
                   <div className="glass-strong rounded-3xl border border-white/5 p-6 flex flex-col">
                     <h3 className="font-semibold font-heading flex items-center gap-2 mb-6">
-                      <FFlame className="h-5 w-5 text-orange-400" /> Sự Chăm Chỉ (Số Bài Nộp)
+                      <FFlame className="h-5 w-5 text-orange-600 dark:text-orange-400" /> Sự Chăm Chỉ (Số Bài Nộp)
                     </h3>
                     <div className="w-full h-[250px] min-h-[250px]">
                       <ResponsiveContainer width="99%" height="100%">
@@ -808,7 +805,7 @@ export default function StudentDashboard() {
                   {/* Skill Focus Pie Chart */}
                   <div className="glass-strong rounded-3xl border border-white/5 p-6 flex flex-col md:col-span-2">
                     <h3 className="font-semibold font-heading flex items-center gap-2 mb-2">
-                      <FBrain className="h-5 w-5 text-violet-400" /> Mức Độ Phân Bổ Kỹ Năng
+                      <FBrain className="h-5 w-5 text-violet-600 dark:text-violet-600 dark:text-violet-400" /> Mức Độ Phân Bổ Kỹ Năng
                     </h3>
                     <p className="text-sm text-muted-foreground mb-6">Giúp bạn nhận biết thói quen &quot;học lệch&quot; để điều chỉnh cân bằng hơn.</p>
 
@@ -849,10 +846,10 @@ export default function StudentDashboard() {
             )}
 
             {/* Spaced Repetition — Due Assignments Calendar & Forgetting Curve */}
-            <div className="glass-strong rounded-3xl border border-white/10 p-6 relative overflow-hidden fade-in stagger-4 space-y-6">
+            <div className="glass-strong rounded-3xl border border-white/5 p-6 relative overflow-hidden fade-in stagger-4 space-y-6">
               <div className="absolute inset-0 bg-gradient-to-br from-[#0071e3]/5 via-transparent to-transparent opacity-60"></div>
               
-              <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-4">
+              <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4">
                 <div>
                   <h2 className="text-xl font-bold font-heading text-[#0071e3] flex items-center gap-2">
                     <FBrain className="h-5 w-5 text-[#0071e3]" strokeWidth={1.5} />
@@ -863,10 +860,10 @@ export default function StudentDashboard() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#0071e3]/10 border border-[#0071e3]/20 text-xs font-semibold text-sky-400">
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#0071e3]/10 border border-[#0071e3]/20 text-xs font-semibold text-sky-700 dark:text-sky-600 dark:text-sky-400">
                     <FCalendar className="h-3.5 w-3.5" strokeWidth={1.5} /> Ngày học thứ {studyDay}
                   </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-300">
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                     <FBook className="h-3.5 w-3.5" strokeWidth={1.5} /> +{todayVocabCount} từ mới hôm nay
                   </div>
                 </div>
@@ -874,10 +871,10 @@ export default function StudentDashboard() {
 
               {/* SR Statistics Grid */}
               <div className="relative grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col justify-between">
+                <div className="p-4 rounded-2xl bg-card border border-border flex flex-col justify-between">
                   <span className="text-xs text-muted-foreground font-medium">Tổng từ đang học</span>
                   <div className="flex items-baseline gap-1.5 mt-2">
-                    <span className="text-2xl font-bold font-heading text-white">{totalLearnedCount}</span>
+                    <span className="text-2xl font-bold font-heading text-foreground">{totalLearnedCount}</span>
                     <span className="text-xs text-muted-foreground">từ</span>
                   </div>
                 </div>
@@ -891,7 +888,7 @@ export default function StudentDashboard() {
                 <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 flex flex-col justify-between">
                   <span className="text-xs text-muted-foreground font-medium">Đã thuộc (Stage 5+)</span>
                   <div className="flex items-baseline gap-1.5 mt-2">
-                    <span className="text-2xl font-bold font-heading text-emerald-400">{masteredCount}</span>
+                    <span className="text-2xl font-bold font-heading text-emerald-600 dark:text-emerald-600 dark:text-emerald-400">{masteredCount}</span>
                     <span className="text-xs text-muted-foreground">từ</span>
                   </div>
                 </div>
@@ -899,9 +896,9 @@ export default function StudentDashboard() {
                   <span className="text-xs text-muted-foreground font-medium">Trí nhớ hiện tại</span>
                   <div className="flex items-baseline gap-1.5 mt-2">
                     <span className={`text-2xl font-bold font-heading ${
-                      averageRetention >= 90 ? 'text-emerald-400' :
-                      averageRetention >= 75 ? 'text-amber-400' :
-                      'text-red-400'
+                      averageRetention >= 90 ? 'text-emerald-600 dark:text-emerald-600 dark:text-emerald-400' :
+                      averageRetention >= 75 ? 'text-amber-600 dark:text-amber-600 dark:text-amber-400' :
+                      'text-red-600 dark:text-red-400'
                     }`}>{averageRetention}%</span>
                     <span className="text-xs text-muted-foreground">trung bình</span>
                   </div>
@@ -913,7 +910,7 @@ export default function StudentDashboard() {
                 
                 {/* Left Side: Repetition list */}
                 <div className="lg:col-span-7 space-y-4">
-                  <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                  <div className="flex items-center gap-2 border-b border-border pb-2">
                     <button
                       onClick={() => setSrActiveSubTab('assignments')}
                       className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-all ${
@@ -938,11 +935,11 @@ export default function StudentDashboard() {
 
                   {srActiveSubTab === 'assignments' ? (
                     dueAssignments.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 bg-white/5 rounded-2xl border border-white/5">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                          <FCheck className="h-5 w-5 text-emerald-400" />
+                      <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 bg-card rounded-2xl border border-border">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 flex items-center justify-center">
+                          <FCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-600 dark:text-emerald-400" />
                         </div>
-                        <p className="text-sm font-semibold text-emerald-400">Không có bài tập nào cần ôn!</p>
+                        <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-600 dark:text-emerald-400">Không có bài tập nào cần ôn!</p>
                         <p className="text-xs text-muted-foreground">Mọi bài tập từ vựng đều được ghi nhớ tốt.</p>
                       </div>
                     ) : (
@@ -958,7 +955,7 @@ export default function StudentDashboard() {
                             <button
                               key={assignment.id}
                               onClick={() => router.push(`/student/assignments/${assignment.id}`)}
-                              className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/5 hover:border-[#0071e3]/50 hover:bg-[#0071e3]/10 transition-all text-left group"
+                              className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-card border border-border hover:border-[#0071e3]/50 hover:bg-[#0071e3]/10 transition-all text-left group"
                             >
                               <div className="flex items-center gap-3 min-w-0">
                                 <div className="w-9 h-9 rounded-xl bg-[#0071e3]/15 flex items-center justify-center flex-shrink-0">
@@ -966,7 +963,7 @@ export default function StudentDashboard() {
                                 </div>
                                 <div className="min-w-0">
                                   <p className="font-semibold text-xs text-foreground truncate">{assignment.title}</p>
-                                  <p className="text-[11px] text-muted-foreground">{totalWords} từ • <span className="text-amber-400 font-semibold">{dueWordsInAssign} từ đến hạn</span></p>
+                                  <p className="text-[11px] text-muted-foreground">{totalWords} từ • <span className="text-amber-600 dark:text-amber-600 dark:text-amber-400 font-semibold">{dueWordsInAssign} từ đến hạn</span></p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -982,11 +979,11 @@ export default function StudentDashboard() {
                     )
                   ) : (
                     dueVocabList.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 bg-white/5 rounded-2xl border border-white/5">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                          <FCheck className="h-5 w-5 text-emerald-400" />
+                      <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 bg-card rounded-2xl border border-border">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 flex items-center justify-center">
+                          <FCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-600 dark:text-emerald-400" />
                         </div>
-                        <p className="text-sm font-semibold text-emerald-400">Không có từ vựng riêng lẻ nào trễ hạn!</p>
+                        <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-600 dark:text-emerald-400">Không có từ vựng riêng lẻ nào trễ hạn!</p>
                         <p className="text-xs text-muted-foreground">Tất cả từ vựng đều được ghi nhớ an toàn.</p>
                       </div>
                     ) : (
@@ -994,7 +991,7 @@ export default function StudentDashboard() {
                         {dueVocabList.map(item => (
                           <div
                             key={item.id}
-                            className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all text-left"
+                            className="flex items-center justify-between gap-3 p-3 rounded-xl bg-card border border-border hover:bg-muted/50 transition-all text-left"
                           >
                             <div className="min-w-0">
                               <p className="font-semibold text-sm text-foreground">{item.word}</p>
@@ -1002,18 +999,18 @@ export default function StudentDashboard() {
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">
                               <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                                item.stage >= 5 ? 'bg-emerald-500/15 text-emerald-400' :
-                                item.stage >= 3 ? 'bg-[#0071e3]/15 text-sky-400' :
-                                'bg-amber-500/15 text-amber-400'
+                                item.stage >= 5 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-600 dark:text-emerald-400' :
+                                item.stage >= 3 ? 'bg-[#0071e3]/15 text-sky-700 dark:text-sky-600 dark:text-sky-400' :
+                                'bg-amber-500/15 text-amber-700 dark:text-amber-600 dark:text-amber-400'
                               }`}>
                                 Stage {item.stage}
                               </span>
                               {item.overdueDays > 0 ? (
-                                <span className="text-[10px] text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full font-medium">
+                                <span className="text-[10px] text-red-600 dark:text-red-600 dark:text-red-400 bg-red-500/10 dark:bg-red-500/10 px-2 py-0.5 rounded-full font-medium">
                                   Trễ {item.overdueDays} ngày
                                 </span>
                               ) : (
-                                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-medium">
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full font-medium">
                                   Đến hạn
                                 </span>
                               )}
@@ -1026,9 +1023,9 @@ export default function StudentDashboard() {
                 </div>
 
                 {/* Right Side: Forgetting Curve Chart */}
-                <div className="lg:col-span-5 flex flex-col justify-between p-4 rounded-2xl bg-white/5 border border-white/5 space-y-4">
+                <div className="lg:col-span-5 flex flex-col justify-between p-4 rounded-2xl bg-card border border-border space-y-4">
                   <div>
-                    <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                    <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
                       <FTrend className="h-4 w-4 text-[#0071e3]" />
                       Đường Cong Quên Lãng (Ebbinghaus)
                     </h3>
@@ -1083,7 +1080,7 @@ export default function StudentDashboard() {
                     </ResponsiveContainer>
                   </div>
 
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground bg-black/20 p-2 rounded-lg">
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground bg-muted/40 p-2 rounded-lg">
                     <div className="flex items-center gap-1">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#0071e3]"></span>
                       <span>Độ nhớ (% retention)</span>
@@ -1102,43 +1099,43 @@ export default function StudentDashboard() {
             {submissions.length > 0 && (
               <div className="fade-in stagger-4">
                 <h2 className="text-lg font-semibold font-heading mb-4 flex items-center gap-2">
-                  <FTrend className="h-4 w-4 text-violet-400" />
+                  <FTrend className="h-4 w-4 text-violet-600 dark:text-violet-600 dark:text-violet-400" />
                   Lịch Sử Bài Làm
                 </h2>
                 <div className="glass-strong rounded-3xl border border-white/5 overflow-hidden">
-                  <div className="divide-y divide-white/5">
+                  <div className="divide-y divide-border">
                     {submissions.slice(0, 5).map(s => {
                       const href = `/student/review/${s.id}`;
                       return (
-                        <Link key={s.id} href={href} className="flex items-center gap-4 px-6 py-4 hover:bg-white/5 transition-colors cursor-pointer group w-full">
+                        <Link key={s.id} href={href} className="flex items-center gap-4 px-6 py-4 hover:bg-muted/40 transition-colors cursor-pointer group w-full">
                           <div className={`p-2 rounded-lg ${
-                            s.assignmentType === 'vocab_context' ? 'bg-violet-500/10' :
-                            s.assignmentType === 'multiple_choice' ? 'bg-teal-500/10' :
-                            s.assignmentType === 'dictation' ? 'bg-sky-500/10' :
-                            s.assignmentType === 'vocabulary' ? 'bg-indigo-500/10' :
-                            'bg-amber-500/10'
+                            s.assignmentType === 'vocab_context' ? 'bg-violet-500/10 dark:bg-violet-500/10' :
+                            s.assignmentType === 'multiple_choice' ? 'bg-teal-500/10 dark:bg-teal-500/10' :
+                            s.assignmentType === 'dictation' ? 'bg-sky-500/10 dark:bg-sky-500/10' :
+                            s.assignmentType === 'vocabulary' ? 'bg-indigo-500/10 dark:bg-indigo-500/10' :
+                            'bg-amber-500/10 dark:bg-amber-500/10'
                           }`}>
-                            {s.assignmentType === 'vocab_context' ? <FBook className="h-4 w-4 text-violet-400" /> :
-                             s.assignmentType === 'multiple_choice' ? <FListChecks className="h-4 w-4 text-teal-400" /> :
-                             s.assignmentType === 'dictation' ? <FHeadphones className="h-4 w-4 text-sky-400" /> :
-                             s.assignmentType === 'vocabulary' ? <FFileJson className="h-4 w-4 text-indigo-400" /> :
-                             <FPenTool className="h-4 w-4 text-amber-400" />}
+                            {s.assignmentType === 'vocab_context' ? <FBook className="h-4 w-4 text-violet-600 dark:text-violet-600 dark:text-violet-400" /> :
+                             s.assignmentType === 'multiple_choice' ? <FListChecks className="h-4 w-4 text-teal-600 dark:text-teal-600 dark:text-teal-400" /> :
+                             s.assignmentType === 'dictation' ? <FHeadphones className="h-4 w-4 text-sky-600 dark:text-sky-600 dark:text-sky-400" /> :
+                             s.assignmentType === 'vocabulary' ? <FFileJson className="h-4 w-4 text-indigo-600 dark:text-indigo-600 dark:text-indigo-400" /> :
+                             <FPenTool className="h-4 w-4 text-amber-600 dark:text-amber-600 dark:text-amber-400" />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">{s.assignmentTitle}</p>
                             <p className="text-xs text-muted-foreground flex items-center gap-2">
                               <span>{new Date(s.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                               {s.durationMs && (
-                                <span className="text-[10px] text-sky-400 font-medium flex items-center gap-1">
+                                <span className="text-[10px] text-sky-600 dark:text-sky-600 dark:text-sky-400 font-medium flex items-center gap-1">
                                   • <FClock className="w-3 h-3" /> {formatDuration(s.durationMs)}
                                 </span>
                               )}
                             </p>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className={`px-3 py-1 rounded-full border text-sm font-bold ${s.score >= 80 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                                : s.score >= 50 ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                                  : 'bg-red-500/15 text-red-400 border-red-500/30'
+                            <span className={`px-3 py-1 rounded-full border text-sm font-bold ${s.score >= 80 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                                : s.score >= 50 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-600 dark:text-amber-400 border-amber-500/30'
+                                  : 'bg-red-500/15 text-red-700 dark:text-red-600 dark:text-red-400 border-red-500/30'
                               }`}>
                               {s.score}/100
                             </span>

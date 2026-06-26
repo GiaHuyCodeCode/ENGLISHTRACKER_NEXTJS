@@ -24,7 +24,7 @@ export default function LoginPage() {
       <div className="glass-strong rounded-3xl p-8 max-w-lg w-full border border-white/5 relative overflow-hidden">
         {/* Decorative background glow */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl -translate-x-1/3 translate-y-1/3"></div>
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-500/10 dark:bg-violet-500/10 rounded-full blur-3xl -translate-x-1/3 translate-y-1/3"></div>
 
         <div className="relative text-center mb-10">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/20 text-primary mb-4 border border-primary/30 glow-primary">
@@ -42,7 +42,7 @@ export default function LoginPage() {
                 className="w-full flex items-center justify-between p-5 rounded-2xl bg-secondary/30 hover:bg-secondary/60 border border-white/5 transition-all group"
               >
                 <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-amber-500/10 text-amber-400 group-hover:scale-110 transition-transform">
+                  <div className="p-3 rounded-xl bg-amber-500/10 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
                     <ShieldCheck className="h-6 w-6" />
                   </div>
                   <div className="text-left">
@@ -57,7 +57,7 @@ export default function LoginPage() {
                 className="w-full flex items-center justify-between p-5 rounded-2xl bg-secondary/30 hover:bg-secondary/60 border border-white/5 transition-all group"
               >
                 <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 group-hover:scale-110 transition-transform">
+                  <div className="p-3 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
                     <GraduationCap className="h-6 w-6" />
                   </div>
                   <div className="text-left">

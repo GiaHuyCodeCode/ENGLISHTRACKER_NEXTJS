@@ -89,8 +89,8 @@ export default function DictationResultPage() {
 
   const results: DictationResult[] = submission.dictationResults || [];
   const score = submission.score;
-  const scoreColor = score >= 80 ? 'text-emerald-400' : score >= 50 ? 'text-amber-400' : 'text-red-400';
-  const scoreBg = score >= 80 ? 'bg-emerald-500/10 border-emerald-500/20' : score >= 50 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20';
+  const scoreColor = score >= 80 ? 'text-emerald-600 dark:text-emerald-400' : score >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
+  const scoreBg = score >= 80 ? 'bg-emerald-500/10 dark:bg-emerald-500/10 border-emerald-500/20' : score >= 50 ? 'bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 dark:bg-red-500/10 border-red-500/20';
 
   const formatDuration = (ms?: number) => {
     if (!ms) return '—';
@@ -109,7 +109,7 @@ export default function DictationResultPage() {
           <ArrowLeft className="h-4 w-4" /> Danh Sách Bài Tập
         </button>
         <button onClick={() => router.push(`/student/dictation/${assignmentId}`)}
-          className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg bg-secondary/50 border border-white/10 text-muted-foreground hover:text-foreground transition-colors">
+          className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg bg-secondary/50 border border-black/10 dark:border-white/10 text-muted-foreground hover:text-foreground transition-colors">
           <RotateCcw className="h-3.5 w-3.5" /> Làm Lại
         </button>
       </div>
@@ -117,8 +117,8 @@ export default function DictationResultPage() {
       {/* Title */}
       <div className="fade-in">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/20">
-            <Headphones className="h-5 w-5 text-sky-400" />
+          <div className="p-2 rounded-xl bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20">
+            <Headphones className="h-5 w-5 text-sky-600 dark:text-sky-400" />
           </div>
           <div>
             <h1 className="text-2xl font-bold font-heading gradient-text">Kết Quả Dictation</h1>
@@ -146,7 +146,7 @@ export default function DictationResultPage() {
 
       {/* AI Feedback */}
       <div className="glass-strong rounded-3xl border border-violet-500/20 p-6 space-y-4">
-        <h2 className="font-bold font-heading text-lg flex items-center gap-2 text-violet-400">
+        <h2 className="font-bold font-heading text-lg flex items-center gap-2 text-violet-600 dark:text-violet-400">
           <Brain className="h-5 w-5" /> Nhận Xét Từ AI
           {aiFeedback?.source && (
             <span className="text-xs font-normal text-muted-foreground ml-auto">
@@ -165,7 +165,7 @@ export default function DictationResultPage() {
         )}
 
         {aiError && !aiLoading && (
-          <p className="text-sm text-amber-400 flex items-center gap-2">
+          <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" /> {aiError}
           </p>
         )}
@@ -176,10 +176,10 @@ export default function DictationResultPage() {
 
             {aiFeedback.strengths?.length > 0 && (
               <div className="p-4 rounded-2xl bg-emerald-500/8 border border-emerald-500/20 space-y-2">
-                <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider">✅ Điểm Mạnh</p>
+                <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">✅ Điểm Mạnh</p>
                 <ul className="space-y-1.5">
                   {aiFeedback.strengths.map((s, i) => (
-                    <li key={i} className="text-sm text-foreground/80 flex gap-2"><span className="text-emerald-400 shrink-0">•</span>{s}</li>
+                    <li key={i} className="text-sm text-foreground/80 flex gap-2"><span className="text-emerald-600 dark:text-emerald-400 shrink-0">•</span>{s}</li>
                   ))}
                 </ul>
               </div>
@@ -187,10 +187,10 @@ export default function DictationResultPage() {
 
             {aiFeedback.improvements?.length > 0 && (
               <div className="p-4 rounded-2xl bg-amber-500/8 border border-amber-500/20 space-y-2">
-                <p className="text-xs font-bold text-amber-400 uppercase tracking-wider">⚡ Cần Cải Thiện</p>
+                <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">⚡ Cần Cải Thiện</p>
                 <ul className="space-y-1.5">
                   {aiFeedback.improvements.map((s, i) => (
-                    <li key={i} className="text-sm text-foreground/80 flex gap-2"><span className="text-amber-400 shrink-0">•</span>{s}</li>
+                    <li key={i} className="text-sm text-foreground/80 flex gap-2"><span className="text-amber-600 dark:text-amber-400 shrink-0">•</span>{s}</li>
                   ))}
                 </ul>
               </div>
@@ -198,19 +198,19 @@ export default function DictationResultPage() {
 
             {aiFeedback.tips?.length > 0 && (
               <div className="p-4 rounded-2xl bg-sky-500/8 border border-sky-500/20 space-y-2">
-                <p className="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                <p className="text-xs font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
                   <Sparkles className="h-3.5 w-3.5" /> Mẹo Luyện Tập
                 </p>
                 <ul className="space-y-1.5">
                   {aiFeedback.tips.map((s, i) => (
-                    <li key={i} className="text-sm text-foreground/80 flex gap-2"><span className="text-sky-400 shrink-0">{i + 1}.</span>{s}</li>
+                    <li key={i} className="text-sm text-foreground/80 flex gap-2"><span className="text-sky-600 dark:text-sky-400 shrink-0">{i + 1}.</span>{s}</li>
                   ))}
                 </ul>
               </div>
             )}
 
             {aiFeedback.encouragement && (
-              <p className="text-sm text-center font-semibold text-violet-300 italic">&quot;{aiFeedback.encouragement}&quot;</p>
+              <p className="text-sm text-center font-semibold text-violet-700 dark:text-violet-300 italic">&quot;{aiFeedback.encouragement}&quot;</p>
             )}
           </div>
         )}
@@ -219,18 +219,18 @@ export default function DictationResultPage() {
       {/* Per-sentence breakdown */}
       <div className="space-y-4">
         <h2 className="font-bold text-lg flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-sky-400" /> Chi Tiết Từng Câu
+          <CheckCircle2 className="h-5 w-5 text-sky-600 dark:text-sky-400" /> Chi Tiết Từng Câu
         </h2>
         {results.map((r, i) => {
           const original = assignment.sentences?.[i]?.text || '';
           const acc = r.accuracy;
-          const accColor = acc >= 80 ? 'text-emerald-400' : acc >= 50 ? 'text-amber-400' : 'text-red-400';
-          const accBg = acc >= 80 ? 'bg-emerald-500/10 border-emerald-500/20' : acc >= 50 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20';
+          const accColor = acc >= 80 ? 'text-emerald-600 dark:text-emerald-400' : acc >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
+          const accBg = acc >= 80 ? 'bg-emerald-500/10 dark:bg-emerald-500/10 border-emerald-500/20' : acc >= 50 ? 'bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 dark:bg-red-500/10 border-red-500/20';
 
           return (
             <div key={i} className={`glass rounded-2xl border p-4 space-y-3 ${accBg}`}>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-sky-400 uppercase">Câu {i + 1}</span>
+                <span className="text-xs font-bold text-sky-600 dark:text-sky-400 uppercase">Câu {i + 1}</span>
                 <span className={`text-sm font-bold ${accColor}`}>{acc}%</span>
               </div>
               <div className="text-sm text-muted-foreground">
@@ -239,12 +239,12 @@ export default function DictationResultPage() {
               </div>
               <div className="text-sm">
                 <span className="font-bold text-foreground/60">Bạn viết: </span>
-                <span className={`italic ${acc >= 80 ? 'text-emerald-300' : 'text-foreground/80'}`}>&quot;{r.studentText || '(bỏ trống)'}&quot;</span>
+                <span className={`italic ${acc >= 80 ? 'text-emerald-700 dark:text-emerald-300' : 'text-foreground/80'}`}>&quot;{r.studentText || '(bỏ trống)'}&quot;</span>
               </div>
               {r.errors.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {r.errors.map((err, j) => (
-                    <span key={j} className="px-2 py-0.5 rounded bg-red-500/15 border border-red-500/20 text-red-300 text-xs">{err}</span>
+                    <span key={j} className="px-2 py-0.5 rounded bg-red-500/15 border border-red-500/20 text-red-700 dark:text-red-300 text-xs">{err}</span>
                   ))}
                 </div>
               )}
@@ -256,7 +256,7 @@ export default function DictationResultPage() {
       {/* Source link */}
       {assignment.sourceUrl && (
         <a href={assignment.sourceUrl} target="_blank" rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 py-3 rounded-2xl glass border border-sky-500/20 text-sky-400 text-sm font-semibold hover:bg-sky-500/10 transition-colors">
+          className="flex items-center justify-center gap-2 py-3 rounded-2xl glass border border-sky-500/20 text-sky-600 dark:text-sky-400 text-sm font-semibold hover:bg-sky-500/10 dark:bg-sky-500/10 transition-colors">
           <ExternalLink className="h-4 w-4" /> Quay Lại Trang Bài Gốc
         </a>
       )}

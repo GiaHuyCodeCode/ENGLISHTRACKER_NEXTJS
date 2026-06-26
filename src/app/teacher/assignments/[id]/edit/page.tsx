@@ -81,7 +81,7 @@ export default function EditAssignmentPage() {
 
       {/* Success banner */}
       {success && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium slide-up">
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-medium slide-up">
           <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
           Đã cập nhật thành công! Đang về trang quản lý bài tập...
         </div>

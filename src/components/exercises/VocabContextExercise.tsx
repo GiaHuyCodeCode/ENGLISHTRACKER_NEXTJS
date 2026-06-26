@@ -70,9 +70,9 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
   return (
     <div className="space-y-6">
       {/* Instruction */}
-      <div className="flex items-start gap-3 p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
-        <Lightbulb className="h-4 w-4 text-violet-400 flex-shrink-0 mt-0.5" />
-        <p className="text-sm text-violet-300">
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-violet-500/10 dark:bg-violet-500/10 border border-violet-500/20">
+        <Lightbulb className="h-4 w-4 text-violet-600 dark:text-violet-400 flex-shrink-0 mt-0.5" />
+        <p className="text-sm text-violet-700 dark:text-violet-300">
           Đọc đoạn văn bên dưới. Điền <strong>nghĩa tiếng Việt</strong> cho các từ tiếng Anh được highlight vào ô ngay cạnh mỗi từ.
         </p>
       </div>
@@ -99,7 +99,7 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
             return (
               <span key={i} id={`ctx-word-${word.toLowerCase()}`} className="inline-flex items-center gap-1.5 mx-1 my-1">
                 {/* Keyword badge */}
-                <span className="inline-flex items-center gap-1 bg-violet-500/20 border border-violet-500/40 text-violet-300 font-bold px-2.5 py-1 rounded-lg text-xs">
+                <span className="inline-flex items-center gap-1 bg-violet-500/20 border border-violet-500/40 text-violet-700 dark:text-violet-300 font-bold px-2.5 py-1 rounded-lg text-xs">
                   {word}
                 </span>
 
@@ -117,8 +117,8 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
                 ) : (
                   <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border ${
                     (isSubmitted ? wordResult?.isCorrect : (overrides.has(word) || isFuzzyMatch(answers[word] || '', matchKeyword?.answer || '')))
-                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                      : 'bg-red-500/15 text-red-400 border-red-500/30'
+                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                      : 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30'
                   }`}>
                     {(isSubmitted ? wordResult?.isCorrect : (overrides.has(word) || isFuzzyMatch(answers[word] || '', matchKeyword?.answer || '')))
                       ? <CheckCircle2 className="h-3 w-3" />
@@ -128,12 +128,12 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
                     
                     {!(isSubmitted ? wordResult?.isCorrect : (overrides.has(word) || isFuzzyMatch(answers[word] || '', matchKeyword?.answer || ''))) && (
                       <span className="text-muted-foreground ml-1 flex items-center gap-1">
-                        → <strong className="text-emerald-400">{isSubmitted ? wordResult?.correctAnswer : matchKeyword?.answer}</strong>
+                        → <strong className="text-emerald-600 dark:text-emerald-400">{isSubmitted ? wordResult?.correctAnswer : matchKeyword?.answer}</strong>
                         
                         {!isSubmitted && (
                           <button
                             onClick={() => handleOverride(word)}
-                            className="ml-2 p-1 rounded-md bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+                            className="ml-2 p-1 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/30 transition-colors"
                             title="Chấp nhận đáp án này (Nghĩa tương tự)"
                           >
                             <Check className="h-3 w-3" />
@@ -170,7 +170,7 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
           'border-red-500/40 bg-red-500/8 glow-error'
         }`}>
           <div className={`text-6xl font-bold font-heading ${
-            displayScore >= 80 ? 'text-emerald-400' : displayScore >= 50 ? 'text-amber-400' : 'text-red-400'
+            displayScore >= 80 ? 'text-emerald-600 dark:text-emerald-400' : displayScore >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
           }`}>
             {displayScore}
             <span className="text-2xl text-muted-foreground">/100</span>
@@ -209,7 +209,7 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
       {step === 'reviewing' && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 p-3 rounded-xl bg-secondary/50 text-sm text-muted-foreground">
-            <Lightbulb className="h-4 w-4 text-amber-400" />
+            <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             Nếu bạn thấy nghĩa của mình tương tự, hãy bấm icon ✔️ màu xanh bên cạnh đáp án sai để đánh dấu là đúng nhé.
           </div>
           <button

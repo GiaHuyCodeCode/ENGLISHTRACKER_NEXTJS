@@ -73,12 +73,12 @@ export default function LessonsPage() {
               {lesson.vocabCards && lesson.vocabCards.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {lesson.vocabCards.slice(0, 5).map((card, i) => (
-                    <span key={i} className="px-2 py-0.5 rounded bg-[#0071e3]/10 text-sky-400 text-xs font-semibold border border-[#0071e3]/15">
+                    <span key={i} className="px-2 py-0.5 rounded bg-[#0071e3]/10 text-sky-600 dark:text-sky-400 text-xs font-semibold border border-[#0071e3]/15">
                       {card.word}
                     </span>
                   ))}
                   {lesson.vocabCards.length > 5 && (
-                    <span className="px-2 py-0.5 rounded bg-white/5 text-muted-foreground text-xs font-semibold border border-white/5">
+                    <span className="px-2 py-0.5 rounded bg-black/5 dark:bg-white/5 text-muted-foreground text-xs font-semibold border border-white/5">
                       +{lesson.vocabCards.length - 5} từ
                     </span>
                   )}
@@ -88,7 +88,7 @@ export default function LessonsPage() {
               <div className="flex gap-2 pt-2 border-t border-white/5">
                 <button
                   onClick={() => router.push(`/student/lessons/${lesson.id}`)}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#0071e3]/10 hover:bg-[#0071e3]/20 text-sky-400 font-semibold text-sm transition-all border border-[#0071e3]/20"
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#0071e3]/10 hover:bg-[#0071e3]/20 text-sky-600 dark:text-sky-400 font-semibold text-sm transition-all border border-[#0071e3]/20"
                 >
                   <BookOpen className="h-4 w-4" strokeWidth={1.5} /> Xem Chi Tiết & Ôn Tập
                   <ChevronRight className="h-4 w-4" strokeWidth={1.5} />

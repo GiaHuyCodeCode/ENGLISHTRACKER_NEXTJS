@@ -60,7 +60,7 @@ export function SynonymBlock({ vocabCards, answers, onAnswerChange, handleSpeak,
       <div className={`glass-strong rounded-3xl border p-8 flex flex-col items-center justify-center text-center space-y-8 transition-all duration-300 ${shake ? 'animate-shake border-red-500/50' : currentFeedback?.isCorrect ? 'border-emerald-500/30' : 'border-border'}`}>
         
         {/* Icon Header */}
-        <div className="w-16 h-16 rounded-2xl bg-violet-500/10 border border-violet-500/20 text-violet-400 flex items-center justify-center shadow-lg">
+        <div className="w-16 h-16 rounded-2xl bg-violet-500/10 dark:bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400 flex items-center justify-center shadow-lg">
           <Search className="h-8 w-8" />
         </div>
 
@@ -71,13 +71,13 @@ export function SynonymBlock({ vocabCards, answers, onAnswerChange, handleSpeak,
           {hasSynonyms ? (
             <div className="flex flex-wrap justify-center gap-3">
               {currentCard.synonyms!.map(s => (
-                <span key={s} className="px-4 py-2 bg-violet-500/10 text-violet-300 font-bold text-lg rounded-xl border border-violet-500/20 shadow-sm">
+                <span key={s} className="px-4 py-2 bg-violet-500/10 dark:bg-violet-500/10 text-violet-700 dark:text-violet-300 font-bold text-lg rounded-xl border border-violet-500/20 shadow-sm">
                   {s}
                 </span>
               ))}
             </div>
           ) : (
-            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400/90 text-sm italic">
+            <div className="p-4 rounded-xl bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400/90 text-sm italic">
               Từ này không có dữ liệu từ đồng nghĩa. <br/>
               <span className="font-semibold not-italic">Gợi ý nghĩa tiếng Việt: {currentCard.meaning}</span>
             </div>
@@ -94,7 +94,7 @@ export function SynonymBlock({ vocabCards, answers, onAnswerChange, handleSpeak,
               disabled={isSubmitted}
               onKeyDown={e => e.key === 'Enter' && handleCheckSpelling()}
               placeholder="Nhập từ vựng gốc..."
-              className={`input-field flex-1 text-center font-bold tracking-widest text-lg h-14 ${currentFeedback?.isCorrect ? 'border-emerald-500 ring-1 ring-emerald-500/50 text-emerald-400' : ''}`}
+              className={`input-field flex-1 text-center font-bold tracking-widest text-lg h-14 ${currentFeedback?.isCorrect ? 'border-emerald-500 ring-1 ring-emerald-500/50 text-emerald-600 dark:text-emerald-400' : ''}`}
               autoFocus
             />
             {!isSubmitted && (
@@ -111,8 +111,8 @@ export function SynonymBlock({ vocabCards, answers, onAnswerChange, handleSpeak,
           {currentFeedback?.show && (
             <div className={`p-3.5 rounded-xl border flex items-center justify-center gap-2 text-sm font-bold slide-up ${
               currentFeedback.isCorrect 
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 glow-success' 
-                : 'bg-red-500/10 border-red-500/30 text-red-400 glow-error'
+                ? 'bg-emerald-500/10 dark:bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 glow-success' 
+                : 'bg-red-500/10 dark:bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 glow-error'
             }`}>
               {currentFeedback.isCorrect ? (
                 <><CheckCircle2 className="h-5 w-5" /> Chính xác! ({currentCard.word})</>
@@ -136,7 +136,7 @@ export function SynonymBlock({ vocabCards, answers, onAnswerChange, handleSpeak,
         <button 
           onClick={() => { setCurrentIdx(prev => Math.min(vocabCards.length - 1, prev + 1)); setFeedback({}); }} 
           disabled={currentIdx === vocabCards.length - 1} 
-          className="px-5 py-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:bg-violet-600 hover:text-white disabled:opacity-30 disabled:hover:bg-violet-500/10 disabled:hover:text-violet-400 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
+          className="px-5 py-3 rounded-xl bg-violet-500/10 dark:bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400 hover:bg-violet-600 hover:text-white disabled:opacity-30 disabled:hover:bg-violet-500/10 dark:bg-violet-500/10 disabled:hover:text-violet-600 dark:text-violet-400 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
         >
           Từ tiếp theo <ChevronRight className="h-4 w-4" />
         </button>

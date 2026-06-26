@@ -109,7 +109,7 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
   return (
     <div className="space-y-6 slide-up">
       <div className="flex items-center gap-2 text-xs text-muted-foreground p-3 bg-secondary/30 rounded-xl border border-white/5">
-        <AlertCircle className="h-4 w-4 text-violet-400 flex-shrink-0" />
+        <AlertCircle className="h-4 w-4 text-violet-600 dark:text-violet-400 flex-shrink-0" />
         <div>
           Mẹo: Sử dụng phím <kbd className="px-1.5 py-0.5 rounded bg-secondary mx-1 text-foreground border border-border/50 font-bold">Space</kbd> để lật thẻ, <kbd className="px-1.5 py-0.5 rounded bg-secondary mx-1 text-foreground border border-border/50 font-bold">→</kbd> để qua từ tiếp theo. Trên điện thoại, bạn có thể <strong>vuốt màn hình sang trái/phải</strong> để chuyển thẻ.
         </div>
@@ -175,16 +175,16 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
           {/* Back */}
           <div className="absolute inset-0 glass-strong rounded-3xl p-8 flex flex-col justify-center rotate-y-180 backface-hidden shadow-2xl space-y-6 group-hover:border-primary/30 transition-colors">
             <div className="space-y-1">
-              <span className="text-xs uppercase tracking-wider font-bold text-violet-400">Định Nghĩa</span>
+              <span className="text-xs uppercase tracking-wider font-bold text-violet-600 dark:text-violet-400">Định Nghĩa</span>
               <div className="text-xl md:text-2xl font-medium text-foreground">{currentCard.meaning}</div>
             </div>
             
             {currentCard.synonyms && currentCard.synonyms.length > 0 && (
               <div className="space-y-1">
-                <span className="text-[10px] uppercase tracking-wider font-bold text-teal-400">Từ Đồng Nghĩa</span>
+                <span className="text-[10px] uppercase tracking-wider font-bold text-teal-600 dark:text-teal-400">Từ Đồng Nghĩa</span>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {currentCard.synonyms.map((s, i) => (
-                    <span key={i} className="px-2.5 py-1 rounded-md bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs font-medium">
+                    <span key={i} className="px-2.5 py-1 rounded-md bg-teal-500/10 dark:bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-300 text-xs font-medium">
                       {s}
                     </span>
                   ))}
@@ -194,7 +194,7 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
             
             {currentCard.example && (
               <div className="space-y-1 pt-4 border-t border-white/5">
-                <span className="text-[10px] uppercase tracking-wider font-bold text-amber-400">Ví dụ minh họa</span>
+                <span className="text-[10px] uppercase tracking-wider font-bold text-amber-600 dark:text-amber-400">Ví dụ minh họa</span>
                 <div className="text-sm md:text-base italic text-muted-foreground leading-relaxed">
                   &quot;{currentCard.example}&quot;
                 </div>

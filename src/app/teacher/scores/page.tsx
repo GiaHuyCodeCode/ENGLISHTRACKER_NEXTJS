@@ -12,9 +12,9 @@ import { Edit2, CheckCircle2, XCircle, Trash2, ArrowLeft, Clock, RefreshCw } fro
 import Link from 'next/link';
 
 function ScoreBadge({ score }: { score: number }) {
-  const color = score >= 80 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
-    : score >= 50 ? 'text-amber-400 bg-amber-500/10 border-amber-500/30'
-    : 'text-red-400 bg-red-500/10 border-red-500/30';
+  const color = score >= 80 ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/10 border-emerald-500/30'
+    : score >= 50 ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/30'
+    : 'text-red-600 dark:text-red-400 bg-red-500/10 dark:bg-red-500/10 border-red-500/30';
   return (
     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-xs font-bold ${color}`}>
       {score}đ
@@ -138,7 +138,7 @@ export default function ScoreManagementPage() {
     <div className="space-y-8 max-w-4xl mx-auto relative min-h-screen">
       {confirmDialog?.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-background p-6 rounded-2xl border border-white/10 max-w-sm w-full mx-4 shadow-xl">
+          <div className="bg-background p-6 rounded-2xl border border-black/10 dark:border-white/10 max-w-sm w-full mx-4 shadow-xl">
             <h3 className="text-lg font-bold mb-2 text-foreground">{confirmDialog.title}</h3>
             <p className="text-sm text-muted-foreground mb-6">{confirmDialog.message}</p>
             <div className="flex justify-end gap-3">
@@ -166,7 +166,7 @@ export default function ScoreManagementPage() {
         <button
           onClick={handleSync}
           disabled={isSyncing}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-sky-500/30 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 transition-all text-sm font-semibold disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-sky-500/30 bg-sky-500/10 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 transition-all text-sm font-semibold disabled:opacity-50"
           title="Đồng bộ dữ liệu từ Cloud"
         >
           <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -177,11 +177,11 @@ export default function ScoreManagementPage() {
       {/* Overall Statistics Board */}
       <div className="glass-strong rounded-3xl p-6 border border-white/5 space-y-4 fade-in stagger-1">
         <h2 className="text-lg font-bold font-heading flex items-center gap-2 mb-2">
-          <Clock className="w-5 h-5 text-sky-400" /> Bảng Thống Kê Thời Gian Học
+          <Clock className="w-5 h-5 text-sky-600 dark:text-sky-400" /> Bảng Thống Kê Thời Gian Học
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {studentStats.map((stat, idx) => (
-            <div key={stat.name} className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center gap-2 hover:bg-white/10 transition-colors cursor-pointer" onClick={() => setSelectedStudent(stat.name)}>
+            <div key={stat.name} className="bg-black/5 dark:bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center gap-2 hover:bg-black/10 dark:bg-white/10 transition-colors cursor-pointer" onClick={() => setSelectedStudent(stat.name)}>
               <div className="relative">
                 <StudentAvatar name={stat.name} size="md" />
                 {idx === 0 && stat.totalMs > 0 && (
@@ -191,7 +191,7 @@ export default function ScoreManagementPage() {
               <div>
                 <p className="text-sm font-bold">{stat.name}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{stat.count} bài tập</p>
-                <p className="text-sm font-bold text-sky-400 mt-1">{formatTotalTime(stat.totalMs)}</p>
+                <p className="text-sm font-bold text-sky-600 dark:text-sky-400 mt-1">{formatTotalTime(stat.totalMs)}</p>
               </div>
             </div>
           ))}
@@ -226,7 +226,7 @@ export default function ScoreManagementPage() {
                 <div className="flex-1 min-w-0 pr-4">
                   <div className="flex items-center gap-2 mb-1">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      r.isTracking ? 'bg-blue-500/10 text-blue-400' : 'bg-violet-500/10 text-violet-400'
+                      r.isTracking ? 'bg-blue-500/10 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'bg-violet-500/10 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400'
                     }`}>
                       {r.isTracking ? 'BÁO CÁO' : 'BÀI TẬP'}
                     </span>
@@ -264,10 +264,10 @@ export default function ScoreManagementPage() {
                           className="input-field py-1 text-sm"
                           title="Ngày nộp bài"
                         />
-                        <button onClick={() => handleSave(r.id, r.isTracking)} className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30">
+                        <button onClick={() => handleSave(r.id, r.isTracking)} className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/30">
                           <CheckCircle2 className="h-4 w-4" />
                         </button>
-                        <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg bg-slate-500/20 text-slate-400 hover:bg-slate-500/30">
+                        <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg bg-slate-500/20 text-slate-600 dark:text-slate-400 hover:bg-slate-500/30">
                           <XCircle className="h-4 w-4" />
                         </button>
                       </div>
@@ -279,7 +279,7 @@ export default function ScoreManagementPage() {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => { setEditingId(r.id); setEditScore(r.score.toString()); setEditDate(''); }}
-                          className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                          className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 dark:bg-amber-500/10 transition-colors"
                           title="Sửa điểm"
                         >
                           <Edit2 className="h-4 w-4" />
@@ -287,7 +287,7 @@ export default function ScoreManagementPage() {
                         <button 
                           type="button"
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(r.id, r.isTracking); }}
-                          className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-red-400 hover:bg-red-500/10 transition-colors relative z-10"
+                          className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-red-600 dark:text-red-400 hover:bg-red-500/10 dark:bg-red-500/10 transition-colors relative z-10"
                           title="Xóa bài nộp"
                         >
                           <Trash2 className="h-4 w-4 pointer-events-none" />

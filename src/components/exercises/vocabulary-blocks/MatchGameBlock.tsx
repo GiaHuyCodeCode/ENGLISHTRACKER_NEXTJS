@@ -70,7 +70,7 @@ export function MatchGameBlock({ vocabCards, gameMatchedIds, setGameMatchedIds, 
 
   return (
     <div className="space-y-6 slide-up">
-      <div className="flex items-center gap-3 text-sm text-rose-400 p-4 bg-rose-500/10 rounded-2xl border border-rose-500/20 shadow-inner">
+      <div className="flex items-center gap-3 text-sm text-rose-600 dark:text-rose-400 p-4 bg-rose-500/10 dark:bg-rose-500/10 rounded-2xl border border-rose-500/20 shadow-inner">
         <LayoutGrid className="h-5 w-5 flex-shrink-0" />
         <span className="font-medium">Tìm và ghép các thẻ tiếng Anh với nghĩa tương ứng. Thẻ sẽ biến mất nếu ghép đúng!</span>
       </div>
@@ -90,9 +90,9 @@ export function MatchGameBlock({ vocabCards, gameMatchedIds, setGameMatchedIds, 
         <div className="p-12 text-center border-2 border-emerald-500/30 bg-emerald-500/5 rounded-3xl space-y-6 slide-up glow-success relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-500/20 via-transparent to-transparent opacity-50 blur-xl"></div>
           
-          <div className="relative z-10 w-24 h-24 bg-emerald-500/10 rounded-full mx-auto flex items-center justify-center border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.3)]">
-            <Trophy className="h-12 w-12 text-emerald-400" />
-            <Sparkles className="h-6 w-6 text-emerald-300 absolute -top-2 -right-2 animate-pulse" />
+          <div className="relative z-10 w-24 h-24 bg-emerald-500/10 dark:bg-emerald-500/10 rounded-full mx-auto flex items-center justify-center border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.3)]">
+            <Trophy className="h-12 w-12 text-emerald-600 dark:text-emerald-400" />
+            <Sparkles className="h-6 w-6 text-emerald-700 dark:text-emerald-300 absolute -top-2 -right-2 animate-pulse" />
           </div>
           
           <div className="relative z-10 space-y-2">
@@ -126,11 +126,11 @@ export function MatchGameBlock({ vocabCards, gameMatchedIds, setGameMatchedIds, 
                 className={`
                   relative h-28 md:h-32 p-4 rounded-2xl border-2 font-bold text-sm sm:text-base flex items-center justify-center text-center transition-all duration-300
                   ${isSelected 
-                      ? 'bg-rose-500/20 border-rose-500 text-rose-300 scale-[0.96] shadow-[0_0_20px_rgba(244,63,94,0.3)]' 
+                      ? 'bg-rose-500/20 border-rose-500 text-rose-700 dark:text-rose-300 scale-[0.96] shadow-[0_0_20px_rgba(244,63,94,0.3)]' 
                       : isMismatching
-                        ? 'animate-shake border-red-500/50 bg-red-500/10 text-red-400'
+                        ? 'animate-shake border-red-500/50 bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400'
                         : isWord 
-                          ? 'glass border-white/10 hover:border-rose-400/50 text-foreground hover:shadow-[0_8px_30px_rgba(0,0,0,0.3)] hover-lift' 
+                          ? 'glass border-black/10 dark:border-white/10 hover:border-rose-400/50 text-foreground hover:shadow-[0_8px_30px_rgba(0,0,0,0.3)] hover-lift' 
                           : 'glass border-white/5 hover:border-amber-400/50 text-muted-foreground hover:text-foreground hover:shadow-[0_8px_30px_rgba(0,0,0,0.3)] hover-lift'
                   }
                 `}

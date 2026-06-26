@@ -20,13 +20,13 @@ import { audioManager } from '@/lib/audio';
 
 // Stage config: label, color classes, bar color, interval info
 const STAGE_CONFIG = [
-  { label: 'Chưa học',           bar: 'bg-slate-400',   badge: 'bg-slate-500/10 text-slate-400 border-slate-500/20',   interval: '—'         },
-  { label: 'Stage 1',            bar: 'bg-red-400',     badge: 'bg-red-500/10 text-red-400 border-red-500/20',         interval: '1 ngày'    },
-  { label: 'Stage 2',            bar: 'bg-amber-400',   badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20',   interval: '3 ngày'    },
-  { label: 'Stage 3',            bar: 'bg-yellow-400',  badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',interval: '7 ngày'    },
-  { label: 'Stage 4',            bar: 'bg-indigo-400',  badge: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',interval: '14 ngày'   },
-  { label: 'Stage 5',            bar: 'bg-sky-400',     badge: 'bg-sky-500/10 text-sky-400 border-sky-400/20',         interval: '30 ngày'   },
-  { label: '🏆 Master',          bar: 'bg-emerald-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', interval: '60 ngày'},
+  { label: 'Chưa học',           bar: 'bg-slate-400',   badge: 'bg-slate-500/10 dark:bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20',   interval: '—'         },
+  { label: 'Stage 1',            bar: 'bg-red-400',     badge: 'bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',         interval: '1 ngày'    },
+  { label: 'Stage 2',            bar: 'bg-amber-400',   badge: 'bg-amber-500/10 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',   interval: '3 ngày'    },
+  { label: 'Stage 3',            bar: 'bg-yellow-400',  badge: 'bg-yellow-500/10 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',interval: '7 ngày'    },
+  { label: 'Stage 4',            bar: 'bg-indigo-400',  badge: 'bg-indigo-500/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',interval: '14 ngày'   },
+  { label: 'Stage 5',            bar: 'bg-sky-400',     badge: 'bg-sky-500/10 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-400/20',         interval: '30 ngày'   },
+  { label: '🏆 Master',          bar: 'bg-emerald-400', badge: 'bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', interval: '60 ngày'},
 ];
 
 export default function VocabularyLibraryPage() {
@@ -207,8 +207,8 @@ export default function VocabularyLibraryPage() {
                         onClick={() => handleSpeak(c.word)} 
                         className={`p-1 rounded-full transition-all duration-200 ${
                           speakingWord === c.word 
-                            ? 'bg-sky-500/20 text-sky-400' 
-                            : 'bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground'
+                            ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400' 
+                            : 'bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:bg-white/10 text-muted-foreground hover:text-foreground'
                         }`}
                       >
                         <Volume2 className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -219,7 +219,7 @@ export default function VocabularyLibraryPage() {
                         {cfg.label}
                       </span>
                       {isDue && stage > 0 && (
-                        <span className="text-[10px] text-amber-400 font-semibold">⏰ Cần ôn hôm nay</span>
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">⏰ Cần ôn hôm nay</span>
                       )}
                     </div>
                   </div>
@@ -230,7 +230,7 @@ export default function VocabularyLibraryPage() {
                   {c.synonyms.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {c.synonyms.map(syn => (
-                        <span key={syn} className="px-2 py-0.5 rounded bg-violet-500/5 text-violet-400 text-xs font-semibold border border-violet-500/10">
+                        <span key={syn} className="px-2 py-0.5 rounded bg-violet-500/5 text-violet-600 dark:text-violet-400 text-xs font-semibold border border-violet-500/10">
                           {syn}
                         </span>
                       ))}

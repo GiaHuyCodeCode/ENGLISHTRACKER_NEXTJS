@@ -427,13 +427,13 @@ export default function StudentVocabularyPage() {
 
   const getStageBadge = (stage: number) => {
     switch (stage) {
-      case 0: return { label: 'Chưa học', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20' };
-      case 1: return { label: 'Stage 1 (1 ngày)', color: 'bg-red-500/10 text-red-400 border-red-500/20' };
-      case 2: return { label: 'Stage 2 (3 ngày)', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20' };
-      case 3: return { label: 'Stage 3 (7 ngày)', color: 'bg-violet-500/10 text-violet-400 border-violet-500/20' };
-      case 4: return { label: 'Stage 4 (14 ngày)', color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' };
-      case 5: return { label: 'Stage 5 (30 ngày)', color: 'bg-sky-500/10 text-sky-400 border-sky-400/20' };
-      case 6: return { label: 'Stage 6 (60 ngày - Master)', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' };
+      case 0: return { label: 'Chưa học', color: 'bg-slate-500/10 dark:bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20' };
+      case 1: return { label: 'Stage 1 (1 ngày)', color: 'bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' };
+      case 2: return { label: 'Stage 2 (3 ngày)', color: 'bg-amber-500/10 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' };
+      case 3: return { label: 'Stage 3 (7 ngày)', color: 'bg-violet-500/10 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20' };
+      case 4: return { label: 'Stage 4 (14 ngày)', color: 'bg-indigo-500/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' };
+      case 5: return { label: 'Stage 5 (30 ngày)', color: 'bg-sky-500/10 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-400/20' };
+      case 6: return { label: 'Stage 6 (60 ngày - Master)', color: 'bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' };
       default: return { label: 'Unknown', color: 'bg-secondary' };
     }
   };
@@ -456,14 +456,14 @@ export default function StudentVocabularyPage() {
 
       <div className="fade-in">
         <h1 className="text-3xl font-bold font-heading gradient-text flex items-center gap-2">
-          <BookOpen className="h-7 w-7 text-violet-400" />
+          <BookOpen className="h-7 w-7 text-violet-600 dark:text-violet-400" />
           Spaced Repetition: Học Từ Vựng
         </h1>
         <p className="text-muted-foreground text-sm mt-1">Ôn tập thông minh bằng thẻ ghi nhớ và các thử thách tương tác</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-white/10 gap-6 fade-in">
+      <div className="flex border-b border-black/10 dark:border-white/10 gap-6 fade-in">
         {[
           { id: 'review', label: `Hôm Nay (${reviewQueue.length})`, icon: Calendar },
           { id: 'library', label: `Thư Viện (${cards.length})`, icon: Layers },
@@ -492,7 +492,7 @@ export default function StudentVocabularyPage() {
         <div className="space-y-6">
           {reviewQueue.length === 0 ? (
             <div className="glass rounded-3xl p-12 text-center border border-white/5 space-y-4">
-              <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20">
+              <div className="w-16 h-16 bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20">
                 <Check className="w-8 h-8" />
               </div>
               <h3 className="text-xl font-bold">Bạn Đã Hoàn Thành Ôn Tập!</h3>
@@ -504,11 +504,11 @@ export default function StudentVocabularyPage() {
               </button>
             </div>
           ) : !isReviewingSrs ? (
-            <div className="glass-strong rounded-3xl p-12 text-center border border-white/10 max-w-2xl mx-auto space-y-6 slide-up glow-primary relative overflow-hidden">
+            <div className="glass-strong rounded-3xl p-12 text-center border border-black/10 dark:border-white/10 max-w-2xl mx-auto space-y-6 slide-up glow-primary relative overflow-hidden">
               <div className="absolute inset-0 bg-dot-pattern opacity-30"></div>
               <div className="relative z-10 space-y-6">
                 <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto border border-primary/20">
-                  <Calendar className="w-10 h-10 text-violet-400 animate-pulse" />
+                  <Calendar className="w-10 h-10 text-violet-600 dark:text-violet-400 animate-pulse" />
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-2xl font-bold font-heading">Lịch Ôn Tập Hôm Nay</h3>
@@ -617,7 +617,7 @@ export default function StudentVocabularyPage() {
                       {c.synonyms.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 pt-1">
                           {c.synonyms.map(syn => (
-                            <span key={syn} className="px-2 py-0.5 rounded bg-violet-500/5 text-violet-400 text-xs font-semibold border border-violet-500/10">
+                            <span key={syn} className="px-2 py-0.5 rounded bg-violet-500/5 text-violet-600 dark:text-violet-400 text-xs font-semibold border border-violet-500/10">
                               {syn}
                             </span>
                           ))}
@@ -633,7 +633,7 @@ export default function StudentVocabularyPage() {
 
                     <div className="flex items-center justify-between border-t border-white/5 pt-3 text-xs text-muted-foreground">
                       <span>Lần cuối ôn: {progress ? new Date(progress.lastReviewed).toLocaleDateString('vi-VN') : 'Chưa ôn'}</span>
-                      <button onClick={() => handleDeleteCard(c.id)} className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                      <button onClick={() => handleDeleteCard(c.id)} className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-red-600 dark:text-red-400 hover:bg-red-500/10 dark:bg-red-500/10 transition-colors">
                         <Trash className="w-4 h-4" />
                       </button>
                     </div>
@@ -657,8 +657,8 @@ export default function StudentVocabularyPage() {
                 <div key={lesson.id} className="glass hover-lift p-5 rounded-3xl border border-white/5 flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
-                      <div className="p-3 bg-indigo-500/10 rounded-xl">
-                        <BookOpen className="h-6 w-6 text-indigo-400" />
+                      <div className="p-3 bg-indigo-500/10 dark:bg-indigo-500/10 rounded-xl">
+                        <BookOpen className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
                       </div>
                       <div>
                         <h3 className="text-lg font-bold text-foreground leading-tight">{lesson.title}</h3>

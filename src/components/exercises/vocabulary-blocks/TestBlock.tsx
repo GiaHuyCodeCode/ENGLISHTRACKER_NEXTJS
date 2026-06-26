@@ -202,7 +202,7 @@ export function TestBlock({
 
   return (
     <div className="space-y-6 slide-up w-full max-w-3xl mx-auto">
-      <div className="flex items-center gap-3 text-sm text-amber-400 p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20 shadow-inner">
+      <div className="flex items-center gap-3 text-sm text-amber-600 dark:text-amber-400 p-4 bg-amber-500/10 dark:bg-amber-500/10 rounded-2xl border border-amber-500/20 shadow-inner">
         <FileText className="h-5 w-5 flex-shrink-0" strokeWidth={1.5} />
         <span className="font-medium">Đọc thông tin gợi ý và chọn từ tiếng Anh tương ứng trong 4 đáp án.</span>
       </div>
@@ -231,7 +231,7 @@ export function TestBlock({
                 <span className={`flex-shrink-0 w-8 h-8 rounded-full text-xs font-bold border flex items-center justify-center mt-1 transition-all ${
                   idx === currentActiveIdx 
                     ? 'bg-[#0071e3] text-white border-[#0071e3]' 
-                    : 'bg-white/5 text-muted-foreground border-white/5'
+                    : 'bg-black/5 dark:bg-white/5 text-muted-foreground border-white/5'
                 }`}>
                   {idx + 1}
                 </span>
@@ -252,13 +252,13 @@ export function TestBlock({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {opts.map((opt, oi) => {
-                  let cls = 'border-white/10 bg-white/5 hover:border-primary/50 hover:bg-primary/10 text-foreground';
+                  let cls = 'border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:border-primary/50 hover:bg-primary/10 text-foreground';
                   
                   if (revealed) {
                     if (opt === c.word) {
-                      cls = 'border-emerald-500 bg-emerald-500/20 text-emerald-400 glow-success ring-1 ring-emerald-500/50';
+                      cls = 'border-emerald-500 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 glow-success ring-1 ring-emerald-500/50';
                     } else if (opt === chosen && opt !== c.word) {
-                      cls = 'border-red-500 bg-red-500/20 text-red-400 glow-error ring-1 ring-red-500/50';
+                      cls = 'border-red-500 bg-red-500/20 text-red-600 dark:text-red-400 glow-error ring-1 ring-red-500/50';
                     } else {
                       cls = 'border-white/5 bg-secondary/10 text-muted-foreground/50 opacity-60';
                     }
@@ -278,14 +278,14 @@ export function TestBlock({
                     >
                       <span className="flex items-center gap-2.5">
                         {!revealed && !isSubmitted && (
-                          <span className="w-6 h-6 rounded-lg bg-white/10 text-xs font-extrabold flex items-center justify-center border border-white/5 text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary group-hover:border-primary/30 transition-colors">
+                          <span className="w-6 h-6 rounded-lg bg-black/10 dark:bg-white/10 text-xs font-extrabold flex items-center justify-center border border-white/5 text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary group-hover:border-primary/30 transition-colors">
                             {['A', 'B', 'C', 'D'][oi]}
                           </span>
                         )}
                         <span>{opt}</span>
                       </span>
-                      {revealed && opt === c.word && <CheckCircle2 className="h-5 w-5 text-emerald-400" strokeWidth={1.5} />}
-                      {revealed && opt === chosen && opt !== c.word && <XCircle className="h-5 w-5 text-red-400" strokeWidth={1.5} />}
+                      {revealed && opt === c.word && <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />}
+                      {revealed && opt === chosen && opt !== c.word && <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" strokeWidth={1.5} />}
                     </button>
                   );
                 })}
@@ -294,18 +294,18 @@ export function TestBlock({
               {revealed && (
                 <div className="slide-up space-y-3 pt-4 border-t border-white/5">
                   <div className="flex flex-wrap gap-4 text-sm">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
                       <span className="text-muted-foreground">Lựa chọn của bạn:</span> 
-                      <span className={`font-bold ${chosen === c.word ? 'text-emerald-400' : 'text-red-400 line-through'}`}>
+                      <span className={`font-bold ${chosen === c.word ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400 line-through'}`}>
                         {chosen || 'Chưa chọn'}
                       </span>
                     </div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                      <span className="text-emerald-400 font-medium">Đáp án đúng:</span> 
-                      <span className="font-bold text-emerald-300">{c.word}</span>
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">Đáp án đúng:</span> 
+                      <span className="font-bold text-emerald-700 dark:text-emerald-300">{c.word}</span>
                     </div>
                   </div>
-                  <div className="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2 text-xs text-muted-foreground">
+                  <div className="bg-black/5 dark:bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2 text-xs text-muted-foreground">
                     <div>
                       <span className="font-semibold text-foreground">💡 Nghĩa của từ: </span>
                       {c.meaning}

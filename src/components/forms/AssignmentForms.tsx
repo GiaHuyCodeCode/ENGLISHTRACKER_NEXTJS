@@ -75,8 +75,8 @@ export function VocabForm({ onSave, isSaving, initialData }: {
     <div className="space-y-5">
 
       {/* JSON Template Alert */}
-      <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20 text-sm">
-        <div className="flex items-center gap-2 font-semibold text-violet-400 mb-2">
+      <div className="p-4 rounded-xl bg-violet-500/10 dark:bg-violet-500/10 border border-violet-500/20 text-sm">
+        <div className="flex items-center gap-2 font-semibold text-violet-600 dark:text-violet-400 mb-2">
           <FileJson className="h-4 w-4" /> Định dạng JSON mẫu (Copy & Sửa):
         </div>
         <pre className="text-xs text-muted-foreground bg-black/30 p-3 rounded-lg overflow-x-auto font-mono">
@@ -99,18 +99,18 @@ export function VocabForm({ onSave, isSaving, initialData }: {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 dark:bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           {error}
         </div>
       )}
 
       {parsedData && (
-        <div className="space-y-4 p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
+        <div className="space-y-4 p-4 rounded-xl bg-violet-500/10 dark:bg-violet-500/10 border border-violet-500/20">
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">Tiêu đề bài học</label>
             <input
-              className="input-field text-sm w-full font-bold text-violet-400"
+              className="input-field text-sm w-full font-bold text-violet-600 dark:text-violet-400"
               value={parsedData.title}
               onChange={e => setParsedData(p => p ? { ...p, title: e.target.value } : null)}
             />
@@ -132,13 +132,13 @@ export function VocabForm({ onSave, isSaving, initialData }: {
                 <div key={i} className="flex flex-col gap-1 p-2 rounded-lg bg-black/20 border border-white/5 relative group">
                   <button
                     onClick={() => setParsedData(p => p ? { ...p, keywords: p.keywords.filter((_, idx) => idx !== i) } : null)}
-                    className="absolute top-1 right-1 p-1 text-muted-foreground hover:text-red-400 rounded opacity-0 group-hover:opacity-100 transition-all z-10"
+                    className="absolute top-1 right-1 p-1 text-muted-foreground hover:text-red-600 dark:text-red-400 rounded opacity-0 group-hover:opacity-100 transition-all z-10"
                     title="Xóa"
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
                   <input
-                    className="bg-transparent border-b border-white/10 focus:border-violet-400 outline-none w-full text-sm font-semibold pb-1 pr-6"
+                    className="bg-transparent border-b border-black/10 dark:border-white/10 focus:border-violet-400 outline-none w-full text-sm font-semibold pb-1 pr-6"
                     value={k.word}
                     placeholder="Từ tiếng Anh"
                     onChange={e => {
@@ -251,8 +251,8 @@ export function QuizForm({ onSave, isSaving, initialData }: {
   return (
     <div className="space-y-5">
       {/* JSON Template Alert */}
-      <div className="p-4 rounded-xl bg-teal-500/10 border border-teal-500/20 text-sm">
-        <div className="flex items-center gap-2 font-semibold text-teal-400 mb-2">
+      <div className="p-4 rounded-xl bg-teal-500/10 dark:bg-teal-500/10 border border-teal-500/20 text-sm">
+        <div className="flex items-center gap-2 font-semibold text-teal-600 dark:text-teal-400 mb-2">
           <FileJson className="h-4 w-4" /> Định dạng JSON mẫu (Copy & Sửa):
         </div>
         <pre className="text-xs text-muted-foreground bg-black/30 p-3 rounded-lg overflow-x-auto font-mono">
@@ -277,14 +277,14 @@ export function QuizForm({ onSave, isSaving, initialData }: {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 dark:bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
         </div>
       )}
 
       {questions && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 text-teal-400 text-sm font-medium px-2">
+          <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400 text-sm font-medium px-2">
             <CheckCircle2 className="h-4 w-4" />
             Preview: {questions.length} câu hỏi (Có thể chỉnh sửa trực tiếp)
           </div>
@@ -293,7 +293,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
               <div key={i} className="p-4 rounded-xl bg-teal-500/5 border border-teal-500/20 space-y-3 relative group">
                 <button
                   onClick={() => setQuestions(qs => qs!.filter((_, idx) => idx !== i))}
-                  className="absolute top-3 right-3 p-1.5 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                  className="absolute top-3 right-3 p-1.5 text-muted-foreground hover:text-red-600 dark:text-red-400 hover:bg-red-500/10 dark:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
                   title="Xóa câu hỏi này"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -336,7 +336,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">Đáp án đúng (A/B/C/D)</label>
                     <input
-                      className="input-field w-full text-xs py-1.5 font-bold text-teal-400 uppercase"
+                      className="input-field w-full text-xs py-1.5 font-bold text-teal-600 dark:text-teal-400 uppercase"
                       value={q.answer}
                       maxLength={1}
                       onChange={e => {
@@ -361,7 +361,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                     />
                   </div>
                   <div className="space-y-1 sm:col-span-3">
-                    <label className="text-xs text-amber-400 flex items-center gap-1">💡 Gợi ý (hint) — hiện trước khi chọn đáp án</label>
+                    <label className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">💡 Gợi ý (hint) — hiện trước khi chọn đáp án</label>
                     <textarea
                       className="input-field w-full text-xs py-1.5 resize-y border-amber-500/30 focus:border-amber-400"
                       rows={1}
@@ -375,7 +375,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                     />
                   </div>
                   <div className="space-y-1 sm:col-span-3">
-                    <label className="text-xs text-teal-400 flex items-center gap-1">📝 Giải thích (explanation) — hiện sau khi chọn đáp án</label>
+                    <label className="text-xs text-teal-600 dark:text-teal-400 flex items-center gap-1">📝 Giải thích (explanation) — hiện sau khi chọn đáp án</label>
                     <textarea
                       className="input-field w-full text-xs py-1.5 resize-y"
                       rows={2}
@@ -389,7 +389,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
                     />
                   </div>
                   <div className="space-y-1 sm:col-span-3">
-                    <label className="text-xs text-blue-400 flex items-center gap-1">🇻🇳 Dịch câu hỏi (hiện sau khi chọn đáp án)</label>
+                    <label className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">🇻🇳 Dịch câu hỏi (hiện sau khi chọn đáp án)</label>
                     <textarea
                       className="input-field w-full text-xs py-1.5 resize-y border-blue-500/30 focus:border-blue-400"
                       rows={1}
@@ -475,7 +475,7 @@ export function RewriteVocabForm({ onSave, isSaving, initialData }: {
                 onChange={e => setKeywords(prev => prev.map((kk, ii) => ii === i ? { word: e.target.value } : kk))}
                 className="input-field" placeholder="Ví dụ: wake up" />
               <button onClick={() => setKeywords(prev => prev.filter((_, ii) => ii !== i))}
-                className="p-2 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-all flex-shrink-0">
+                className="p-2 rounded-lg text-muted-foreground hover:text-red-600 dark:text-red-400 hover:bg-red-500/10 dark:bg-red-500/10 transition-all flex-shrink-0">
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
@@ -488,7 +488,7 @@ export function RewriteVocabForm({ onSave, isSaving, initialData }: {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 dark:bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           {error}
         </div>
@@ -598,8 +598,8 @@ export function DictationForm({ onSave, isSaving, initialData }: {
   return (
     <div className="space-y-6">
       {/* Guide */}
-      <div className="p-4 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sm">
-        <div className="flex items-center gap-2 font-semibold text-sky-400 mb-2">
+      <div className="p-4 rounded-xl bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20 text-sm">
+        <div className="flex items-center gap-2 font-semibold text-sky-600 dark:text-sky-400 mb-2">
           <Headphones className="h-4 w-4" /> Tạo bài Dictation từ file JSON
         </div>
         <ol className="list-decimal list-inside text-xs text-muted-foreground space-y-1">
@@ -612,7 +612,7 @@ export function DictationForm({ onSave, isSaving, initialData }: {
       {/* JSON sample */}
       <div className="p-4 rounded-xl bg-secondary/30 border border-white/5">
         <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Định dạng JSON mẫu</p>
-        <pre className="text-xs text-emerald-400 font-mono bg-black/30 p-3 rounded-lg overflow-x-auto">{jsonSample}</pre>
+        <pre className="text-xs text-emerald-600 dark:text-emerald-400 font-mono bg-black/30 p-3 rounded-lg overflow-x-auto">{jsonSample}</pre>
       </div>
 
       {/* Title */}
@@ -663,9 +663,9 @@ export function DictationForm({ onSave, isSaving, initialData }: {
           {sentences.map((s, idx) => (
             <div key={idx} className="glass rounded-2xl border border-white/5 p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-sky-400 uppercase">Câu {idx + 1}</span>
+                <span className="text-xs font-bold text-sky-600 dark:text-sky-400 uppercase">Câu {idx + 1}</span>
                 {sentences.length > 1 && (
-                  <button onClick={() => removeSentence(idx)} className="p-1 text-muted-foreground/40 hover:text-red-400 transition-colors">
+                  <button onClick={() => removeSentence(idx)} className="p-1 text-muted-foreground/40 hover:text-red-600 dark:text-red-400 transition-colors">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 )}
@@ -710,13 +710,13 @@ export function DictationForm({ onSave, isSaving, initialData }: {
             </div>
           ))}
         </div>
-        <button onClick={addSentence} className="flex items-center gap-2 text-sm text-sky-400 hover:text-sky-300 transition-colors">
+        <button onClick={addSentence} className="flex items-center gap-2 text-sm text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:text-sky-300 transition-colors">
           <Plus className="h-4 w-4" /> Thêm câu
         </button>
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 dark:bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
         </div>
       )}
@@ -731,7 +731,7 @@ export function DictationForm({ onSave, isSaving, initialData }: {
           className="mt-1 w-4 h-4 rounded border-amber-500/30 bg-background text-amber-500 focus:ring-amber-500/30"
         />
         <label htmlFor="fallbackTTS" className="text-sm cursor-pointer select-none">
-          <span className="font-semibold text-amber-400 block mb-0.5">Dùng Giọng đọc mặc định (TTS) nếu thiếu Giây bắt đầu</span>
+          <span className="font-semibold text-amber-600 dark:text-amber-400 block mb-0.5">Dùng Giọng đọc mặc định (TTS) nếu thiếu Giây bắt đầu</span>
           <span className="text-muted-foreground text-xs">Nếu đánh dấu, các câu có startTime = 0 sẽ tự động sử dụng Giọng đọc AI thay vì phát toàn bộ file Audio chung.</span>
         </label>
       </div>
@@ -746,7 +746,7 @@ export function DictationForm({ onSave, isSaving, initialData }: {
           className="mt-1 w-4 h-4 rounded border-emerald-500/30 bg-background text-emerald-500 focus:ring-emerald-500/30"
         />
         <label htmlFor="createShadowing" className="text-sm cursor-pointer select-none">
-          <span className="font-semibold text-emerald-400 block mb-0.5">Tạo kèm bài Shadowing</span>
+          <span className="font-semibold text-emerald-600 dark:text-emerald-400 block mb-0.5">Tạo kèm bài Shadowing</span>
           <span className="text-muted-foreground text-xs">Hệ thống sẽ tự động tạo thêm một bài tập Shadowing độc lập sử dụng chung danh sách câu này để học viên luyện nói.</span>
         </label>
       </div>
@@ -830,8 +830,8 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
   return (
     <div className="space-y-6">
       {/* Guide & Template */}
-      <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20 text-sm space-y-3">
-        <div className="flex items-center gap-2 font-semibold text-violet-400">
+      <div className="p-4 rounded-xl bg-violet-500/10 dark:bg-violet-500/10 border border-violet-500/20 text-sm space-y-3">
+        <div className="flex items-center gap-2 font-semibold text-violet-600 dark:text-violet-400">
           <FileJson className="h-4 w-4" /> Định dạng JSON mẫu (Mảng các từ vựng):
         </div>
         <pre className="text-xs text-muted-foreground bg-black/30 p-3 rounded-lg overflow-x-auto font-mono">
@@ -843,7 +843,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
             navigator.clipboard.writeText(jsonTemplate);
             alert('Đã copy cấu trúc JSON mẫu!');
           }}
-          className="text-xs text-violet-400 hover:text-violet-300 font-semibold underline"
+          className="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:text-violet-300 font-semibold underline"
         >
           Copy JSON Mẫu
         </button>
@@ -863,7 +863,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
         placeholder="Dán JSON từ vựng vào đây..." />
 
       {error && (
-        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 dark:bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
         </div>
       )}
@@ -871,7 +871,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
       {/* Preview table */}
       {vocabCards && vocabCards.length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-violet-400 text-sm font-semibold">
+          <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400 text-sm font-semibold">
             <CheckCircle2 className="h-4 w-4" />
             Bảng xem trước ({vocabCards.length} từ vựng)
           </div>
@@ -890,10 +890,10 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
               </thead>
               <tbody className="divide-y divide-white/5 bg-secondary/10">
                 {vocabCards.map((c, idx) => (
-                  <tr key={idx} className="hover:bg-white/5 transition-colors">
+                  <tr key={idx} className="hover:bg-black/5 dark:bg-white/5 transition-colors">
                     <td className="p-3 font-bold text-foreground text-sm">
                       <input
-                        className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1"
+                        className="bg-transparent border-b border-black/10 dark:border-white/10 focus:border-primary outline-none w-full pb-1"
                         value={c.word}
                         onChange={(e) => {
                           const newCards = [...vocabCards];
@@ -904,7 +904,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                     </td>
                     <td className="p-3 font-mono text-primary flex items-center gap-1.5">
                       <input
-                        className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1"
+                        className="bg-transparent border-b border-black/10 dark:border-white/10 focus:border-primary outline-none w-full pb-1"
                         value={c.phonetic || ''}
                         onChange={(e) => {
                           const newCards = [...vocabCards];
@@ -924,7 +924,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                     </td>
                     <td className="p-3">
                       <input
-                        className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1 text-[11px]"
+                        className="bg-transparent border-b border-black/10 dark:border-white/10 focus:border-primary outline-none w-full pb-1 text-[11px]"
                         value={c.synonyms.join(', ')}
                         onChange={(e) => {
                           const newCards = [...vocabCards];
@@ -936,7 +936,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                     </td>
                     <td className="p-3 text-muted-foreground">
                       <input
-                        className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1 text-xs"
+                        className="bg-transparent border-b border-black/10 dark:border-white/10 focus:border-primary outline-none w-full pb-1 text-xs"
                         value={c.meaning}
                         onChange={(e) => {
                           const newCards = [...vocabCards];
@@ -947,7 +947,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                     </td>
                     <td className="p-3 italic text-muted-foreground">
                       <textarea
-                        className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full text-xs resize-y"
+                        className="bg-transparent border-b border-black/10 dark:border-white/10 focus:border-primary outline-none w-full text-xs resize-y"
                         rows={1}
                         value={c.example || ''}
                         onChange={(e) => {
@@ -960,7 +960,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                     </td>
                     <td className="p-3">
                       <input
-                        className="bg-transparent border-b border-white/10 focus:border-primary outline-none w-full pb-1 text-[11px]"
+                        className="bg-transparent border-b border-black/10 dark:border-white/10 focus:border-primary outline-none w-full pb-1 text-[11px]"
                         value={c.audioUrl || ''}
                         onChange={(e) => {
                           const newCards = [...vocabCards];
@@ -974,7 +974,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
                       <button
                         type="button"
                         onClick={() => handleDeleteCard(idx)}
-                        className="p-1 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded transition-all"
+                        className="p-1 text-muted-foreground hover:text-red-600 dark:text-red-400 hover:bg-red-500/10 dark:bg-red-500/10 rounded transition-all"
                         title="Xóa từ này"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -1082,8 +1082,8 @@ export function ShadowingForm({ onSave, isSaving, initialData }: {
   return (
     <div className="space-y-6">
       {/* Guide */}
-      <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-sm">
-        <div className="flex items-center gap-2 font-semibold text-emerald-400 mb-2">
+      <div className="p-4 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20 text-sm">
+        <div className="flex items-center gap-2 font-semibold text-emerald-600 dark:text-emerald-400 mb-2">
           <Mic className="h-4 w-4" /> Tạo bài Shadowing — Luyện Nói
         </div>
         <ol className="list-decimal list-inside text-xs text-muted-foreground space-y-1">
@@ -1096,7 +1096,7 @@ export function ShadowingForm({ onSave, isSaving, initialData }: {
       {/* JSON sample */}
       <div className="p-4 rounded-xl bg-secondary/30 border border-white/5">
         <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Định dạng JSON mẫu</p>
-        <pre className="text-xs text-emerald-400 font-mono bg-black/30 p-3 rounded-lg overflow-x-auto">{jsonSample}</pre>
+        <pre className="text-xs text-emerald-600 dark:text-emerald-400 font-mono bg-black/30 p-3 rounded-lg overflow-x-auto">{jsonSample}</pre>
       </div>
 
       {/* Title */}
@@ -1132,19 +1132,19 @@ export function ShadowingForm({ onSave, isSaving, initialData }: {
           {sentences.map((s, idx) => (
             <div key={idx} className="glass rounded-2xl border border-white/5 p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-400 uppercase">Câu {idx + 1}</span>
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase">Câu {idx + 1}</span>
                 <div className="flex items-center gap-2">
                   {s.text.trim() && (
                     <button
                       onClick={() => handleSpeak(s.text)}
-                      className="p-1 text-muted-foreground/50 hover:text-emerald-400 transition-colors"
+                      className="p-1 text-muted-foreground/50 hover:text-emerald-600 dark:text-emerald-400 transition-colors"
                       title="Nghe thử"
                     >
                       <Volume2 className="h-3.5 w-3.5" />
                     </button>
                   )}
                   {sentences.length > 1 && (
-                    <button onClick={() => removeSentence(idx)} className="p-1 text-muted-foreground/40 hover:text-red-400 transition-colors">
+                    <button onClick={() => removeSentence(idx)} className="p-1 text-muted-foreground/40 hover:text-red-600 dark:text-red-400 transition-colors">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   )}
@@ -1182,13 +1182,13 @@ export function ShadowingForm({ onSave, isSaving, initialData }: {
             </div>
           ))}
         </div>
-        <button onClick={addSentence} className="flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 transition-colors">
+        <button onClick={addSentence} className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:text-emerald-300 transition-colors">
           <Plus className="h-4 w-4" /> Thêm câu
         </button>
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 dark:bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
         </div>
       )}
@@ -1230,7 +1230,7 @@ function VocabLibrarySidebar_REMOVED() {
   return (
     <div className="glass rounded-2xl border border-border p-5 space-y-4 h-[600px] flex flex-col">
       <div>
-        <h3 className="font-bold text-sm flex items-center gap-1.5 text-violet-400">
+        <h3 className="font-bold text-sm flex items-center gap-1.5 text-violet-600 dark:text-violet-400">
           <BookOpen className="h-4 w-4" />
           Thư Viện Từ Đang Học
         </h3>
@@ -1272,7 +1272,7 @@ function VocabLibrarySidebar_REMOVED() {
               </div>
               <p className="text-muted-foreground line-clamp-1">{c.meaning}</p>
               {c.synonyms.length > 0 && (
-                <p className="text-violet-300/80 font-mono text-[10px] truncate">
+                <p className="text-violet-700 dark:text-violet-300/80 font-mono text-[10px] truncate">
                   Syn: {c.synonyms.join(', ')}
                 </p>
               )}

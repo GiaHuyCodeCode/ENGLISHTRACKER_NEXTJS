@@ -24,15 +24,15 @@ function ResultScreen({
   const masteredCount = results.filter(r => r.accuracy >= 80).length;
 
   const grade =
-    overallScore >= 90 ? { label: 'Xuất Sắc', color: 'text-emerald-400', icon: '🏆' } :
-    overallScore >= 75 ? { label: 'Giỏi', color: 'text-sky-400', icon: '⭐' } :
-    overallScore >= 55 ? { label: 'Khá', color: 'text-amber-400', icon: '📚' } :
-    { label: 'Cần Cố Gắng', color: 'text-red-400', icon: '💪' };
+    overallScore >= 90 ? { label: 'Xuất Sắc', color: 'text-emerald-600 dark:text-emerald-400', icon: '🏆' } :
+    overallScore >= 75 ? { label: 'Giỏi', color: 'text-sky-600 dark:text-sky-400', icon: '⭐' } :
+    overallScore >= 55 ? { label: 'Khá', color: 'text-amber-600 dark:text-amber-400', icon: '📚' } :
+    { label: 'Cần Cố Gắng', color: 'text-red-600 dark:text-red-400', icon: '💪' };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 fade-in">
       {/* Score card */}
-      <div className="glass-strong rounded-3xl border border-white/10 p-8 text-center relative overflow-hidden">
+      <div className="glass-strong rounded-3xl border border-black/10 dark:border-white/10 p-8 text-center relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-sky-500/5" />
         <div className="relative space-y-3">
           <div className="text-5xl">{grade.icon}</div>
@@ -51,7 +51,7 @@ function ResultScreen({
       <div className="grid grid-cols-2 gap-4">
         <div className="glass rounded-2xl border border-white/5 p-5 text-center">
           <p className="text-xs text-muted-foreground uppercase font-bold mb-1">Đạt Chuẩn ≥80%</p>
-          <p className="text-3xl font-extrabold text-emerald-400">{masteredCount}<span className="text-muted-foreground text-lg font-normal">/{sentences.length}</span></p>
+          <p className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">{masteredCount}<span className="text-muted-foreground text-lg font-normal">/{sentences.length}</span></p>
         </div>
         <div className="glass rounded-2xl border border-white/5 p-5 text-center">
           <p className="text-xs text-muted-foreground uppercase font-bold mb-1">Tổng Câu</p>
@@ -62,7 +62,7 @@ function ResultScreen({
       {/* Per-sentence breakdown */}
       <div className="glass-strong rounded-3xl border border-white/5 p-5 space-y-3">
         <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-          <Star className="w-4 h-4 text-amber-400" /> Chi Tiết Từng Câu
+          <Star className="w-4 h-4 text-amber-600 dark:text-amber-400" /> Chi Tiết Từng Câu
         </h3>
         <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
           {sentences.map((s, i) => {
@@ -77,7 +77,7 @@ function ResultScreen({
                             'bg-red-500/5 border-red-500/20'
               }`}>
                 <span className={`shrink-0 font-bold text-xs mt-0.5 ${
-                  isCorrect ? 'text-emerald-400' : isClose ? 'text-amber-400' : 'text-red-400'
+                  isCorrect ? 'text-emerald-600 dark:text-emerald-400' : isClose ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
                 }`}>
                   C{i + 1}
                 </span>
@@ -90,9 +90,9 @@ function ResultScreen({
                   )}
                 </div>
                 <span className={`shrink-0 text-xs font-extrabold px-2 py-0.5 rounded-full ${
-                  isCorrect ? 'bg-emerald-500/20 text-emerald-300' :
-                  isClose   ? 'bg-amber-500/20 text-amber-300' :
-                              'bg-red-500/20 text-red-300'
+                  isCorrect ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' :
+                  isClose   ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300' :
+                              'bg-red-500/20 text-red-700 dark:text-red-300'
                 }`}>
                   {acc}%
                 </span>
@@ -200,12 +200,12 @@ export default function ShadowingExercisePage() {
       {/* Header */}
       <div className="glass rounded-3xl border border-emerald-500/20 p-5">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-            <Mic className="h-6 w-6 text-emerald-400" />
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+            <Mic className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-400 rounded-md">
+              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-md">
                 Shadowing
               </span>
             </div>

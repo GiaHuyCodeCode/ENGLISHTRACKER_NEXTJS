@@ -13,9 +13,9 @@ import {
 } from 'lucide-react';
 
 function ScorePill({ score }: { score: number }) {
-  const cls = score >= 80 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-    : score >= 50 ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-    : 'bg-red-500/15 text-red-400 border-red-500/30';
+  const cls = score >= 80 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+    : score >= 50 ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+    : 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30';
   return (
     <span className={`px-2.5 py-0.5 rounded-full border text-xs font-bold ${cls}`}>{score}/100</span>
   );
@@ -219,9 +219,9 @@ export default function StudentAssignmentsPage() {
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Đã hoàn thành', value: done.length, color: 'text-teal-400', bg: 'border-white/5' },
+          { label: 'Đã hoàn thành', value: done.length, color: 'text-teal-600 dark:text-teal-400', bg: 'border-white/5' },
           { label: 'Điểm Trung Bình', value: myAvgScore !== null ? `${myAvgScore}đ` : '—', color: 'text-[#0071e3]', bg: 'border-white/5' },
-          { label: 'Chờ làm', value: todo.length, color: 'text-amber-400', bg: 'border-white/5' },
+          { label: 'Chờ làm', value: todo.length, color: 'text-amber-600 dark:text-amber-400', bg: 'border-white/5' },
         ].map(({ label, value, color, bg }) => (
           <div key={label} className={`glass rounded-2xl p-5 border ${bg}`}>
             <p className="text-xs text-muted-foreground mb-2">{label}</p>
@@ -234,9 +234,9 @@ export default function StudentAssignmentsPage() {
       {(todo.length > 0) && (
         <section>
           <h2 className="text-lg font-semibold font-heading mb-4 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-amber-400" />
+            <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             Bài Tập Chờ Làm
-            <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 text-xs border border-amber-500/30">
+            <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 text-xs border border-amber-500/30">
               {todo.length}
             </span>
           </h2>
@@ -263,20 +263,20 @@ export default function StudentAssignmentsPage() {
                           a.type === 'shadowing' ? 'bg-emerald-500/15' :
                           'bg-amber-500/15'
                         }`}>
-                          {a.type === 'vocab_context' ? <BookOpen className="h-5 w-5 text-violet-400" /> :
-                           a.type === 'multiple_choice' ? <ListChecks className="h-5 w-5 text-teal-400" /> :
-                           a.type === 'dictation' ? <Headphones className="h-5 w-5 text-sky-400" /> :
-                           a.type === 'vocabulary' ? <FileJson className="h-5 w-5 text-indigo-400" /> :
-                           a.type === 'shadowing' ? <Mic className="h-5 w-5 text-emerald-400" /> :
-                           <PenTool className="h-5 w-5 text-amber-400" />}
+                          {a.type === 'vocab_context' ? <BookOpen className="h-5 w-5 text-violet-600 dark:text-violet-400" /> :
+                           a.type === 'multiple_choice' ? <ListChecks className="h-5 w-5 text-teal-600 dark:text-teal-400" /> :
+                           a.type === 'dictation' ? <Headphones className="h-5 w-5 text-sky-600 dark:text-sky-400" /> :
+                           a.type === 'vocabulary' ? <FileJson className="h-5 w-5 text-indigo-600 dark:text-indigo-400" /> :
+                           a.type === 'shadowing' ? <Mic className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /> :
+                           <PenTool className="h-5 w-5 text-amber-600 dark:text-amber-400" />}
                         </div>
                         <span className={`text-[11px] px-2 py-1 rounded-lg font-semibold ${
-                          a.type === 'vocab_context' ? 'bg-violet-500/10 text-violet-400' :
-                          a.type === 'multiple_choice' ? 'bg-teal-500/10 text-teal-400' :
-                          a.type === 'dictation' ? 'bg-sky-500/10 text-sky-400' :
-                          a.type === 'vocabulary' ? 'bg-indigo-500/10 text-indigo-400' :
-                          a.type === 'shadowing' ? 'bg-emerald-500/10 text-emerald-400' :
-                          'bg-amber-500/10 text-amber-400'
+                          a.type === 'vocab_context' ? 'bg-violet-500/10 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400' :
+                          a.type === 'multiple_choice' ? 'bg-teal-500/10 dark:bg-teal-500/10 text-teal-600 dark:text-teal-400' :
+                          a.type === 'dictation' ? 'bg-sky-500/10 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400' :
+                          a.type === 'vocabulary' ? 'bg-indigo-500/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' :
+                          a.type === 'shadowing' ? 'bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
+                          'bg-amber-500/10 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
                         }`}>
                           {a.type === 'vocab_context' ? 'Vocab' :
                            a.type === 'multiple_choice' ? 'Quiz' :
@@ -286,7 +286,7 @@ export default function StudentAssignmentsPage() {
                         </span>
                       </div>
                       <h3 className={`font-semibold text-sm leading-snug mb-2 transition-colors ${
-                        isShadowing ? 'group-hover:text-emerald-400' : 'group-hover:text-primary'
+                        isShadowing ? 'group-hover:text-emerald-600 dark:text-emerald-400' : 'group-hover:text-primary'
                       }`}>{a.title}</h3>
                       <p className="text-xs text-muted-foreground mb-4">
                         {a.type === 'vocab_context' ? `${a.keywords?.length || 0} từ khóa` :
@@ -299,7 +299,7 @@ export default function StudentAssignmentsPage() {
                       </p>
                     </div>
                     <div className={`flex items-center gap-1.5 text-sm font-medium group-hover:gap-2.5 transition-all ${
-                      isShadowing ? 'text-emerald-400' : 'text-primary'
+                      isShadowing ? 'text-emerald-600 dark:text-emerald-400' : 'text-primary'
                     }`}>
                       Bắt đầu <ChevronRight className="h-4 w-4" />
                     </div>
@@ -316,7 +316,7 @@ export default function StudentAssignmentsPage() {
       {(done.length > 0) && (
         <section>
           <h2 className="text-lg font-semibold font-heading mb-4 flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             Đã Hoàn Thành
           </h2>
           <div className="glass rounded-2xl border border-white/5 overflow-hidden">
@@ -329,28 +329,28 @@ export default function StudentAssignmentsPage() {
                   : sub ? `/student/review/${sub.id}`
                   : `/student/assignments/${a.id}`;
                 return (
-                  <Link key={a.id} href={href} className="flex items-center gap-4 px-6 py-4 hover:bg-white/5 transition-colors cursor-pointer group">
+                  <Link key={a.id} href={href} className="flex items-center gap-4 px-6 py-4 hover:bg-black/5 dark:bg-white/5 transition-colors cursor-pointer group">
                     <div className={`p-2 rounded-lg ${
-                      a.type === 'vocab_context' ? 'bg-violet-500/10' :
-                      a.type === 'multiple_choice' ? 'bg-teal-500/10' :
-                      a.type === 'dictation' ? 'bg-sky-500/10' :
-                      a.type === 'vocabulary' ? 'bg-indigo-500/10' :
-                      a.type === 'shadowing' ? 'bg-emerald-500/10' :
-                      'bg-amber-500/10'
+                      a.type === 'vocab_context' ? 'bg-violet-500/10 dark:bg-violet-500/10' :
+                      a.type === 'multiple_choice' ? 'bg-teal-500/10 dark:bg-teal-500/10' :
+                      a.type === 'dictation' ? 'bg-sky-500/10 dark:bg-sky-500/10' :
+                      a.type === 'vocabulary' ? 'bg-indigo-500/10 dark:bg-indigo-500/10' :
+                      a.type === 'shadowing' ? 'bg-emerald-500/10 dark:bg-emerald-500/10' :
+                      'bg-amber-500/10 dark:bg-amber-500/10'
                     }`}>
-                      {a.type === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-400" /> :
-                       a.type === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-400" /> :
-                       a.type === 'dictation' ? <Headphones className="h-4 w-4 text-sky-400" /> :
-                       a.type === 'vocabulary' ? <FileJson className="h-4 w-4 text-indigo-400" /> :
-                       a.type === 'shadowing' ? <Mic className="h-4 w-4 text-emerald-400" /> :
-                       <PenTool className="h-4 w-4 text-amber-400" />}
+                      {a.type === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-600 dark:text-violet-400" /> :
+                       a.type === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-600 dark:text-teal-400" /> :
+                       a.type === 'dictation' ? <Headphones className="h-4 w-4 text-sky-600 dark:text-sky-400" /> :
+                       a.type === 'vocabulary' ? <FileJson className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> :
+                       a.type === 'shadowing' ? <Mic className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> :
+                       <PenTool className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate transition-colors ${isShadowing ? 'group-hover:text-emerald-400' : 'group-hover:text-primary'}`}>{a.title}</p>
+                      <p className={`text-sm font-medium truncate transition-colors ${isShadowing ? 'group-hover:text-emerald-600 dark:text-emerald-400' : 'group-hover:text-primary'}`}>{a.title}</p>
                       <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
                         <span>{new Date(sub.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                         {sub.durationMs ? (
-                          <span className={`text-[10px] font-medium flex items-center gap-1 ${isShadowing ? 'text-emerald-400' : 'text-sky-400'}`}>
+                          <span className={`text-[10px] font-medium flex items-center gap-1 ${isShadowing ? 'text-emerald-600 dark:text-emerald-400' : 'text-sky-600 dark:text-sky-400'}`}>
                             • <Clock className="w-3 h-3" /> {formatDuration(sub.durationMs)}
                           </span>
                         ) : null}
@@ -358,7 +358,7 @@ export default function StudentAssignmentsPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <ScorePill score={sub.score} />
-                      <ChevronRight className={`h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-all ${isShadowing ? 'group-hover:text-emerald-400' : 'group-hover:text-primary'}`} />
+                      <ChevronRight className={`h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-all ${isShadowing ? 'group-hover:text-emerald-600 dark:text-emerald-400' : 'group-hover:text-primary'}`} />
                     </div>
                   </Link>
                 );

@@ -40,7 +40,7 @@ export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting
   const getResultIcon = (word: string) => {
     if (!result) return null;
     const isFound = Array.isArray(result.foundKeywords) && result.foundKeywords.includes(word);
-    return isFound ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <XCircle className="h-4 w-4 text-red-400" />;
+    return isFound ? <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> : <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />;
   };
 
   const formatDuration = (ms?: number) => {
@@ -56,9 +56,9 @@ export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting
   return (
     <div className="space-y-6">
       {/* Instruction */}
-      <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-        <Lightbulb className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
-        <p className="text-sm text-amber-300">
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/20">
+        <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+        <p className="text-sm text-amber-700 dark:text-amber-300">
           <strong>Hướng dẫn:</strong> {passage}
         </p>
       </div>
@@ -79,9 +79,9 @@ export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting
             return (
               <span key={i} id={`rw-keyword-${k.word.toLowerCase()}`} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
                 isUsed 
-                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' 
+                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/40' 
                   : isMissing
-                    ? 'bg-red-500/20 text-red-400 border-red-500/40'
+                    ? 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/40'
                     : 'bg-secondary text-muted-foreground border-border'
               }`}>
                 {isSubmitted && getResultIcon(k.word)}
@@ -118,7 +118,7 @@ export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting
           'border-red-500/40 bg-red-500/8 glow-error'
         }`}>
           <div className={`text-6xl font-bold font-heading ${
-            score >= 80 ? 'text-emerald-400' : score >= 50 ? 'text-amber-400' : 'text-red-400'
+            score >= 80 ? 'text-emerald-600 dark:text-emerald-400' : score >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
           }`}>
             {score}
             <span className="text-2xl text-muted-foreground">/100</span>

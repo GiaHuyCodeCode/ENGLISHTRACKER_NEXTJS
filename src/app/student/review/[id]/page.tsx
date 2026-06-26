@@ -92,7 +92,7 @@ export default function StudentReviewPage() {
   if (!submission || !assignment) {
     return (
       <div className="max-w-md mx-auto mt-20 text-center space-y-4">
-        <div className="w-16 h-16 bg-red-500/10 text-red-400 rounded-full flex items-center justify-center mx-auto border border-red-500/20">
+        <div className="w-16 h-16 bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto border border-red-500/20">
           <HelpCircle className="w-8 h-8" />
         </div>
         <h2 className="text-xl font-bold font-heading">Không tìm thấy bài làm</h2>
@@ -267,9 +267,9 @@ export default function StudentReviewPage() {
         <div className="sticky top-16 z-40 lg:hidden -mx-4 px-4 py-3 bg-black/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between shadow-md">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-muted-foreground">Đối chiếu đáp án:</span>
-            <span className="text-xs font-extrabold text-emerald-400">{correctCount} đúng</span>
+            <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">{correctCount} đúng</span>
             <span className="text-xs text-muted-foreground">/</span>
-            <span className="text-xs font-extrabold text-red-400">{totalCount - correctCount} sai</span>
+            <span className="text-xs font-extrabold text-red-600 dark:text-red-400">{totalCount - correctCount} sai</span>
           </div>
           <button
             onClick={() => setIsMobileMapOpen(true)}
@@ -285,12 +285,12 @@ export default function StudentReviewPage() {
       <div className="flex items-center gap-4">
         <Link
           href="/student"
-          className="p-2 rounded-xl border border-white/5 hover:border-primary/40 hover:bg-white/5 transition-all text-muted-foreground hover:text-foreground flex-shrink-0"
+          className="p-2 rounded-xl border border-white/5 hover:border-primary/40 hover:bg-black/5 dark:bg-white/5 transition-all text-muted-foreground hover:text-foreground flex-shrink-0"
         >
           <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
         </Link>
         <div>
-          <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 font-semibold uppercase tracking-wider">
+          <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider">
             Xem Lại Kết Quả (Đọc duy nhất)
           </span>
           <h1 className="text-xl font-bold font-heading gradient-text mt-1">{assignment.title}</h1>
@@ -298,12 +298,12 @@ export default function StudentReviewPage() {
       </div>
 
       {/* Premium Sticky Status Bar */}
-      <div className="glass-strong rounded-3xl border border-white/10 p-5 md:p-6 shadow-2xl flex items-center justify-between gap-8 backdrop-blur-xl">
+      <div className="glass-strong rounded-3xl border border-black/10 dark:border-white/10 p-5 md:p-6 shadow-2xl flex items-center justify-between gap-8 backdrop-blur-xl">
         <div className="flex items-center gap-4">
           <div className={`w-16 h-16 rounded-2xl flex items-center justify-center font-heading border-2 flex-shrink-0 ${
-            submission.score >= 80 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400 glow-success' :
-            submission.score >= 50 ? 'border-amber-500/40 bg-amber-500/10 text-amber-400' :
-            'border-red-500/40 bg-red-500/10 text-red-400 glow-error'
+            submission.score >= 80 ? 'border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 glow-success' :
+            submission.score >= 50 ? 'border-amber-500/40 bg-amber-500/10 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400' :
+            'border-red-500/40 bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 glow-error'
           }`}>
             <div className="text-center">
               <span className="text-2xl font-black">{submission.score}</span>
@@ -317,17 +317,17 @@ export default function StudentReviewPage() {
               <span className="text-xs text-muted-foreground">{new Date(submission.submittedAt).toLocaleDateString('vi-VN')}</span>
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-sky-400" /> {formatDuration(submission.durationMs)}</span>
+              <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> {formatDuration(submission.durationMs)}</span>
               <span>•</span>
-              <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /> {correctCount}/{totalCount} câu đúng</span>
+              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /> {correctCount}/{totalCount} câu đúng</span>
             </div>
           </div>
         </div>
         <div className="hidden md:block">
           <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-            submission.score >= 80 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-            submission.score >= 50 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-            'bg-red-500/10 text-red-400 border border-red-500/20'
+            submission.score >= 80 ? 'bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
+            submission.score >= 50 ? 'bg-amber-500/10 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20' :
+            'bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
           }`}>
             {submission.score >= 80 ? 'Xuất sắc 🏆' : submission.score >= 50 ? 'Đạt yêu cầu 💪' : 'Cần ôn tập 📚'}
           </span>
@@ -339,10 +339,10 @@ export default function StudentReviewPage() {
         {/* Left Sticky Sidebar: Sơ đồ câu hỏi (Desktop Only) */}
         {questionMap.length > 0 && assignment.type !== 'vocabulary' && (
           <div className="hidden lg:block lg:col-span-1 lg:sticky lg:top-4 z-30 space-y-4 self-start">
-            <div className="glass-strong rounded-3xl border border-white/10 p-5 md:p-6 shadow-xl space-y-4 max-h-[calc(100vh-140px)] overflow-y-auto">
+            <div className="glass-strong rounded-3xl border border-black/10 dark:border-white/10 p-5 md:p-6 shadow-xl space-y-4 max-h-[calc(100vh-140px)] overflow-y-auto">
               <div className="flex justify-between items-center text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
                 <span>Sơ đồ câu hỏi</span>
-                <span className={submission.score >= 80 ? 'text-emerald-400' : submission.score >= 50 ? 'text-amber-400' : 'text-red-400'}>
+                <span className={submission.score >= 80 ? 'text-emerald-600 dark:text-emerald-400' : submission.score >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}>
                   {submission.score >= 80 ? 'Đạt 🏆' : submission.score >= 50 ? 'Khá 💪' : 'Yếu 📚'}
                 </span>
               </div>
@@ -354,8 +354,8 @@ export default function StudentReviewPage() {
                     title={q.title}
                     className={`aspect-square rounded-lg text-xs font-bold flex items-center justify-center border transition-all hover:scale-110 active:scale-95 ${
                       q.isCorrect
-                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30'
-                        : 'bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30 glow-error'
+                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30'
+                        : 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/40 hover:bg-red-500/30 glow-error'
                     }`}
                   >
                     {q.label}
@@ -371,7 +371,7 @@ export default function StudentReviewPage() {
           {/* Teacher feedback panel if available */}
           {submission.feedback && (
             <div className="glass rounded-2xl p-5 border border-amber-500/20 bg-amber-500/5 space-y-2">
-              <p className="text-xs uppercase font-bold tracking-widest text-amber-400 flex items-center gap-1.5">
+              <p className="text-xs uppercase font-bold tracking-widest text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                 <Trophy className="h-4 w-4" /> Nhận xét từ giáo viên
               </p>
               <p className="text-sm text-foreground/90 whitespace-pre-line leading-relaxed pl-1">
@@ -453,7 +453,7 @@ export default function StudentReviewPage() {
         />
         
         {/* Drawer Panel */}
-        <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-all duration-300 ease-out transform ${
+        <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-black/10 dark:border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-all duration-300 ease-out transform ${
           isMobileMapOpen ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-full opacity-0 pointer-events-none'
         }`}>
           <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-5" />
@@ -461,25 +461,25 @@ export default function StudentReviewPage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="font-bold font-heading text-lg flex items-center gap-2">
-                <Star className="h-5 w-5 text-amber-400" /> Sơ đồ câu hỏi đối chiếu
+                <Star className="h-5 w-5 text-amber-600 dark:text-amber-400" /> Sơ đồ câu hỏi đối chiếu
               </h3>
               <button 
                 onClick={() => setIsMobileMapOpen(false)} 
-                className="p-1.5 bg-white/5 border border-white/5 rounded-lg text-muted-foreground hover:text-foreground"
+                className="p-1.5 bg-black/5 dark:bg-white/5 border border-white/5 rounded-lg text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Progress Summary and Circular-style Ring */}
-            <div className="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/5">
+            <div className="flex items-center justify-between bg-black/5 dark:bg-white/5 p-4 rounded-2xl border border-white/5">
               <div>
                 <h4 className="text-xs uppercase font-bold tracking-widest text-muted-foreground font-heading">Kết quả đạt được</h4>
                 <p className="text-xl font-black mt-1 text-white">{submission.score} Điểm</p>
               </div>
               <div className="text-right text-xs space-y-1">
-                <div className="text-emerald-400 font-bold">✓ {correctCount} câu đúng</div>
-                <div className="text-red-400 font-bold">✗ {totalCount - correctCount} câu sai</div>
+                <div className="text-emerald-600 dark:text-emerald-400 font-bold">✓ {correctCount} câu đúng</div>
+                <div className="text-red-600 dark:text-red-400 font-bold">✗ {totalCount - correctCount} câu sai</div>
               </div>
             </div>
 
@@ -497,8 +497,8 @@ export default function StudentReviewPage() {
                     title={q.title}
                     className={`w-10 h-10 mx-auto rounded-xl text-xs font-bold flex items-center justify-center border transition-all active:scale-95 ${
                       q.isCorrect
-                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-                        : 'bg-red-500/20 text-red-400 border-red-500/40'
+                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/40'
+                        : 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/40'
                     }`}
                   >
                     {q.label}

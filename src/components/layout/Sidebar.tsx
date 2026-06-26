@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser, logoutUser, UserSession } from '@/lib/local-store';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    🌸 FLOWER ICON SYSTEM — hand-crafted botanical SVGs
@@ -469,6 +470,9 @@ export function Sidebar() {
                   </p>
                 </div>
               </div>
+
+              {/* Theme toggle */}
+              <ThemeToggle />
 
               <button
                 onClick={() => { logoutUser(); window.location.href = '/login'; }}

@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { AuthGuard } from "@/components/layout/AuthGuard";
+import { MainLayout } from "@/components/layout/MainLayout";
+import { DictionaryPopup } from "@/components/ui/DictionaryPopup";
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -9,74 +12,74 @@ const jakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
-import { AuthGuard } from "@/components/layout/AuthGuard";
-import { MainLayout } from "@/components/layout/MainLayout";
-import { DictionaryPopup } from "@/components/ui/DictionaryPopup";
-
 export const metadata: Metadata = {
   title: "EnglishTracker – Nền Tảng Học Tiếng Anh",
   description: "Hệ thống theo dõi và luyện tập tiếng Anh thông minh",
 };
 
+// No-flash theme script — runs before paint to avoid white flash
+const themeScript = `(function(){try{var t=localStorage.getItem('et_theme')||'dark';var h=document.documentElement;h.classList.remove('dark','light');h.classList.add(t);}catch(e){document.documentElement.classList.add('dark');}})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi" className={`${jakarta.variable} dark antialiased`}>
+      <head>
+        {/* No-flash: inject theme class before first paint */}
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="min-h-screen bg-background text-foreground font-sans flex relative overflow-x-hidden">
 
-        {/* Subtle noise texture — very low opacity, no blur */}
+        {/* Subtle noise texture */}
         <div className="botanical-noise" aria-hidden="true" />
 
-        {/* Petal glow — top right corner only */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            top: 0,
-            right: 0,
-            width: "50vw",
-            height: "50vh",
-            zIndex: -1,
-            pointerEvents: "none",
-            background:
-              "radial-gradient(ellipse 70% 60% at 100% 0%, hsl(340 60% 58% / 0.07) 0%, transparent 70%)",
-          }}
-        />
-        {/* Forest depth — bottom left */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            width: "45vw",
-            height: "45vh",
-            zIndex: -1,
-            pointerEvents: "none",
-            background:
-              "radial-gradient(ellipse 70% 60% at 0% 100%, hsl(150 30% 10% / 0.4) 0%, transparent 70%)",
-          }}
-        />
-        {/* Botanical hero flower — top right decorative */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            top: "-5%",
-            right: "-8%",
-            width: "380px",
-            height: "380px",
-            zIndex: -1,
-            pointerEvents: "none",
-            backgroundImage: "url(/flower-hero.png)",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            opacity: 0.12,
-            borderRadius: "50%",
-            filter: "blur(1px)",
-            maskImage: "radial-gradient(ellipse 80% 80% at 70% 30%, black 0%, transparent 70%)",
-            WebkitMaskImage: "radial-gradient(ellipse 80% 80% at 70% 30%, black 0%, transparent 70%)",
-          }}
-        />
+        {/* ── DARK MODE ambient backgrounds ──────────────────────── */}
+        <div className="dark-only" aria-hidden="true">
+          <div style={{
+            position: "fixed", top: 0, right: 0,
+            width: "50vw", height: "50vh", zIndex: -1, pointerEvents: "none",
+            background: "radial-gradient(ellipse 70% 60% at 100% 0%, hsl(340 60% 58% / 0.15) 0%, transparent 70%)",
+          }} />
+          <div style={{
+            position: "fixed", bottom: 0, left: 0,
+            width: "45vw", height: "45vh", zIndex: -1, pointerEvents: "none",
+            background: "radial-gradient(ellipse 70% 60% at 0% 100%, hsl(150 30% 10% / 0.6) 0%, transparent 70%)",
+          }} />
+          <div style={{
+            position: "fixed", top: 0, right: 0,
+            width: "100vw", height: "100vh", zIndex: -2, pointerEvents: "none",
+            backgroundImage: "url(/flower-hero-premium.png)",
+            backgroundSize: "cover", backgroundPosition: "top right",
+            opacity: 0.15, mixBlendMode: "lighten",
+            maskImage: "radial-gradient(circle at 100% 0%, black 5%, transparent 60%)",
+            WebkitMaskImage: "radial-gradient(circle at 100% 0%, black 5%, transparent 60%)",
+          }} />
+        </div>
+
+        {/* ── LIGHT MODE floral art backgrounds ──────────────────── */}
+        <div className="light-only" aria-hidden="true">
+          {/* Premium botanical illustration */}
+          <div style={{
+            position: "fixed", inset: 0, zIndex: -2, pointerEvents: "none",
+            backgroundImage: "url(/flower-light-premium.png)",
+            backgroundSize: "cover", backgroundPosition: "bottom left",
+            transform: "scaleX(-1)",
+            opacity: 0.25, mixBlendMode: "multiply",
+            maskImage: "radial-gradient(circle at 0% 100%, black 15%, transparent 60%)",
+            WebkitMaskImage: "radial-gradient(circle at 0% 100%, black 15%, transparent 60%)",
+          }} />
+          {/* Peony pink top-right glow */}
+          <div style={{
+            position: "fixed", top: 0, right: 0,
+            width: "55vw", height: "55vh", zIndex: -1, pointerEvents: "none",
+            background: "radial-gradient(ellipse 70% 70% at 100% 0%, hsl(340 70% 80% / 0.15) 0%, transparent 70%)",
+          }} />
+          {/* Golden meadow bottom-left glow */}
+          <div style={{
+            position: "fixed", bottom: 0, left: 0,
+            width: "50vw", height: "50vh", zIndex: -1, pointerEvents: "none",
+            background: "radial-gradient(ellipse 70% 60% at 0% 100%, hsl(47 80% 70% / 0.10) 0%, transparent 70%)",
+          }} />
+        </div>
 
         <AuthGuard>
           <MainLayout>

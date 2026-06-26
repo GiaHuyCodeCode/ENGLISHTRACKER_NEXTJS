@@ -189,11 +189,11 @@ export function DictionaryPopup() {
         
         {/* Top Row: Word & Phonetic & Close */}
         <div className="flex items-center gap-1.5 whitespace-nowrap">
-          <span className="text-sm font-bold text-sky-400 capitalize truncate max-w-[100px]">{selectedWord}</span>
+          <span className="text-sm font-bold text-sky-600 dark:text-sky-400 capitalize truncate max-w-[100px]">{selectedWord}</span>
           
           <button 
             onClick={() => speak(selectedWord)}
-            className="p-1 rounded-full bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 transition-colors shrink-0"
+            className="p-1 rounded-full bg-sky-500/10 dark:bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 transition-colors shrink-0"
           >
             <Volume2 className="w-3.5 h-3.5" />
           </button>
@@ -206,7 +206,7 @@ export function DictionaryPopup() {
 
           <button 
             onClick={() => setIsVisible(false)}
-            className="p-1 rounded-full hover:bg-white/10 text-muted-foreground shrink-0 ml-auto -mr-1"
+            className="p-1 rounded-full hover:bg-black/10 dark:bg-white/10 text-muted-foreground shrink-0 ml-auto -mr-1"
           >
             <X className="w-3 h-3" />
           </button>
@@ -219,7 +219,7 @@ export function DictionaryPopup() {
               <Search className="w-3 h-3 animate-spin" />
             </span>
           ) : localData ? (
-            <span className="text-emerald-400 font-medium line-clamp-2">
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium line-clamp-2">
               {localData.meaning}
             </span>
           ) : translatedText ? (

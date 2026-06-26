@@ -60,15 +60,15 @@ function ResultScreen({
   );
 
   const grade =
-    totalScore >= 90 ? { label: 'Xuất Sắc', color: 'text-emerald-400', icon: '🏆' } :
-    totalScore >= 75 ? { label: 'Giỏi', color: 'text-sky-400', icon: '⭐' } :
-    totalScore >= 55 ? { label: 'Khá', color: 'text-amber-400', icon: '📚' } :
-    { label: 'Cần Cố Gắng', color: 'text-red-400', icon: '💪' };
+    totalScore >= 90 ? { label: 'Xuất Sắc', color: 'text-emerald-600 dark:text-emerald-400', icon: '🏆' } :
+    totalScore >= 75 ? { label: 'Giỏi', color: 'text-sky-600 dark:text-sky-400', icon: '⭐' } :
+    totalScore >= 55 ? { label: 'Khá', color: 'text-amber-600 dark:text-amber-400', icon: '📚' } :
+    { label: 'Cần Cố Gắng', color: 'text-red-600 dark:text-red-400', icon: '💪' };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 fade-in">
       {/* Score Card */}
-      <div className="glass-strong rounded-3xl border border-white/10 p-8 text-center relative overflow-hidden">
+      <div className="glass-strong rounded-3xl border border-black/10 dark:border-white/10 p-8 text-center relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-sky-500/5 to-violet-500/5" />
         <div className="relative">
           <div className="text-5xl mb-3">{grade.icon}</div>
@@ -348,7 +348,7 @@ export default function DictationExercisePage() {
           <div className="sticky top-16 z-40 lg:hidden -mx-4 px-4 py-3 bg-black/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between gap-4 shadow-md">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-muted-foreground">Tiến độ:</span>
-              <span className="text-xs font-extrabold text-sky-400">{progress}%</span>
+              <span className="text-xs font-extrabold text-sky-600 dark:text-sky-400">{progress}%</span>
               <span className="text-[10px] text-muted-foreground">({completedIdx.size}/{sentences.length} câu)</span>
             </div>
             <div className="flex-1 max-w-[40%] bg-secondary h-1.5 rounded-full overflow-hidden">
@@ -356,7 +356,7 @@ export default function DictationExercisePage() {
             </div>
             <button
               onClick={() => setIsMobileMapOpen(true)}
-              className="px-3 py-1.5 bg-sky-500/10 border border-sky-500/20 rounded-xl text-xs font-bold text-sky-400 active:scale-95 transition-all"
+              className="px-3 py-1.5 bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20 rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400 active:scale-95 transition-all"
             >
               Sơ đồ câu
             </button>
@@ -367,8 +367,8 @@ export default function DictationExercisePage() {
             {/* Header */}
             <div className="glass rounded-3xl border border-white/5 p-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-sky-500/10 flex items-center justify-center flex-shrink-0">
-                  <Headphones className="h-6 w-6 text-sky-400" />
+                <div className="w-12 h-12 rounded-2xl bg-sky-500/10 dark:bg-sky-500/10 flex items-center justify-center flex-shrink-0">
+                  <Headphones className="h-6 w-6 text-sky-600 dark:text-sky-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
@@ -380,17 +380,17 @@ export default function DictationExercisePage() {
                   <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
                     <span>Câu {currentIdx + 1} / {sentences.length}</span>
                     <span>•</span>
-                    <span className="text-emerald-400 font-semibold">{completedIdx.size} hoàn thành</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{completedIdx.size} hoàn thành</span>
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Main Exercise Card */}
-            <div className="glass-strong rounded-3xl border border-white/10 p-6 space-y-5">
+            <div className="glass-strong rounded-3xl border border-black/10 dark:border-white/10 p-6 space-y-5">
               {/* Sentence number badge */}
               <div className="flex items-center justify-between">
-                <span className="px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-xs font-bold text-sky-400">
+                <span className="px-3 py-1 rounded-full bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20 text-xs font-bold text-sky-600 dark:text-sky-400">
                   Câu {currentIdx + 1}
                 </span>
               </div>
@@ -398,7 +398,7 @@ export default function DictationExercisePage() {
               {/* Listen Button */}
               <div className="text-center py-4 relative">
                 <div className="absolute top-0 right-0">
-                  <select value={speed} onChange={e => setSpeed(Number(e.target.value))} className="bg-secondary/50 border border-white/10 rounded-lg text-xs py-1 px-2 text-muted-foreground hover:text-foreground outline-none">
+                  <select value={speed} onChange={e => setSpeed(Number(e.target.value))} className="bg-secondary/50 border border-black/10 dark:border-white/10 rounded-lg text-xs py-1 px-2 text-muted-foreground hover:text-foreground outline-none">
                     <option value={0.75}>0.75x</option>
                     <option value={1.0}>1.0x (Chuẩn)</option>
                     <option value={1.25}>1.25x</option>
@@ -411,10 +411,10 @@ export default function DictationExercisePage() {
                   className={`group relative w-24 h-24 rounded-full border-4 transition-all flex items-center justify-center mx-auto ${
                     isSpeaking
                       ? 'bg-sky-500/20 border-sky-400 animate-pulse'
-                      : 'bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 hover:border-sky-400 hover:scale-105'
+                      : 'bg-sky-500/10 dark:bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20 hover:border-sky-400 hover:scale-105'
                   }`}
                 >
-                  <Volume2 className={`h-10 w-10 ${isSpeaking ? 'text-sky-300' : 'text-sky-400'}`} />
+                  <Volume2 className={`h-10 w-10 ${isSpeaking ? 'text-sky-700 dark:text-sky-300' : 'text-sky-600 dark:text-sky-400'}`} />
                   {isSpeaking && (
                     <div className="absolute inset-0 rounded-full border-4 border-sky-400 animate-ping opacity-30" />
                   )}
@@ -424,7 +424,7 @@ export default function DictationExercisePage() {
                 </p>
                 <button
                   onClick={speakCurrent}
-                  className="mt-2 text-xs text-sky-400/70 hover:text-sky-400 transition-colors flex items-center gap-1 mx-auto"
+                  className="mt-2 text-xs text-sky-600 dark:text-sky-400/70 hover:text-sky-600 dark:text-sky-400 transition-colors flex items-center gap-1 mx-auto"
                 >
                   <RotateCcw className="h-3 w-3" /> Nghe lại
                 </button>
@@ -456,7 +456,7 @@ export default function DictationExercisePage() {
                 />
                 {uniqueFailedPeers.length > 0 && (
                   <div className="flex items-center gap-1.5 mt-2 flex-wrap bg-red-500/5 w-fit px-2 py-1 rounded-md border border-red-500/10">
-                    <span className="text-[10px] text-red-400/80 uppercase font-semibold">Vài con gà đã ngã xuống:</span>
+                    <span className="text-[10px] text-red-600 dark:text-red-400/80 uppercase font-semibold">Vài con gà đã ngã xuống:</span>
                     <div className="flex -space-x-1">
                       {uniqueFailedPeers.map(peer => (
                         <div key={peer} title={`${peer} đã làm sai câu này`} className="relative w-5 h-5 rounded-full border border-red-500/50 flex items-center justify-center bg-background text-[8px] font-bold shadow-sm z-10 hover:z-20 transition-all hover:scale-110">
@@ -473,11 +473,11 @@ export default function DictationExercisePage() {
 
               {/* Feedback: Correct */}
               {feedback === 'correct' && (
-                <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 fade-in">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />
+                <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20 fade-in">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
                   <div>
-                    <p className="font-semibold text-emerald-400 text-sm">Chính xác! 🎉</p>
-                    <p className="text-xs text-emerald-400/70 mt-0.5">Chuyển sang câu tiếp theo...</p>
+                    <p className="font-semibold text-emerald-600 dark:text-emerald-400 text-sm">Chính xác! 🎉</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400/70 mt-0.5">Chuyển sang câu tiếp theo...</p>
                   </div>
                 </div>
               )}
@@ -485,12 +485,12 @@ export default function DictationExercisePage() {
               {/* Feedback: Wrong */}
               {feedback === 'wrong' && (
                 <div className="space-y-3 fade-in">
-                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/20">
-                    <X className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-red-500/10 dark:bg-red-500/10 border border-red-500/20">
+                    <X className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-red-400 text-sm mb-2">Chưa chính xác, thử lại nhé!</p>
+                      <p className="font-semibold text-red-600 dark:text-red-400 text-sm mb-2">Chưa chính xác, thử lại nhé!</p>
                       {getHint() && (
-                        <p className="text-xs text-amber-400 font-medium bg-amber-500/10 p-2 rounded-lg mt-2 inline-block border border-amber-500/20">
+                        <p className="text-xs text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 dark:bg-amber-500/10 p-2 rounded-lg mt-2 inline-block border border-amber-500/20">
                           💡 Gợi ý: <span className="font-mono tracking-widest text-sm ml-1">{getHint()}</span>
                         </p>
                       )}
@@ -498,7 +498,7 @@ export default function DictationExercisePage() {
                   </div>
                   <button
                     onClick={handleRetry}
-                    className="w-full py-3 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400 font-semibold text-sm hover:bg-sky-500/25 transition-all flex items-center justify-center gap-2"
+                    className="w-full py-3 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-600 dark:text-sky-400 font-semibold text-sm hover:bg-sky-500/25 transition-all flex items-center justify-center gap-2"
                   >
                     <RotateCcw className="h-4 w-4" /> Nghe lại & Thử lại
                   </button>
@@ -517,12 +517,12 @@ export default function DictationExercisePage() {
               )}
               {completedIdx.has(currentIdx) && (
                  <div className="space-y-3 fade-in">
-                   <div className="w-full py-3 rounded-xl bg-emerald-500/10 text-emerald-400 font-bold text-sm flex items-center justify-center gap-2 border border-emerald-500/20">
+                   <div className="w-full py-3 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-sm flex items-center justify-center gap-2 border border-emerald-500/20">
                      <CheckCircle2 className="h-4 w-4" /> Đã hoàn thành câu này
                    </div>
                    {currentSentence?.translation && (
                      <div className="p-4 rounded-xl bg-secondary/30 border border-white/5 animate-in slide-in-from-top-2 duration-500">
-                       <p className="text-xs font-semibold text-sky-400 uppercase tracking-wider mb-1">Nghĩa tiếng Việt</p>
+                       <p className="text-xs font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wider mb-1">Nghĩa tiếng Việt</p>
                        <p className="text-sm text-foreground">{currentSentence.translation}</p>
                      </div>
                    )}
@@ -537,7 +537,7 @@ export default function DictationExercisePage() {
             <div className="glass-strong rounded-3xl border border-white/5 p-6 space-y-6">
               <div>
                 <h3 className="font-bold font-heading text-lg flex items-center gap-2">
-                  <Star className="h-5 w-5 text-amber-400" /> Tiến Độ Bài Tập
+                  <Star className="h-5 w-5 text-amber-600 dark:text-amber-400" /> Tiến Độ Bài Tập
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">Hoàn thành bài tập để đạt điểm tối đa</p>
               </div>
@@ -549,7 +549,7 @@ export default function DictationExercisePage() {
                     <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" strokeWidth="6"
                       strokeDasharray={28 * 2 * Math.PI}
                       strokeDashoffset={(28 * 2 * Math.PI) - ((progress / 100) * 28 * 2 * Math.PI)}
-                      className="text-sky-400 transition-all duration-1000 ease-out" />
+                      className="text-sky-600 dark:text-sky-400 transition-all duration-1000 ease-out" />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className="text-sm font-bold">{progress}%</span>
@@ -558,16 +558,16 @@ export default function DictationExercisePage() {
                 <div className="flex-1 space-y-2">
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-muted-foreground">Đã xong:</span>
-                    <span className="font-bold text-emerald-400">{completedIdx.size}</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">{completedIdx.size}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-muted-foreground">Còn lại:</span>
-                    <span className="font-bold text-amber-400">{sentences.length - completedIdx.size}</span>
+                    <span className="font-bold text-amber-600 dark:text-amber-400">{sentences.length - completedIdx.size}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-3 pt-4 border-t border-white/10">
+              <div className="space-y-3 pt-4 border-t border-black/10 dark:border-white/10">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-semibold text-foreground/80">Chi tiết các câu</span>
                 </div>
@@ -577,19 +577,19 @@ export default function DictationExercisePage() {
                       key={i} 
                       onClick={() => handleJump(i)}
                       className={`aspect-square rounded-xl flex items-center justify-center text-xs font-bold transition-all hover-lift ${
-                      completedIdx.has(i) ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                      i === currentIdx ? 'bg-sky-500/20 text-sky-400 border border-sky-500/50 scale-105' :
-                      'bg-secondary/40 text-muted-foreground hover:bg-white/10 hover:text-foreground border border-white/5'
+                      completedIdx.has(i) ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' :
+                      i === currentIdx ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/50 scale-105' :
+                      'bg-secondary/40 text-muted-foreground hover:bg-black/10 dark:bg-white/10 hover:text-foreground border border-white/5'
                     }`}>
                       {i + 1}
                     </button>
                   ))}
                 </div>
                 
-                <div className="pt-4 border-t border-white/10 space-y-2">
+                <div className="pt-4 border-t border-black/10 dark:border-white/10 space-y-2">
                   <p className="text-xs text-muted-foreground">Phím tắt nhanh:</p>
                   <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 rounded bg-secondary/50 border border-white/10 text-xs font-mono text-muted-foreground font-semibold">Ctrl</kbd>
+                    <kbd className="px-2 py-1 rounded bg-secondary/50 border border-black/10 dark:border-white/10 text-xs font-mono text-muted-foreground font-semibold">Ctrl</kbd>
                     <span className="text-xs text-muted-foreground">Phát / Nghe lại câu hiện tại</span>
                   </div>
                 </div>
@@ -609,7 +609,7 @@ export default function DictationExercisePage() {
           />
           
           {/* Drawer Panel */}
-          <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-all duration-300 ease-out transform ${
+          <div className={`fixed bottom-0 left-0 right-0 glass-strong border-t border-black/10 dark:border-white/10 rounded-t-[2rem] p-6 z-50 lg:hidden transition-all duration-300 ease-out transform ${
             isMobileMapOpen ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-full opacity-0 pointer-events-none'
           }`}>
             <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-5" />
@@ -617,24 +617,24 @@ export default function DictationExercisePage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold font-heading text-lg flex items-center gap-2">
-                  <Star className="h-5 w-5 text-amber-400" /> Sơ đồ câu hỏi
+                  <Star className="h-5 w-5 text-amber-600 dark:text-amber-400" /> Sơ đồ câu hỏi
                 </h3>
                 <button 
                   onClick={() => setIsMobileMapOpen(false)} 
-                  className="p-1.5 bg-white/5 border border-white/5 rounded-lg text-muted-foreground hover:text-foreground"
+                  className="p-1.5 bg-black/5 dark:bg-white/5 border border-white/5 rounded-lg text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
-              <div className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/5">
+              <div className="flex items-center gap-4 bg-black/5 dark:bg-white/5 p-4 rounded-2xl border border-white/5">
                 <div className="relative w-14 h-14 flex-shrink-0">
                   <svg className="w-full h-full transform -rotate-90">
                     <circle cx="28" cy="28" r="24" fill="none" stroke="currentColor" strokeWidth="5" className="text-secondary" />
                     <circle cx="28" cy="28" r="24" fill="none" stroke="currentColor" strokeWidth="5"
                       strokeDasharray={24 * 2 * Math.PI}
                       strokeDashoffset={(24 * 2 * Math.PI) - ((progress / 100) * 24 * 2 * Math.PI)}
-                      className="text-sky-400 transition-all duration-1000 ease-out" />
+                      className="text-sky-600 dark:text-sky-400 transition-all duration-1000 ease-out" />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className="text-xs font-bold text-white">{progress}%</span>
@@ -643,11 +643,11 @@ export default function DictationExercisePage() {
                 <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Đã xong:</span>
-                    <span className="font-bold text-emerald-400">{completedIdx.size}</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">{completedIdx.size}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Còn lại:</span>
-                    <span className="font-bold text-amber-400">{sentences.length - completedIdx.size}</span>
+                    <span className="font-bold text-amber-600 dark:text-amber-400">{sentences.length - completedIdx.size}</span>
                   </div>
                 </div>
               </div>
@@ -660,9 +660,9 @@ export default function DictationExercisePage() {
                       key={i} 
                       onClick={() => handleJump(i)}
                       className={`w-10 h-10 mx-auto rounded-xl flex items-center justify-center text-xs font-bold transition-all hover-lift ${
-                        completedIdx.has(i) ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
-                        i === currentIdx ? 'bg-sky-500/20 text-sky-400 border-sky-500/50 scale-105' :
-                        'bg-secondary/40 text-muted-foreground hover:bg-white/10 hover:text-foreground border border-white/5'
+                        completedIdx.has(i) ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30' :
+                        i === currentIdx ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400 border-sky-500/50 scale-105' :
+                        'bg-secondary/40 text-muted-foreground hover:bg-black/10 dark:bg-white/10 hover:text-foreground border border-white/5'
                       }`}
                     >
                       {i + 1}

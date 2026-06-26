@@ -23,8 +23,8 @@ export function RaceTrackLeaderboard({ submissions }: { submissions: Submission[
   return (
     <div className="glass rounded-3xl border border-white/5 overflow-hidden mt-8 slide-up">
       <div className="p-5 border-b border-white/5 flex items-center gap-3 bg-secondary/20">
-        <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-          <Flag className="h-5 w-5 text-amber-400" />
+        <div className="w-10 h-10 rounded-xl bg-amber-500/10 dark:bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+          <Flag className="h-5 w-5 text-amber-600 dark:text-amber-400" />
         </div>
         <div>
           <h3 className="font-bold text-lg font-heading text-foreground">Đường Đua Thành Tích</h3>
@@ -45,12 +45,12 @@ export function RaceTrackLeaderboard({ submissions }: { submissions: Submission[
               <div className="flex justify-between items-end mb-2">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-sm text-foreground">{sub.studentName}</span>
-                  {isTop1 && <Trophy className="w-3.5 h-3.5 text-amber-400" />}
+                  {isTop1 && <Trophy className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
                 </div>
                 <div className="text-xs font-semibold text-muted-foreground flex items-center gap-2">
-                  <span className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">{score}đ</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded">{score}đ</span>
                   {sub.durationMs ? (
-                    <span className="text-[10px] text-sky-400 flex items-center gap-1 bg-sky-500/10 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] text-sky-600 dark:text-sky-400 flex items-center gap-1 bg-sky-500/10 dark:bg-sky-500/10 px-1.5 py-0.5 rounded">
                       <Clock className="w-3 h-3" /> {formatDuration(sub.durationMs)}
                     </span>
                   ) : (

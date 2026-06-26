@@ -328,7 +328,7 @@ export function ShadowingBlock({
 
     return (
       <div className="glass-strong rounded-3xl border border-emerald-500/30 p-8 text-center max-w-xl mx-auto space-y-6 slide-up glow-success">
-        <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20">
+        <div className="w-16 h-16 bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20">
           <Mic className="w-8 h-8" strokeWidth={1.5} />
         </div>
         <div className="space-y-2">
@@ -336,10 +336,10 @@ export function ShadowingBlock({
           <p className="text-sm text-muted-foreground">Bạn đã luyện phát âm {vocabCards.length} từ vựng.</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 bg-white/5 p-5 rounded-2xl border border-white/5">
+        <div className="grid grid-cols-2 gap-4 bg-black/5 dark:bg-white/5 p-5 rounded-2xl border border-white/5">
           <div>
             <span className="text-xs text-muted-foreground uppercase font-bold block">Độ Chính Xác</span>
-            <span className={`text-3xl font-extrabold ${overallScore >= 80 ? 'text-emerald-400' : overallScore >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+            <span className={`text-3xl font-extrabold ${overallScore >= 80 ? 'text-emerald-600 dark:text-emerald-400' : overallScore >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
               {overallScore}%
             </span>
           </div>
@@ -373,7 +373,7 @@ export function ShadowingBlock({
       <div className="space-y-1.5">
         <div className="flex justify-between text-xs font-semibold text-muted-foreground">
           <span>Từ {currentIdx + 1} / {vocabCards.length}</span>
-          <span className="text-emerald-400">{Object.keys(wordResults).length} đã luyện</span>
+          <span className="text-emerald-600 dark:text-emerald-400">{Object.keys(wordResults).length} đã luyện</span>
         </div>
         <div className="w-full bg-secondary/40 h-1.5 rounded-full overflow-hidden">
           <div
@@ -393,7 +393,7 @@ export function ShadowingBlock({
         {/* TTS play button */}
         <div className="relative w-full flex justify-center py-4">
           <div className="absolute top-0 right-0">
-            <select value={speed} onChange={e => setSpeed(Number(e.target.value))} className="bg-secondary/50 border border-white/10 rounded-lg text-xs py-1 px-2 text-muted-foreground hover:text-foreground outline-none">
+            <select value={speed} onChange={e => setSpeed(Number(e.target.value))} className="bg-secondary/50 border border-black/10 dark:border-white/10 rounded-lg text-xs py-1 px-2 text-muted-foreground hover:text-foreground outline-none">
               <option value={0.75}>0.75x</option>
               <option value={1.0}>1.0x (Chuẩn)</option>
               <option value={1.25}>1.25x</option>
@@ -405,7 +405,7 @@ export function ShadowingBlock({
             <button
               onClick={() => handleSpeak(currentCard.word, speed, currentCard.audioUrl)}
               disabled={isRecording}
-              className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white text-emerald-400 flex items-center justify-center transition-all shadow-md hover-lift disabled:opacity-50 mx-auto"
+              className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white text-emerald-600 dark:text-emerald-400 flex items-center justify-center transition-all shadow-md hover-lift disabled:opacity-50 mx-auto"
             >
               <Volume2 className="h-10 w-10 md:h-12 md:w-12" strokeWidth={1.5} />
             </button>
@@ -417,7 +417,7 @@ export function ShadowingBlock({
           <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Nghĩa tiếng Việt</p>
           <p className="text-xl md:text-2xl font-bold text-foreground">{currentCard.meaning}</p>
           {(displayPhonetic || phoneticLoading) && (
-            <p className="text-base font-mono text-emerald-400/80">
+            <p className="text-base font-mono text-emerald-600 dark:text-emerald-400/80">
               {phoneticLoading ? <span className="animate-pulse">...</span> : displayPhonetic}
             </p>
           )}
@@ -431,8 +431,8 @@ export function ShadowingBlock({
             disabled={phase === 'recording' && !isRecording}
             className={`w-full h-16 md:h-20 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-3 select-none ${
               isRecording
-                ? 'bg-red-500/15 border border-red-500/40 text-red-400 scale-95 shadow-[0_0_20px_rgba(239,68,68,0.4)]'
-                : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 hover-lift'
+                ? 'bg-red-500/15 border border-red-500/40 text-red-600 dark:text-red-400 scale-95 shadow-[0_0_20px_rgba(239,68,68,0.4)]'
+                : 'bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 hover-lift'
             } disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             {isRecording ? (
@@ -469,7 +469,7 @@ export function ShadowingBlock({
           </button>
 
           {!isSupported && (
-            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm text-center flex items-center justify-center gap-2">
+            <div className="p-4 rounded-xl bg-red-500/10 dark:bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-sm text-center flex items-center justify-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>Trình duyệt của bạn không hỗ trợ nhận diện giọng nói. Vui lòng sử dụng Chrome/Edge/Safari.</span>
             </div>
@@ -478,22 +478,22 @@ export function ShadowingBlock({
           {/* Result feedback */}
           {phase === 'result' && currentResult !== undefined && (
             <div className={`p-4 rounded-2xl border flex flex-col items-center gap-2 slide-up ${
-              isCorrect ? 'bg-emerald-500/10 border-emerald-500/30 glow-success' :
-              isClose   ? 'bg-amber-500/10 border-amber-500/30' :
-                          'bg-red-500/10 border-red-500/30 glow-error'
+              isCorrect ? 'bg-emerald-500/10 dark:bg-emerald-500/10 border-emerald-500/30 glow-success' :
+              isClose   ? 'bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/30' :
+                          'bg-red-500/10 dark:bg-red-500/10 border-red-500/30 glow-error'
             }`}>
               <div className="flex items-center gap-2 w-full text-sm font-bold">
                 {isCorrect ? (
-                  <><CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" strokeWidth={1.5} /><span className="text-emerald-400">Xuất sắc!</span></>
+                  <><CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" strokeWidth={1.5} /><span className="text-emerald-600 dark:text-emerald-400">Xuất sắc!</span></>
                 ) : isClose ? (
-                  <span className="text-amber-400">Gần đúng —</span>
+                  <span className="text-amber-600 dark:text-amber-400">Gần đúng —</span>
                 ) : (
-                  <><XCircle className="h-5 w-5 text-red-400 shrink-0" strokeWidth={1.5} /><span className="text-red-400">Cần luyện thêm</span></>
+                  <><XCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" strokeWidth={1.5} /><span className="text-red-600 dark:text-red-400">Cần luyện thêm</span></>
                 )}
                 <span className={`ml-auto px-2.5 py-1 rounded-full text-xs font-extrabold ${
-                  isCorrect ? 'bg-emerald-500/20 text-emerald-300' :
-                  isClose   ? 'bg-amber-500/20 text-amber-300' :
-                              'bg-red-500/20 text-red-300'
+                  isCorrect ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' :
+                  isClose   ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300' :
+                              'bg-red-500/20 text-red-700 dark:text-red-300'
                 }`}>
                   {currentResult.accuracy}%
                 </span>
@@ -505,7 +505,7 @@ export function ShadowingBlock({
                     <span
                       key={i}
                       className={`text-lg md:text-xl font-semibold ${
-                        w.ok ? 'text-emerald-400' : 'text-red-400 line-through decoration-red-400/60'
+                        w.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400 line-through decoration-red-400/60'
                       }`}
                     >
                       {w.word}
@@ -524,7 +524,7 @@ export function ShadowingBlock({
               {currentResult.audioBlobUrl && (
                 <button
                   onClick={() => new Audio(currentResult.audioBlobUrl!).play()}
-                  className="mt-2 w-full py-2 bg-sky-500/10 border border-sky-500/20 text-sky-400 font-semibold rounded-lg text-xs hover:bg-sky-500/20 transition-all flex justify-center items-center gap-2"
+                  className="mt-2 w-full py-2 bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-semibold rounded-lg text-xs hover:bg-sky-500/20 transition-all flex justify-center items-center gap-2"
                 >
                   <Volume2 className="w-3 h-3" /> Nghe lại giọng của tôi
                 </button>
@@ -537,16 +537,16 @@ export function ShadowingBlock({
       {/* Keyboard Shortcuts Hint */}
       <div className="hidden md:flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground/60">
         <div className="flex items-center gap-2">
-          <kbd className="px-2 py-1 rounded bg-secondary border border-white/10 font-mono font-bold text-[10px] text-muted-foreground">Ctrl</kbd>
+          <kbd className="px-2 py-1 rounded bg-secondary border border-black/10 dark:border-white/10 font-mono font-bold text-[10px] text-muted-foreground">Ctrl</kbd>
           <span>Nghe lại</span>
         </div>
         <div className="flex items-center gap-2">
-          <kbd className="px-2 py-1 rounded bg-secondary border border-white/10 font-mono font-bold text-[10px] text-muted-foreground">Space</kbd>
+          <kbd className="px-2 py-1 rounded bg-secondary border border-black/10 dark:border-white/10 font-mono font-bold text-[10px] text-muted-foreground">Space</kbd>
           <span>Ghi âm</span>
         </div>
         <div className="flex items-center gap-2">
-          <kbd className="px-2 py-1 rounded bg-secondary border border-white/10 font-mono font-bold text-[10px] text-muted-foreground">←</kbd>
-          <kbd className="px-2 py-1 rounded bg-secondary border border-white/10 font-mono font-bold text-[10px] text-muted-foreground">→</kbd>
+          <kbd className="px-2 py-1 rounded bg-secondary border border-black/10 dark:border-white/10 font-mono font-bold text-[10px] text-muted-foreground">←</kbd>
+          <kbd className="px-2 py-1 rounded bg-secondary border border-black/10 dark:border-white/10 font-mono font-bold text-[10px] text-muted-foreground">→</kbd>
           <span>Chuyển từ</span>
         </div>
       </div>
@@ -556,14 +556,14 @@ export function ShadowingBlock({
         <button
           onClick={goToPrev}
           disabled={currentIdx === 0 || phase === 'recording'}
-          className="px-5 py-3 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 disabled:opacity-30 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
+          className="px-5 py-3 rounded-xl border border-white/5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:bg-white/10 disabled:opacity-30 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
         >
           <ChevronLeft className="h-4 w-4" strokeWidth={1.5} /> Từ trước
         </button>
         <button
           onClick={goToNext}
           disabled={phase === 'recording'}
-          className="px-5 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white disabled:opacity-30 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
+          className="px-5 py-3 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white disabled:opacity-30 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
         >
           {currentIdx === vocabCards.length - 1 ? 'Hoàn thành' : 'Từ tiếp theo'}
           <ChevronRight className="h-4 w-4" strokeWidth={1.5} />

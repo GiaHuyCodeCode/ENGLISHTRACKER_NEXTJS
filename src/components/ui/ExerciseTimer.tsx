@@ -28,8 +28,8 @@ export function ExerciseTimer({ isRunning, className = '' }: ExerciseTimerProps)
   };
 
   return (
-    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 bg-secondary/30 text-muted-foreground font-mono text-sm ${className}`}>
-      <Clock className={`h-4 w-4 ${isRunning ? 'text-emerald-400' : 'text-muted-foreground'}`} />
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border border-black/10 dark:border-white/10 bg-secondary/30 text-muted-foreground font-mono text-sm ${className}`}>
+      <Clock className={`h-4 w-4 ${isRunning ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`} />
       <span className={isRunning ? 'text-foreground' : ''}>{formatTime(elapsedSeconds)}</span>
     </div>
   );

@@ -82,8 +82,15 @@
 }
 ::-webkit-scrollbar-thumb:hover { background: hsl(var(--petal) / 0.55); }
 
+/* ── Theme visibility utilities ──────────────────────────────────────────── */
+/* dark-only: visible only in .dark mode */
+.dark .dark-only  { display: contents; }
+.light .dark-only { display: none; }
+/* light-only: visible only in .light mode */
+.dark .light-only  { display: none; }
+.light .light-only { display: contents; }
+
 /* ── Botanical Noise Overlay ─────────────────────────────────────────────── */
-/* Very subtle — only adds texture, doesn't cause blur */
 .botanical-noise {
   position: fixed;
   inset: 0;
@@ -94,6 +101,9 @@
   background-size: 180px 180px;
   mix-blend-mode: overlay;
 }
+/* Light mode: softer noise */
+.light .botanical-noise { opacity: 0.03; mix-blend-mode: multiply; }
+
 
 /* ── CARD SYSTEM — Solid, Sharp, High-contrast ───────────────────────────── */
 /* Primary card — solid dark, no blur on scrolling content */
@@ -556,4 +566,61 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .light .nav-link.active {
   background: hsl(var(--petal) / 0.1);
   border-color: hsl(var(--petal) / 0.2);
+}
+
+/* ── Light Mode: Card & Surface Overrides ──────────────────────────────── */
+.light .glass {
+  background: hsl(0 0% 100% / 0.82);
+  border-color: hsl(340 30% 85% / 0.5);
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.9),
+    0 2px 16px hsl(150 20% 40% / 0.07);
+}
+.light .glass-strong {
+  background: hsl(0 0% 100% / 0.92);
+  border-color: hsl(340 30% 82% / 0.45);
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100%),
+    0 4px 24px hsl(150 20% 40% / 0.09);
+}
+.light .glass-fixed {
+  background: hsl(40 30% 97% / 0.88);
+  border-color: hsl(340 25% 85% / 0.4);
+  box-shadow: 0 2px 20px hsl(340 20% 60% / 0.08);
+}
+
+/* ── Light Mode: Gradient Text ─────────────────────────────────────────── */
+.light .gradient-text {
+  background: linear-gradient(135deg, hsl(340 65% 42%) 0%, hsl(350 70% 55%) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.light .gradient-text-gold {
+  background: linear-gradient(135deg, hsl(38 80% 38%) 0%, hsl(47 85% 52%) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Light Mode: Eyebrow Tag ────────────────────────────────────────────── */
+.light .eyebrow-tag {
+  background: hsl(var(--petal) / 0.10);
+  border-color: hsl(var(--petal) / 0.22);
+  color: hsl(340 60% 40%);
+}
+
+/* ── Light Mode: Score / Badge ──────────────────────────────────────────── */
+.light .score-pop { box-shadow: none; }
+
+/* ── Light Mode: Sidebar ────────────────────────────────────────────────── */
+.light aside,
+.light [data-sidebar] {
+  background: hsl(40 30% 97% / 0.95) !important;
+  border-right-color: hsl(340 25% 88% / 0.6) !important;
+}
+
+/* ── Light Mode: Gradient body bg fallback ──────────────────────────────── */
+.light body {
+  background-color: hsl(40 35% 96%);
 }

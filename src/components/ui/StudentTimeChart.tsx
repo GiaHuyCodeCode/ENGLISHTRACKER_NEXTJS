@@ -88,11 +88,11 @@ export function StudentTimeChart({ submissions, trackings = [] }: Props) {
     return chartData;
   }, [submissions, students]);
 
-  if (!isMounted) return <div className="h-80 w-full animate-pulse bg-white/5 rounded-2xl"></div>;
+  if (!isMounted) return <div className="h-80 w-full animate-pulse bg-black/5 dark:bg-white/5 rounded-2xl"></div>;
 
   if (!submissions || submissions.length === 0) {
     return (
-      <div className="h-64 flex items-center justify-center text-muted-foreground bg-white/5 rounded-2xl border border-white/5 mt-4">
+      <div className="h-64 flex items-center justify-center text-muted-foreground bg-black/5 dark:bg-white/5 rounded-2xl border border-white/5 mt-4">
         Chưa có dữ liệu thời gian học trong tuần.
       </div>
     );
@@ -106,16 +106,16 @@ export function StudentTimeChart({ submissions, trackings = [] }: Props) {
   }, {} as Record<string, string>);
 
   return (
-    <div className="h-80 w-full mt-6 bg-white/5 p-4 rounded-3xl border border-white/10">
+    <div className="h-80 w-full mt-6 bg-black/5 dark:bg-white/5 p-4 rounded-3xl border border-black/10 dark:border-white/10">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={data}
           margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff15" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
           <XAxis 
             dataKey="date" 
-            stroke="#888888" 
+            stroke="hsl(var(--muted-foreground))" 
             fontSize={10} 
             tickLine={false} 
             axisLine={false} 
@@ -126,17 +126,17 @@ export function StudentTimeChart({ submissions, trackings = [] }: Props) {
               }
               return '•';
             }}
-            tick={{ fill: '#888888' }}
+            tick={{ fill: 'hsl(var(--muted-foreground))' }}
           />
           <YAxis 
             width={55}
-            stroke="#888888" 
+            stroke="hsl(var(--muted-foreground))" 
             fontSize={12} 
             tickLine={false} 
             axisLine={false} 
             dx={-10}
             tickFormatter={(value) => `${value} phút`}
-            tick={{ fill: '#888888' }}
+            tick={{ fill: 'hsl(var(--muted-foreground))' }}
           />
           <Tooltip 
             labelFormatter={(label, items) => {

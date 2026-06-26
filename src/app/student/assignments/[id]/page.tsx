@@ -276,24 +276,24 @@ export default function ExercisePage() {
         <div className="flex items-start gap-4">
           <button
             onClick={() => router.push('/student/assignments')}
-            className="p-2 rounded-xl border border-white/5 hover:border-primary/40 hover:bg-white/5 transition-all text-muted-foreground hover:text-foreground flex-shrink-0"
+            className="p-2 rounded-xl border border-white/5 hover:border-primary/40 hover:bg-black/5 dark:bg-white/5 transition-all text-muted-foreground hover:text-foreground flex-shrink-0"
           >
             <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5">
               <span className={`text-[11px] px-2 py-0.5 rounded-md font-semibold ${
-                assignment.type === 'vocab_context' ? 'bg-violet-500/15 text-violet-400' : 
-                assignment.type === 'multiple_choice' ? 'bg-teal-500/15 text-teal-400' :
-                assignment.type === 'vocabulary' ? 'bg-[#0071e3]/15 text-sky-400' :
-                'bg-amber-500/15 text-amber-400'
+                assignment.type === 'vocab_context' ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400' : 
+                assignment.type === 'multiple_choice' ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400' :
+                assignment.type === 'vocabulary' ? 'bg-[#0071e3]/15 text-sky-600 dark:text-sky-400' :
+                'bg-amber-500/15 text-amber-600 dark:text-amber-400'
               }`}>
                 {assignment.type === 'vocab_context' ? 'Vocab In-Context' : 
                  assignment.type === 'multiple_choice' ? 'Trắc Nghiệm' :
                  assignment.type === 'vocabulary' ? 'Học Từ Vựng' : 'Viết Chuyện Chêm'}
               </span>
               {isReview && (
-                <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 font-medium">
+                <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-medium">
                   Đã hoàn thành
                 </span>
               )}
@@ -316,10 +316,10 @@ export default function ExercisePage() {
             assignment.type === 'vocabulary' ? 'bg-[#0071e3]/15' : 
             'bg-amber-500/15'
           }`}>
-            {assignment.type === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-400" strokeWidth={1.5} /> : 
-             assignment.type === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-400" strokeWidth={1.5} /> :
-             assignment.type === 'vocabulary' ? <FileJson className="h-4 w-4 text-sky-400" strokeWidth={1.5} /> :
-             <PenTool className="h-4 w-4 text-amber-400" strokeWidth={1.5} />}
+            {assignment.type === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={1.5} /> : 
+             assignment.type === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-600 dark:text-teal-400" strokeWidth={1.5} /> :
+             assignment.type === 'vocabulary' ? <FileJson className="h-4 w-4 text-sky-600 dark:text-sky-400" strokeWidth={1.5} /> :
+             <PenTool className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />}
           </div>
           <div>
             <p className="text-sm font-semibold">

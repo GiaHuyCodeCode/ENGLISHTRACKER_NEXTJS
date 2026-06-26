@@ -92,14 +92,14 @@ export default function LessonDetailPage() {
   if (activeMode) {
     return (
       <div className="max-w-7xl mx-auto space-y-6 relative pb-10">
-        <div className="flex items-center justify-between sticky top-20 md:top-4 z-50 bg-background/80 backdrop-blur-xl p-4 -mx-4 md:mx-0 md:-mt-4 rounded-2xl border border-white/10 shadow-2xl">
+        <div className="flex items-center justify-between sticky top-20 md:top-4 z-50 bg-background/80 backdrop-blur-xl p-4 -mx-4 md:mx-0 md:-mt-4 rounded-2xl border border-black/10 dark:border-white/10 shadow-2xl">
           <button
             onClick={() => setActiveMode(null)}
             className="flex items-center gap-1.5 px-3 py-2 md:px-4 md:py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs md:text-sm transition-all shadow-lg hover-lift"
           >
             <ArrowLeft className="w-4 h-4" /> <span className="hidden sm:inline">Quay lại bài học</span><span className="sm:hidden">Quay lại</span>
           </button>
-          <div className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest px-2 md:px-3 py-1 bg-white/5 rounded-lg">
+          <div className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest px-2 md:px-3 py-1 bg-black/5 dark:bg-white/5 rounded-lg">
             {activeMode === 'flashcard' ? 'Lướt Flashcard' :
              activeMode === 'synonym' ? 'Đồng Nghĩa' :
              activeMode === 'test' ? 'Trắc Nghiệm' :
@@ -140,7 +140,7 @@ export default function LessonDetailPage() {
         </button>
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold bg-indigo-500/15 text-indigo-400">
+            <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">
               Thư mục Từ Vựng
             </span>
           </div>
@@ -156,7 +156,7 @@ export default function LessonDetailPage() {
         <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Các Chế Độ Học Tập</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <button onClick={() => openMode('flashcard')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-emerald-500/20 hover:border-emerald-500/40 group">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/10 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
               <Layers className="w-6 h-6" />
             </div>
             <div>
@@ -166,7 +166,7 @@ export default function LessonDetailPage() {
           </button>
           
           <button onClick={() => openMode('synonym')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-violet-500/20 hover:border-violet-500/40 group">
-            <div className="w-12 h-12 rounded-full bg-violet-500/10 flex items-center justify-center text-violet-400 group-hover:bg-violet-500/20 transition-colors">
+            <div className="w-12 h-12 rounded-full bg-violet-500/10 dark:bg-violet-500/10 flex items-center justify-center text-violet-600 dark:text-violet-400 group-hover:bg-violet-500/20 transition-colors">
               <BookOpen className="w-6 h-6" />
             </div>
             <div>
@@ -176,7 +176,7 @@ export default function LessonDetailPage() {
           </button>
 
           <button onClick={() => openMode('test')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-amber-500/20 hover:border-amber-500/40 group">
-            <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-400 group-hover:bg-amber-500/20 transition-colors">
+            <div className="w-12 h-12 rounded-full bg-amber-500/10 dark:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:bg-amber-500/20 transition-colors">
               <FileText className="w-6 h-6" />
             </div>
             <div>
@@ -186,7 +186,7 @@ export default function LessonDetailPage() {
           </button>
 
           <button onClick={() => openMode('dictation')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-sky-500/20 hover:border-sky-500/40 group">
-            <div className="w-12 h-12 rounded-full bg-sky-500/10 flex items-center justify-center text-sky-400 group-hover:bg-sky-500/20 transition-colors">
+            <div className="w-12 h-12 rounded-full bg-sky-500/10 dark:bg-sky-500/10 flex items-center justify-center text-sky-600 dark:text-sky-400 group-hover:bg-sky-500/20 transition-colors">
               <Headphones className="w-6 h-6" />
             </div>
             <div>
@@ -196,7 +196,7 @@ export default function LessonDetailPage() {
           </button>
 
           <button onClick={() => openMode('game_match')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-rose-500/20 hover:border-rose-500/40 group">
-            <div className="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-400 group-hover:bg-rose-500/20 transition-colors">
+            <div className="w-12 h-12 rounded-full bg-rose-500/10 dark:bg-rose-500/10 flex items-center justify-center text-rose-600 dark:text-rose-400 group-hover:bg-rose-500/20 transition-colors">
               <LayoutGrid className="w-6 h-6" />
             </div>
             <div>
@@ -206,7 +206,7 @@ export default function LessonDetailPage() {
           </button>
 
           <button onClick={() => openMode('shadowing')} className="glass hover-lift p-4 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border-emerald-500/20 hover:border-emerald-500/40 group">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/10 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
               <Mic className="w-6 h-6" />
             </div>
             <div>
@@ -264,8 +264,8 @@ export default function LessonDetailPage() {
                           onClick={() => handleSpeak(c.word)} 
                           className={`p-1 rounded-full transition-all duration-200 ${
                             speakingWord === c.word 
-                              ? 'bg-sky-500/20 text-sky-400' 
-                              : 'bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground'
+                              ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400' 
+                              : 'bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:bg-white/10 text-muted-foreground hover:text-foreground'
                           }`}
                         >
                           <Volume2 className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -276,7 +276,7 @@ export default function LessonDetailPage() {
                           {cfg.label}
                         </span>
                         {isDue && stage > 0 && (
-                          <span className="text-[10px] text-amber-400 font-semibold">⏰ Cần ôn hôm nay</span>
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">⏰ Cần ôn hôm nay</span>
                         )}
                       </div>
                     </div>
@@ -287,7 +287,7 @@ export default function LessonDetailPage() {
                     {c.synonyms && c.synonyms.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 pt-1">
                         {c.synonyms.map(syn => (
-                          <span key={syn} className="px-2 py-0.5 rounded bg-violet-500/5 text-violet-400 text-xs font-semibold border border-violet-500/10">
+                          <span key={syn} className="px-2 py-0.5 rounded bg-violet-500/5 text-violet-600 dark:text-violet-400 text-xs font-semibold border border-violet-500/10">
                             {syn}
                           </span>
                         ))}
