@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
-import { Inter, Outfit } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
-const outfit = Outfit({ variable: "--font-outfit", subsets: ["latin"] });
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
 
 import { AuthGuard } from "@/components/layout/AuthGuard";
 import { MainLayout } from "@/components/layout/MainLayout";
@@ -16,12 +20,63 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi" className={`${inter.variable} ${outfit.variable} dark antialiased`}>
+    <html lang="vi" className={`${jakarta.variable} dark antialiased`}>
       <body className="min-h-screen bg-background text-foreground font-sans flex relative overflow-x-hidden">
-        {/* Background Dot Pattern */}
-        <div className="fixed inset-0 z-[-1] bg-dot-pattern pointer-events-none opacity-50" />
-        {/* Ambient Gradient glow */}
-        <div className="fixed inset-0 z-[-1] pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background to-background" />
+
+        {/* Subtle noise texture — very low opacity, no blur */}
+        <div className="botanical-noise" aria-hidden="true" />
+
+        {/* Petal glow — top right corner only */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            top: 0,
+            right: 0,
+            width: "50vw",
+            height: "50vh",
+            zIndex: -1,
+            pointerEvents: "none",
+            background:
+              "radial-gradient(ellipse 70% 60% at 100% 0%, hsl(340 60% 58% / 0.07) 0%, transparent 70%)",
+          }}
+        />
+        {/* Forest depth — bottom left */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            width: "45vw",
+            height: "45vh",
+            zIndex: -1,
+            pointerEvents: "none",
+            background:
+              "radial-gradient(ellipse 70% 60% at 0% 100%, hsl(150 30% 10% / 0.4) 0%, transparent 70%)",
+          }}
+        />
+        {/* Botanical hero flower — top right decorative */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            top: "-5%",
+            right: "-8%",
+            width: "380px",
+            height: "380px",
+            zIndex: -1,
+            pointerEvents: "none",
+            backgroundImage: "url(/flower-hero.png)",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            opacity: 0.12,
+            borderRadius: "50%",
+            filter: "blur(1px)",
+            maskImage: "radial-gradient(ellipse 80% 80% at 70% 30%, black 0%, transparent 70%)",
+            WebkitMaskImage: "radial-gradient(ellipse 80% 80% at 70% 30%, black 0%, transparent 70%)",
+          }}
+        />
 
         <AuthGuard>
           <MainLayout>

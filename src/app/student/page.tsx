@@ -13,7 +13,29 @@ import {
 
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
 import { toLocalDateString } from '@/lib/utils';
-import { Trophy, BookOpen, CheckCircle2, TrendingUp, User, ChevronRight, PenTool, ListChecks, Target, Brain, AlertCircle, Flame, Calendar, Clock, Loader2, RefreshCw, Headphones, FileJson } from 'lucide-react';
+// 🌸 Flower Icon System — replaces Lucide
+type SvgIconProps = { className?: string; strokeWidth?: number | string };
+const FTrophy   = ({className=""}: SvgIconProps) => <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4c-2 3-3 6 0 8c3-2 2-5 0-8z" fill="currentColor" fillOpacity="0.13"/><path d="M12 4c-2 3-3 6 0 8c3-2 2-5 0-8z"/><path d="M6 8c1.5 1.5 3.5 3 6 4c0-2.5-1.5-4.5-6-4z" fill="currentColor" fillOpacity="0.09"/><path d="M6 8c1.5 1.5 3.5 3 6 4c0-2.5-1.5-4.5-6-4z"/><path d="M18 8c-1.5 1.5-3.5 3-6 4c0-2.5 1.5-4.5 6-4z" fill="currentColor" fillOpacity="0.09"/><path d="M18 8c-1.5 1.5-3.5 3-6 4c0-2.5 1.5-4.5 6-4z"/><circle cx="12" cy="12" r="1.3" fill="currentColor" opacity="0.65" stroke="none"/><path d="M12 13.5V19M9 19h6"/></svg>;
+const FBook     = ({className=""}: SvgIconProps) => <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M9 7C9 7 11 6 13 7C11 8 9 7 9 7Z" fill="currentColor" opacity="0.4" stroke="none"/><path d="M9 11c1-.5 2.5-.5 3.5 0" strokeWidth="1.1" opacity="0.38"/><path d="M9 14c1-.4 2.5-.4 3.5 0" strokeWidth="1.1" opacity="0.28"/></svg>;
+const FCheck    = ({className=""}: SvgIconProps) => <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-5"/><path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21" strokeWidth="1" opacity="0.3"/><circle cx="12" cy="7" r="0.9" fill="currentColor" opacity="0.4" stroke="none"/></svg>;
+const FTrend    = ({className=""}: SvgIconProps) => <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/><path d="M13.5 15.5c-.4-.7-.4-1.5 0-2.2" strokeWidth="1.1" opacity="0.5"/><path d="M8.5 10.5c-.4-.7-.4-1.5 0-2.2" strokeWidth="1.1" opacity="0.4"/><circle cx="23" cy="6" r="1" fill="currentColor" opacity="0.45" stroke="none"/></svg>;
+const FUser     = ({className=""}: SvgIconProps) => <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2c-2 0-3.2 1.5-3.2 3.5S10 9 12 9s3.2-1.7 3.2-3.5S14 2 12 2z" fill="currentColor" fillOpacity="0.1"/><path d="M12 2c-2 0-3.2 1.5-3.2 3.5S10 9 12 9s3.2-1.7 3.2-3.5S14 2 12 2z"/><path d="M9.5 3C9 2 9.2 1.2 10 1M14.5 3C15 2 14.8 1.2 14 1" strokeWidth="1.1" opacity="0.5"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><circle cx="12" cy="6" r="0.9" fill="currentColor" opacity="0.3" stroke="none"/></svg>;
+const FTarget   = ({className=""}: SvgIconProps) => <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2.5" fill="currentColor" fillOpacity="0.18"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22" strokeWidth="1.1" opacity="0.38"/></svg>;
+const FBrain    = ({className=""}: SvgIconProps) => <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 13v6M10 18c-2 .8-4 .6-6 0M14 18c2 .8 4 .6 6 0"/><circle cx="12" cy="10" r="2.5"/><path d="M12 7.5V5M8.5 8.8L6.5 6.5M15.5 8.8L17.5 6.5M7.5 11L5 11.8M16.5 11L19 11.8M9 13.5L7 15.5M15 13.5L17 15.5"/><circle cx="12" cy="5" r="0.9" fill="currentColor" opacity="0.55" stroke="none"/><circle cx="6.5" cy="6.5" r="0.7" fill="currentColor" opacity="0.4" stroke="none"/><circle cx="17.5" cy="6.5" r="0.7" fill="currentColor" opacity="0.4" stroke="none"/><circle cx="5" cy="11.8" r="0.7" fill="currentColor" opacity="0.4" stroke="none"/><circle cx="19" cy="11.8" r="0.7" fill="currentColor" opacity="0.4" stroke="none"/><circle cx="7" cy="15.5" r="0.7" fill="currentColor" opacity="0.35" stroke="none"/><circle cx="17" cy="15.5" r="0.7" fill="currentColor" opacity="0.35" stroke="none"/></svg>;
+const FAlert    = ({className=""}: SvgIconProps) => <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3c-2 1-3 3-2.5 5.5L12 10l2.5-1.5C15 6 14 4 12 3z" fill="currentColor" fillOpacity="0.1"/><path d="M12 3c-2 1-3 3-2.5 5.5L12 10l2.5-1.5C15 6 14 4 12 3z"/><path d="M9.5 8.5c-1.5 1-2 3-.5 4.5M14.5 8.5c1.5 1 2 3 .5 4.5"/><path d="M9 13c.5 2.5 1.2 4.5 3 6M15 13c-.5 2.5-1.2 4.5-3 6"/><circle cx="12" cy="21" r="1.2" fill="currentColor" opacity="0.65" stroke="none"/></svg>;
+const FFlame    = ({className=""}: SvgIconProps) => <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3c-2.5 3-3 6.5-2.5 9A2.5 2.5 0 0012 14.5a2.5 2.5 0 002.5-2.5C15 9.5 14.5 6 12 3z" fill="currentColor" fillOpacity="0.12"/><path d="M12 3c-2.5 3-3 6.5-2.5 9A2.5 2.5 0 0012 14.5a2.5 2.5 0 002.5-2.5C15 9.5 14.5 6 12 3z"/><path d="M9 7c-1.5 1.5-2 3.5-1 5.5" opacity="0.5" strokeWidth="1.2"/><path d="M12 16v3M9.5 19h5"/></svg>;
+const FCalendar = ({className=""}: SvgIconProps) => <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="16" r="2.2" fill="currentColor" fillOpacity="0.09" stroke="none"/><path d="M12 13.8v0.8M12 17.4v.8M10.3 16h.7M13 16h.7" strokeWidth="1.05" opacity="0.5"/><circle cx="12" cy="16" r="1.1" fill="currentColor" opacity="0.55" stroke="none"/></svg>;
+const FClock    = ({className=""}: SvgIconProps) => <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9.5"/><polyline points="12 7 12 12 15.5 13.5"/><path d="M12 2.5v1.5M12 20v1.5M21.5 12h-1.5M3.5 12h1.5M18.4 5.6l-1 1M6.6 17.4l-1 1M18.4 18.4l-1-1M6.6 6.6l-1 1" strokeWidth="1.1" opacity="0.38"/><circle cx="12" cy="12" r="1.2" fill="currentColor" opacity="0.5" stroke="none"/></svg>;
+const FLoader   = ({className=""}: SvgIconProps) => <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="12" r="9" strokeOpacity="0.25"/><path d="M12 3a9 9 0 019 9"/></svg>;
+const FRefresh  = ({className=""}: SvgIconProps) => <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/><circle cx="12" cy="12" r="1.2" fill="currentColor" opacity="0.45" stroke="none"/></svg>;
+// Navigation & UI icons
+const FChevronRight = ({className=""}: SvgIconProps) => <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6c3 2.2 5 4 6 6c-1 2-3 3.8-6 6"/></svg>;
+const FListChecks   = ({className=""}: SvgIconProps) => <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M10 6h11M10 12h11M10 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>;
+const FHeadphones   = ({className=""}: SvgIconProps) => <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3z"/><path d="M3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/><circle cx="12" cy="8" r="1" fill="currentColor" fillOpacity="0.35" stroke="none"/><path d="M12 6.5v1.3M11.2 7.1l.8.6M12.8 7.1l-.8.6" strokeWidth="1" opacity="0.4"/></svg>;
+const FFileJson     = ({className=""}: SvgIconProps) => <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M10 12a1 1 0 00-1 1v1a1 1 0 01-1 1 1 1 0 011 1v1a1 1 0 001 1"/><path d="M14 18a1 1 0 001-1v-1a1 1 0 011-1 1 1 0 01-1-1v-1a1 1 0 00-1-1"/></svg>;
+const FPenTool      = ({className=""}: SvgIconProps) => <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="1.9" fill="currentColor" fillOpacity="0.12"/><circle cx="11" cy="11" r="1.9"/></svg>;
+// Flower petal icon for "bloom" effect
+const FBloom    = ({className=""}: SvgIconProps) => <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><ellipse cx="12" cy="5.5" rx="2" ry="3.5"/><ellipse cx="12" cy="5.5" rx="2" ry="3.5" transform="rotate(72 12 12)"/><ellipse cx="12" cy="5.5" rx="2" ry="3.5" transform="rotate(144 12 12)"/><ellipse cx="12" cy="5.5" rx="2" ry="3.5" transform="rotate(216 12 12)"/><ellipse cx="12" cy="5.5" rx="2" ry="3.5" transform="rotate(288 12 12)"/><circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.6" stroke="none"/></svg>;
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell
@@ -400,24 +422,75 @@ export default function StudentDashboard() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <div className="fade-in stagger-1">
-          <h1 className="text-3xl font-bold font-heading gradient-text flex items-center gap-2">
-            Dashboard Học Viên
-            {isSyncing && <Loader2 className="h-6 w-6 text-primary animate-spin" />}
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {user?.role === 'student' ? 'Tổng quan tiến độ học tập của bạn' : 'Chọn tên học viên để xem tiến độ'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 self-start sm:self-center">
+
+      {/* ── HERO HEADER ──────────────────────────────────────────────────────── */}
+      <div className="relative rounded-3xl overflow-hidden fade-in stagger-1"
+        style={{
+          background: 'hsl(150 20% 7%)',
+          border: '1px solid hsl(0 0% 100% / 0.07)',
+          boxShadow: '0 8px 40px hsl(150 30% 2% / 0.5)',
+        }}
+      >
+        {/* Flower image background — right side */}
+        <div className="absolute right-0 top-0 h-full w-1/2 pointer-events-none"
+          style={{
+            backgroundImage: 'url(/flower-hero.png)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center left',
+            opacity: 0.18,
+            maskImage: 'linear-gradient(to left, rgba(0,0,0,0.7) 0%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,0.7) 0%, transparent 100%)',
+          }}
+        />
+        {/* Petal glow */}
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 60% 80% at 80% 50%, hsl(340 60% 58% / 0.06) 0%, transparent 70%)' }}
+        />
+
+        {/* 🌸 Floating petals — ambient floral scatter */}
+        {([
+          { left:'5%',  top:'15%', r:40,  s:10, c:'hsl(340 60% 68%/0.32)', delay:'0s',   dur:'6.5s' },
+          { left:'15%', top:'68%', r:130, s:8,  c:'hsl(340 60% 68%/0.24)', delay:'1.4s', dur:'7.3s' },
+          { left:'26%', top:'10%', r:210, s:13, c:'hsl(47 72% 65%/0.18)',  delay:'2.2s', dur:'8.1s' },
+          { left:'38%', top:'78%', r:75,  s:7,  c:'hsl(340 60% 68%/0.18)', delay:'0.9s', dur:'9.0s' },
+          { left:'52%', top:'22%', r:165, s:9,  c:'hsl(47 72% 65%/0.14)',  delay:'3.1s', dur:'7.6s' },
+          { left:'65%', top:'60%', r:250, s:11, c:'hsl(340 60% 68%/0.20)', delay:'1.9s', dur:'6.8s' },
+          { left:'78%', top:'18%', r:35,  s:12, c:'hsl(340 60% 68%/0.16)', delay:'4.2s', dur:'8.3s' },
+          { left:'88%', top:'72%', r:290, s:8,  c:'hsl(47 72% 65%/0.12)',  delay:'2.7s', dur:'7.0s' },
+          { left:'93%', top:'38%', r:110, s:6,  c:'hsl(340 60% 68%/0.18)', delay:'0.4s', dur:'5.8s' },
+        ] as const).map((p, i) => (
+          <svg key={i} aria-hidden="true" className="petal-drift absolute pointer-events-none select-none"
+            style={{ left: p.left, top: p.top, '--petal-delay': p.delay, '--petal-dur': p.dur } as React.CSSProperties}
+            width={p.s} height={p.s} viewBox="0 0 24 24" fill={p.c}
+          >
+            <ellipse cx="12" cy="5.5" rx="3" ry="5" transform={`rotate(${p.r} 12 12)`} />
+          </svg>
+        ))}
+
+        <div className="relative px-6 py-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="eyebrow-tag mb-3"><FBloom className="h-3.5 w-3.5 icon-spin-slow" /> Bloom Dashboard</div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold gradient-text leading-tight" style={{ letterSpacing: '-0.03em' }}>
+              Dashboard Học Viên
+              {isSyncing && <FLoader className="inline ml-3 h-6 w-6 text-petal animate-spin" />}
+            </h1>
+            <p className="mt-2 text-sm" style={{ color: 'hsl(150 10% 60%)' }}>
+              {user?.role === 'student' ? 'Tổng quan tiến độ học tập của bạn hôm nay' : 'Chọn tên học viên để xem tiến độ'}
+            </p>
+          </div>
           <button
             onClick={() => refreshData()}
             disabled={isSyncing}
-            className="p-2 rounded-xl glass hover-lift border border-border text-muted-foreground hover:text-primary transition-all disabled:opacity-50"
+            className="self-start sm:self-center flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 active:scale-[0.97]"
+            style={{
+              background: 'hsl(340 60% 58% / 0.12)',
+              border: '1px solid hsl(340 60% 58% / 0.22)',
+              color: 'hsl(340 60% 68%)',
+            }}
             title="Đồng bộ dữ liệu"
           >
-            <RefreshCw className={`h-5 w-5 ${isSyncing ? 'animate-spin' : ''}`} />
+            <FRefresh className={isSyncing ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">Đồng bộ</span>
           </button>
         </div>
       </div>
@@ -425,8 +498,8 @@ export default function StudentDashboard() {
       {/* Student Picker (Only for Admin) */}
       {user?.role !== 'student' && (
         <div className="fade-in stagger-2">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-            <User className="h-4 w-4" /> Chọn học viên
+          <h2 className="text-sm font-semibold uppercase tracking-wider mb-3 flex items-center gap-2" style={{ color: 'hsl(150 10% 55%)' }}>
+            <FUser /> Chọn học viên
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {getStudentNames().map(name => (
@@ -437,9 +510,9 @@ export default function StudentDashboard() {
       )}
 
       {/* LEADERBOARD SECTION */}
-      <div className="fade-in stagger-4 space-y-6">
-        <h2 className="text-xl font-bold font-heading gradient-text flex items-center gap-2">
-          <Trophy className="h-5 w-5" /> Biểu Đồ Thi Đua Học Tập
+      <div className="fade-in stagger-4 space-y-4">
+        <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: 'hsl(47 72% 60%)' }}>
+          <FTrophy /> Biểu Đồ Thi Đua Học Tập
         </h2>
         <StudentPerformanceChart submissions={getSubmissions()} />
       </div>
@@ -468,7 +541,7 @@ export default function StudentDashboard() {
                 {profile && (
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500/10 border border-orange-500/20">
-                      <Flame className="h-5 w-5 text-orange-500" />
+                      <FFlame className="h-5 w-5 text-orange-500 icon-sway" />
                       <div>
                         <p className="text-xs text-orange-500/80 uppercase font-semibold">Streak</p>
                         <p className="text-sm font-bold text-orange-400">{profile.streakCount} ngày</p>
@@ -492,13 +565,13 @@ export default function StudentDashboard() {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { label: 'Điểm Trung Bình', value: avg !== null ? `${avg}đ` : '—', icon: Trophy, color: 'text-amber-400' },
-                   { label: 'Đã Hoàn Thành', value: `${submissions.length}/${visibleAssignments.length}`, icon: CheckCircle2, color: 'text-emerald-400' },
-                  { label: 'Cần Làm', value: todo.length, icon: BookOpen, color: 'text-[#0071e3]' },
-                  { label: 'Thời Gian Học', value: formatTotalTime(totalDurationMs), icon: Clock, color: 'text-violet-400' },
+                  { label: 'Điểm Trung Bình', value: avg !== null ? `${avg}đ` : '—', icon: FTrophy, color: 'text-amber-400' },
+                  { label: 'Đã Hoàn Thành', value: `${submissions.length}/${visibleAssignments.length}`, icon: FCheck, color: 'text-emerald-400' },
+                  { label: 'Cần Làm', value: todo.length, icon: FBook, color: 'text-[#0071e3]' },
+                  { label: 'Thời Gian Học', value: formatTotalTime(totalDurationMs), icon: FClock, color: 'text-violet-400' },
                 ].map(({ label, value, icon: Icon, color }) => (
                   <div key={label} className="text-center p-4 rounded-xl bg-white/5 border border-white/5 flex flex-col items-center justify-center">
-                    <Icon className={`h-5 w-5 mb-2 ${color}`} strokeWidth={1.5} />
+                    <Icon className={`h-5 w-5 mb-2 ${color} icon-bloom-hover`} />
                     <p className={`text-xl md:text-2xl font-bold font-heading ${color}`}>{value}</p>
                     <p className="text-xs text-muted-foreground mt-1">{label}</p>
                   </div>
@@ -528,7 +601,7 @@ export default function StudentDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 fade-in">
                   <div className="glass-strong rounded-3xl border border-white/5 p-6 flex flex-col items-center">
                     <h3 className="font-semibold font-heading w-full flex items-center gap-2 mb-4">
-                      <Brain className="h-5 w-5 text-primary" /> Phân Tích Kỹ Năng
+                      <FBrain className="h-5 w-5 text-primary" /> Phân Tích Kỹ Năng
                     </h3>
                     {skillData.some(s => s.A > 0) ? (
                       <div className="w-full h-[300px]">
@@ -543,7 +616,7 @@ export default function StudentDashboard() {
                       </div>
                     ) : (
                       <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground w-full h-[250px]">
-                        <Brain className="h-10 w-10 mb-3 opacity-30" />
+                        <FBrain className="h-10 w-10 mb-3 opacity-30" />
                         <p className="text-sm">Chưa có đủ dữ liệu</p>
                       </div>
                     )}
@@ -551,7 +624,7 @@ export default function StudentDashboard() {
 
                   <div className="glass-strong rounded-3xl border border-white/5 p-6 flex flex-col">
                     <h3 className="font-semibold font-heading flex items-center gap-2 mb-4 text-amber-400">
-                      <AlertCircle className="h-5 w-5" /> Cẩm Nang Học Tập
+                      <FAlert className="h-5 w-5" /> Cẩm Nang Học Tập
                     </h3>
                     {weakestSkill ? (
                       <div className="flex-1 space-y-4">
@@ -605,7 +678,7 @@ export default function StudentDashboard() {
                 {/* Score Comparison */}
                 <div className="fade-in stagger-5">
                   <h3 className="font-semibold font-heading text-lg flex items-center gap-2 mb-4 text-emerald-400">
-                    <Target className="h-5 w-5" /> So Sánh Cùng Lớp Học
+                    <FTarget className="h-5 w-5" /> So Sánh Cùng Lớp Học
                   </h3>
                   <div className="glass-strong rounded-3xl p-6">
                     <div className="grid grid-cols-2 gap-6">
@@ -630,7 +703,7 @@ export default function StudentDashboard() {
                           ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                           : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
                         }`}>
-                        {avg >= classAvg ? <Trophy className="h-5 w-5 flex-shrink-0 mt-0.5" /> : <TrendingUp className="h-5 w-5 flex-shrink-0 mt-0.5" />}
+                        {avg >= classAvg ? <FTrophy className="h-5 w-5 flex-shrink-0 mt-0.5" /> : <FTrend className="h-5 w-5 flex-shrink-0 mt-0.5" />}
                         <p className="text-sm font-medium">
                           {avg > classAvg
                             ? 'Tuyệt vời! Điểm số của bạn đang cao hơn mức trung bình của cả lớp. Hãy tiếp tục duy trì phong độ này nhé!'
@@ -668,7 +741,7 @@ export default function StudentDashboard() {
                   {/* Progress Trend */}
                   <div className="glass-strong rounded-3xl border border-white/5 p-6 flex flex-col">
                     <h3 className="font-semibold font-heading flex items-center gap-2 mb-6">
-                      <TrendingUp className="h-5 w-5 text-emerald-400" /> Tiến Độ Học Tập (7 Ngày)
+                      <FTrend className="h-5 w-5 text-emerald-400" /> Tiến Độ Học Tập (7 Ngày)
                     </h3>
                     <div className="w-full h-[250px] min-h-[250px]">
                       <ResponsiveContainer width="99%" height="100%">
@@ -701,7 +774,7 @@ export default function StudentDashboard() {
                   {/* Effort Chart */}
                   <div className="glass-strong rounded-3xl border border-white/5 p-6 flex flex-col">
                     <h3 className="font-semibold font-heading flex items-center gap-2 mb-6">
-                      <Flame className="h-5 w-5 text-orange-400" /> Sự Chăm Chỉ (Số Bài Nộp)
+                      <FFlame className="h-5 w-5 text-orange-400" /> Sự Chăm Chỉ (Số Bài Nộp)
                     </h3>
                     <div className="w-full h-[250px] min-h-[250px]">
                       <ResponsiveContainer width="99%" height="100%">
@@ -732,7 +805,7 @@ export default function StudentDashboard() {
                   {/* Skill Focus Pie Chart */}
                   <div className="glass-strong rounded-3xl border border-white/5 p-6 flex flex-col md:col-span-2">
                     <h3 className="font-semibold font-heading flex items-center gap-2 mb-2">
-                      <Brain className="h-5 w-5 text-violet-400" /> Mức Độ Phân Bổ Kỹ Năng
+                      <FBrain className="h-5 w-5 text-violet-400" /> Mức Độ Phân Bổ Kỹ Năng
                     </h3>
                     <p className="text-sm text-muted-foreground mb-6">Giúp bạn nhận biết thói quen &quot;học lệch&quot; để điều chỉnh cân bằng hơn.</p>
 
@@ -763,7 +836,7 @@ export default function StudentDashboard() {
                       </div>
                     ) : (
                       <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground w-full h-[250px]">
-                        <BookOpen className="h-10 w-10 mb-3 opacity-30" />
+                        <FBook className="h-10 w-10 mb-3 opacity-30" />
                         <p className="text-sm">Chưa có bài làm nào để phân tích thói quen.</p>
                       </div>
                     )}
@@ -779,7 +852,7 @@ export default function StudentDashboard() {
               <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-4">
                 <div>
                   <h2 className="text-xl font-bold font-heading text-[#0071e3] flex items-center gap-2">
-                    <Brain className="h-5 w-5 text-[#0071e3]" strokeWidth={1.5} />
+                    <FBrain className="h-5 w-5 text-[#0071e3]" strokeWidth={1.5} />
                     Hệ Thống Ôn Tập Lặp Lại Ngắt Quãng (Spaced Repetition)
                   </h2>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -788,10 +861,10 @@ export default function StudentDashboard() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#0071e3]/10 border border-[#0071e3]/20 text-xs font-semibold text-sky-400">
-                    <Calendar className="h-3.5 w-3.5" strokeWidth={1.5} /> Ngày học thứ {studyDay}
+                    <FCalendar className="h-3.5 w-3.5" strokeWidth={1.5} /> Ngày học thứ {studyDay}
                   </div>
                   <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-300">
-                    <BookOpen className="h-3.5 w-3.5" strokeWidth={1.5} /> +{todayVocabCount} từ mới hôm nay
+                    <FBook className="h-3.5 w-3.5" strokeWidth={1.5} /> +{todayVocabCount} từ mới hôm nay
                   </div>
                 </div>
               </div>
@@ -864,7 +937,7 @@ export default function StudentDashboard() {
                     dueAssignments.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 bg-white/5 rounded-2xl border border-white/5">
                         <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                          <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                          <FCheck className="h-5 w-5 text-emerald-400" />
                         </div>
                         <p className="text-sm font-semibold text-emerald-400">Không có bài tập nào cần ôn!</p>
                         <p className="text-xs text-muted-foreground">Mọi bài tập từ vựng đều được ghi nhớ tốt.</p>
@@ -886,7 +959,7 @@ export default function StudentDashboard() {
                             >
                               <div className="flex items-center gap-3 min-w-0">
                                 <div className="w-9 h-9 rounded-xl bg-[#0071e3]/15 flex items-center justify-center flex-shrink-0">
-                                  <BookOpen className="h-4.5 w-4.5 text-[#0071e3]" strokeWidth={1.5} />
+                                  <FBook className="h-4.5 w-4.5 text-[#0071e3]" strokeWidth={1.5} />
                                 </div>
                                 <div className="min-w-0">
                                   <p className="font-semibold text-xs text-foreground truncate">{assignment.title}</p>
@@ -897,7 +970,7 @@ export default function StudentDashboard() {
                                 <span className="px-2 py-0.5 rounded bg-[#0071e3]/15 text-[#0071e3] text-[10px] font-bold border border-[#0071e3]/20">
                                   Ôn ngay
                                 </span>
-                                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-[#0071e3] transition-colors" strokeWidth={1.5} />
+                                <FChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-[#0071e3] transition-colors" />
                               </div>
                             </button>
                           );
@@ -908,7 +981,7 @@ export default function StudentDashboard() {
                     dueVocabList.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 bg-white/5 rounded-2xl border border-white/5">
                         <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                          <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                          <FCheck className="h-5 w-5 text-emerald-400" />
                         </div>
                         <p className="text-sm font-semibold text-emerald-400">Không có từ vựng riêng lẻ nào trễ hạn!</p>
                         <p className="text-xs text-muted-foreground">Tất cả từ vựng đều được ghi nhớ an toàn.</p>
@@ -953,7 +1026,7 @@ export default function StudentDashboard() {
                 <div className="lg:col-span-5 flex flex-col justify-between p-4 rounded-2xl bg-white/5 border border-white/5 space-y-4">
                   <div>
                     <h3 className="font-bold text-sm text-white flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-[#0071e3]" />
+                      <FTrend className="h-4 w-4 text-[#0071e3]" />
                       Đường Cong Quên Lãng (Ebbinghaus)
                     </h3>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -1026,7 +1099,7 @@ export default function StudentDashboard() {
             {submissions.length > 0 && (
               <div className="fade-in stagger-4">
                 <h2 className="text-lg font-semibold font-heading mb-4 flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-violet-400" />
+                  <FTrend className="h-4 w-4 text-violet-400" />
                   Lịch Sử Bài Làm
                 </h2>
                 <div className="glass-strong rounded-3xl border border-white/5 overflow-hidden">
@@ -1042,11 +1115,11 @@ export default function StudentDashboard() {
                             s.assignmentType === 'vocabulary' ? 'bg-indigo-500/10' :
                             'bg-amber-500/10'
                           }`}>
-                            {s.assignmentType === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-400" /> :
-                             s.assignmentType === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-400" /> :
-                             s.assignmentType === 'dictation' ? <Headphones className="h-4 w-4 text-sky-400" /> :
-                             s.assignmentType === 'vocabulary' ? <FileJson className="h-4 w-4 text-indigo-400" /> :
-                             <PenTool className="h-4 w-4 text-amber-400" />}
+                            {s.assignmentType === 'vocab_context' ? <FBook className="h-4 w-4 text-violet-400" /> :
+                             s.assignmentType === 'multiple_choice' ? <FListChecks className="h-4 w-4 text-teal-400" /> :
+                             s.assignmentType === 'dictation' ? <FHeadphones className="h-4 w-4 text-sky-400" /> :
+                             s.assignmentType === 'vocabulary' ? <FFileJson className="h-4 w-4 text-indigo-400" /> :
+                             <FPenTool className="h-4 w-4 text-amber-400" />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">{s.assignmentTitle}</p>
@@ -1054,7 +1127,7 @@ export default function StudentDashboard() {
                               <span>{new Date(s.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                               {s.durationMs && (
                                 <span className="text-[10px] text-sky-400 font-medium flex items-center gap-1">
-                                  • <Clock className="w-3 h-3" /> {formatDuration(s.durationMs)}
+                                  • <FClock className="w-3 h-3" /> {formatDuration(s.durationMs)}
                                 </span>
                               )}
                             </p>
@@ -1066,7 +1139,7 @@ export default function StudentDashboard() {
                               }`}>
                               {s.score}/100
                             </span>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                            <FChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                           </div>
                         </Link>
                       );
@@ -1081,7 +1154,7 @@ export default function StudentDashboard() {
               <button onClick={() => router.push('/student/assignments')}
                 className="w-full flex items-center justify-center gap-2 py-4 rounded-3xl bg-primary/15 border border-primary/30 text-primary font-semibold hover:bg-primary/25 transition-all fade-in stagger-4">
                 Xem {todo.length} bài tập đang chờ
-                <ChevronRight className="h-4 w-4" />
+                <FChevronRight className="h-4 w-4" />
               </button>
             )}
           </div>

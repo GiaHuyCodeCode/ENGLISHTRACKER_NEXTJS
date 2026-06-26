@@ -42,16 +42,22 @@ module.exports = {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
-        // Explicit surface shades for opacity-safe usage
+        // Floral Dusk semantic tokens
+        petal:  "hsl(var(--petal))",
+        pollen: "hsl(var(--pollen))",
+        fern:   "hsl(var(--fern))",
+        forest: "hsl(var(--forest))",
+        // Legacy surface shades
         surface: {
-          50:  "rgba(35, 32, 54, 0.50)",
-          60:  "rgba(35, 32, 54, 0.60)",
-          80:  "rgba(35, 32, 54, 0.80)",
+          50: "rgba(6, 15, 9, 0.50)",
+          60: "rgba(6, 15, 9, 0.60)",
+          80: "rgba(6, 15, 9, 0.80)",
         },
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "sans-serif"],
-        heading: ["var(--font-outfit)", "sans-serif"],
+        sans:    ["var(--font-jakarta)", "system-ui", "sans-serif"],
+        heading: ["var(--font-jakarta)", "system-ui", "sans-serif"],
+        mono:    ["ui-monospace", "Fira Code", "monospace"],
       },
       borderRadius: {
         lg: "var(--radius)",
