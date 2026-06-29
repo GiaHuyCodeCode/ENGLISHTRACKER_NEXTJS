@@ -142,6 +142,7 @@ export function ShadowingBlock({
   const [isRecording, setIsRecording] = useState(false);
   const [waveformStream, setWaveformStream] = useState<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingActiveRef = useRef(false);
   const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
