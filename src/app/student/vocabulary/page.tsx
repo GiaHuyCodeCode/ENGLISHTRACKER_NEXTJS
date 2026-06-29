@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   getVocabularyCards,
   saveVocabularyCards,
@@ -13,7 +13,8 @@ import {
   getStudentAvatar,
   getAssignments,
   Assignment,
-  submitVocabularyAssignment
+  submitVocabularyAssignment,
+  getSubmissionsByStudent
 } from '@/lib/local-store';
 import {
   BookOpen,
@@ -41,6 +42,9 @@ import { audioManager } from '@/lib/audio';
 
 export default function StudentVocabularyPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const assignIdParam = searchParams?.get('assignId');
+  const isSrsParam = searchParams?.get('srs') === 'true';
   const [studentName, setStudentName] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'review' | 'library' | 'lessons'>('review');
   const [cards, setCards] = useState<VocabCard[]>([]);
@@ -96,9 +100,7 @@ export default function StudentVocabularyPage() {
         const rating = ansStatus ? (ansStatus.isCorrect ? 'good' : 'again') : 'good';
         updateVocabProgress(studentName, matched.id, rating);
         
-        // Bỏ qua các từ vựng thuộc bài tập mới tạo hôm nay khỏi việc tính điểm Repetition
-        const cardCreatedStr = new Date(matched.createdAt || new Date()).toISOString().split('T')[0];
-        if (cardCreatedStr !== todayStr && ansStatus) {
+        if (ansStatus) {
           validAnswersForScore.push(ansStatus);
         }
       }
@@ -107,19 +109,30 @@ export default function StudentVocabularyPage() {
     if (validAnswersForScore.length > 0) {
       const correctCount = validAnswersForScore.filter(a => a.isCorrect).length;
       const score = Math.round((correctCount / validAnswersForScore.length) * 100);
-      // Use submitVocabularyAssignment — it detects repetition type automatically
-      // For vocabulary page SRS review, we submit against the first due vocabulary assignment
-      const dueAssignment = getAssignments().find(a =>
-        (a.type === 'vocabulary' || a.type === 'repetition') &&
-        (a.vocabCards || []).some(c => validAnswersForScore.some(va => va.word === c.word))
-      );
-      if (dueAssignment) {
+      
+      if (assignIdParam) {
         submitVocabularyAssignment({
-          assignmentId: dueAssignment.id,
-          studentName,
-          score,
-          answers: validAnswersForScore
+          assignmentId: assignIdParam,
+          studentName: studentName,
+          score: score,
+          answers: validAnswersForScore,
+          durationMs: 0
         });
+        // Do not redirect, let the UI show the big success screen
+      } else {
+        const dueAssignment = getAssignments().find(a =>
+          (a.type === 'vocabulary' || a.type === 'repetition') &&
+          (a.vocabCards || []).some(c => validAnswersForScore.some(va => va.word === c.word))
+        );
+        if (dueAssignment) {
+          submitVocabularyAssignment({
+            assignmentId: dueAssignment.id,
+            studentName: studentName,
+            score: score,
+            answers: validAnswersForScore,
+            durationMs: 0
+          });
+        }
       }
     }
 
@@ -127,7 +140,9 @@ export default function StudentVocabularyPage() {
     setReviewQueue([]);
     const progress = getStudentVocabProgress(studentName);
     setProgressList(progress);
-    alert('🌟 Hoàn thành ôn tập hôm nay và cập nhật lịch Spaced Repetition thành công!');
+    
+    // Yêu cầu: lưu điểm xong sẽ thoát ra phần bài tập của tôi
+    router.push('/student/assignments');
   };
 
   const handleAddSingleWord = () => {
@@ -196,9 +211,26 @@ export default function StudentVocabularyPage() {
     setProgressList(progress);
   }, [studentName, cards]);
 
-  // Generate Review Queue based on nextReviewDate
+  // Generate Review Queue based on nextReviewDate or URL param
   useEffect(() => {
-    if (!studentName || cards.length === 0) return;
+    if (!studentName) return;
+
+    if (assignIdParam && isSrsParam) {
+      const isCompleted = getSubmissionsByStudent(studentName).some(s => s.assignmentId === assignIdParam);
+      if (isCompleted) {
+        setReviewQueue([]);
+        return;
+      }
+      const specificAssign = getAssignments().find(a => a.id === assignIdParam);
+      if (specificAssign && specificAssign.vocabCards) {
+        setReviewQueue(specificAssign.vocabCards);
+        setCurrentIdx(0);
+        resetCardState(0, specificAssign.vocabCards);
+        return;
+      }
+    }
+
+    if (cards.length === 0) return;
     const now = new Date();
     const progressMap = new Map<string, VocabProgress>();
     progressList.forEach(p => progressMap.set(p.wordId, p));
@@ -214,7 +246,7 @@ export default function StudentVocabularyPage() {
     setCurrentIdx(0);
     resetCardState(0, shuffled);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [progressList, cards, studentName]);
+  }, [progressList, cards, studentName, assignIdParam, isSrsParam]);
 
   // Prepare options for Synonym Matching mode
   useEffect(() => {
@@ -572,7 +604,7 @@ export default function StudentVocabularyPage() {
             <div className="slide-up">
               <VocabularyExercise
                 vocabCards={reviewQueue}
-                isRequirementWorkflow={true}
+                isRepetitionWorkflow={true}
                 onSubmit={handleFinishSrsReview}
               />
             </div>

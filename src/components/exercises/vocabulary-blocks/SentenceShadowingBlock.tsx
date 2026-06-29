@@ -8,6 +8,17 @@ import { audioManager } from '@/lib/audio';
 import { useSpeechRecognition } from './useSpeechRecognition';
 import { usePhonetic } from '@/lib/usePhonetic';
 
+let globalAudioCtx: AudioContext | null = null;
+function getGlobalAudioContext() {
+  if (!globalAudioCtx) {
+    const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (AudioCtx) {
+      globalAudioCtx = new AudioCtx();
+    }
+  }
+  return globalAudioCtx;
+}
+
 // ── Real-time waveform from microphone via Web Audio API ─────────────────────
 function useWaveform(stream: MediaStream | null): number[] {
   const [bars, setBars] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
@@ -18,9 +29,8 @@ function useWaveform(stream: MediaStream | null): number[] {
       setBars([0, 0, 0, 0, 0, 0, 0]);
       return;
     }
-    const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx() as AudioContext;
+    const ctx = getGlobalAudioContext();
+    if (!ctx) return;
     // Ensure AudioContext is running (some browsers suspend it if created outside click handler)
     if (ctx.state === 'suspended') {
       ctx.resume().catch(() => {});
@@ -50,8 +60,8 @@ function useWaveform(stream: MediaStream | null): number[] {
 
     return () => {
       cancelAnimationFrame(rafRef.current);
-      try { ctx.close(); } catch { /* ignore */ }
       setBars([0, 0, 0, 0, 0, 0, 0]);
+      source.disconnect();
     };
   }, [stream]);
 
@@ -203,6 +213,12 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
   const handleRecordStart = async () => {
     if (!currentSentenceRef.current || phaseRef.current === 'recording' || !isSupported) return;
 
+    // Unlock AudioContext synchronously inside click handler for Safari
+    const ctx = getGlobalAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
     releaseMicStream();
 
     setPhase('recording');
@@ -274,25 +290,29 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
       }
     }, autoStopDuration * 1000);
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      if (!recordingActiveRef.current) {
-        stream.getTracks().forEach(t => t.stop());
-        return;
+    const iosDevice = typeof window !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+    if (!iosDevice) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        if (!recordingActiveRef.current) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+        micStreamRef.current = stream;
+        setWaveformStream(stream);
+        const mimeType = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+        mimeTypeRef.current = mimeType;
+        const mediaRecorder = new MediaRecorder(stream, { mimeType });
+        mediaRecorderRef.current = mediaRecorder;
+        chunksRef.current = [];
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunksRef.current.push(e.data);
+        };
+        mediaRecorder.start();
+      } catch (err) {
+        console.warn('[SentenceShadowing] getUserMedia failed — SR-only mode:', err);
       }
-      micStreamRef.current = stream;
-      setWaveformStream(stream);
-      const mimeType = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-      mimeTypeRef.current = mimeType;
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      mediaRecorder.start();
-    } catch (err) {
-      console.warn('[SentenceShadowing] getUserMedia failed — SR-only mode:', err);
     }
   };
 

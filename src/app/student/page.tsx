@@ -88,8 +88,12 @@ export default function StudentDashboard() {
   const [srActiveSubTab, setSrActiveSubTab] = useState<'assignments' | 'words'>('assignments');
 
   const calculateStats = useCallback((student: string) => {
-    const subs = getSubmissions().filter(s => s.studentName === student);
-    const trks = getDailyTrackings().filter(t => t.studentName === student);
+    const subs = getSubmissions().filter(s => s.studentName === student).sort(
+      (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+    );
+    const trks = getDailyTrackings().filter(t => t.studentName === student).sort(
+      (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+    );
     setSubmissions(subs);
     setTrackings(trks);
     setProfile(getGamificationProfiles().find(p => p.studentName === student) || null);
@@ -966,10 +970,13 @@ export default function StudentDashboard() {
                           const bgClass = stageConfig.badge.split(' ')[0] || 'bg-[#0071e3]/15';
                           const textClass = stageConfig.badge.split(' ')[1] || 'text-[#0071e3]';
 
+                          const pendingRep = assignments.find(a => a.type === 'repetition' && !a.isHidden && a.id.endsWith(`-${assignment.id}`) && !getSubmissions().some(s => s.assignmentId === a.id));
+                          const targetUrl = pendingRep ? `/student/vocabulary?assignId=${pendingRep.id}&srs=true` : `/student/assignments/${assignment.id}`;
+
                           return (
                             <button
                               key={assignment.id}
-                              onClick={() => router.push(`/student/assignments/${assignment.id}`)}
+                              onClick={() => router.push(targetUrl)}
                               className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-card border border-border hover:border-foreground/20 hover:bg-muted/50 transition-all text-left group"
                             >
                               <div className="flex items-center gap-3 min-w-0">

@@ -158,12 +158,7 @@ export default function StudentAssignmentsPage() {
 
   const now = new Date();
   const visibleAssignments = assignments.filter(a => {
-    // For repetition type: only show when nextReviewDate is reached
-    if (a.type === 'repetition') {
-      const nextReview = getAssignmentNextReviewDate(a.id, studentName);
-      if (!nextReview) return false; // No progress entry yet, not visible
-      return new Date(nextReview) <= now;
-    }
+    if (a.type === 'repetition') return a.isHidden === false;
     if (!a.createdAt) return true;
     return new Date(a.createdAt) <= now;
   });
@@ -176,8 +171,13 @@ export default function StudentAssignmentsPage() {
   };
   const todayLocalStr = getLocalDateString(new Date());
 
-  const done = visibleAssignments.filter(a => getSubmission(a.id));
-  const todo = visibleAssignments.filter(a => !getSubmission(a.id)).sort((a, b) => {
+  const done = visibleAssignments.filter(a => getSubmission(a.id)).sort((a, b) => {
+    const subA = getSubmission(a.id);
+    const subB = getSubmission(b.id);
+    if (!subA || !subB) return 0;
+    return new Date(subB.submittedAt).getTime() - new Date(subA.submittedAt).getTime();
+  });
+  const todo = visibleAssignments.filter(a => a.type !== 'repetition' && !getSubmission(a.id)).sort((a, b) => {
     const dateA = a.createdAt ? getLocalDateString(a.createdAt) : '';
     const dateB = b.createdAt ? getLocalDateString(b.createdAt) : '';
 
@@ -190,18 +190,9 @@ export default function StudentAssignmentsPage() {
     return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
   });
 
+  const pendingRepetitions = visibleAssignments.filter(a => a.type === 'repetition' && !getSubmission(a.id)).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
   const allAssignments = getAssignments();
-  const vocabProgress = getVocabProgressList().filter(p => p.studentName === studentName);
-  
-  const dueVocabAssignments = allAssignments.filter(a => {
-    if (a.type !== 'vocabulary') return false;
-    const dueWordsInAssign = (a.vocabCards || []).filter(card => {
-      const prog = vocabProgress.find(p => p.wordId === card.id);
-      if (!prog) return true;
-      return new Date(prog.nextReviewDate) <= now;
-    });
-    return dueWordsInAssign.length > 0;
-  });
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -241,7 +232,7 @@ export default function StudentAssignmentsPage() {
         {[
           { label: 'Đã hoàn thành', value: done.length, color: 'text-teal-600 dark:text-teal-400', bg: 'border-white/5' },
           { label: 'Điểm Trung Bình', value: myAvgScore !== null ? `${myAvgScore}đ` : '—', color: 'text-[#0071e3]', bg: 'border-white/5' },
-          { label: 'Chờ làm', value: todo.length + dueVocabAssignments.length, color: 'text-amber-600 dark:text-amber-400', bg: 'border-white/5' },
+          { label: 'Chờ làm', value: todo.length + pendingRepetitions.length, color: 'text-amber-600 dark:text-amber-400', bg: 'border-white/5' },
         ].map(({ label, value, color, bg }) => (
           <div key={label} className={`glass rounded-2xl p-5 border ${bg}`}>
             <p className="text-xs text-muted-foreground mb-2">{label}</p>
@@ -251,50 +242,45 @@ export default function StudentAssignmentsPage() {
       </div>
 
       {/* Pending Assignments */}
-      {(todo.length > 0 || dueVocabAssignments.length > 0) && (
+      {(todo.length > 0 || pendingRepetitions.length > 0) && (
         <section>
           <h2 className="text-lg font-semibold font-heading mb-4 flex items-center gap-2">
             <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             Bài Tập Chờ Làm
             <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 text-xs border border-amber-500/30">
-              {todo.length + dueVocabAssignments.length}
+              {todo.length + pendingRepetitions.length}
             </span>
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             
-            {/* Spaced Repetition Assignment Cards */}
-            {dueVocabAssignments.map(assignment => {
-              const dueWordsCount = (assignment.vocabCards || []).filter(card => {
-                const prog = vocabProgress.find(p => p.wordId === card.id);
-                if (!prog) return true;
-                return new Date(prog.nextReviewDate) <= now;
-              }).length;
-              return (
-                <Link key={assignment.id} href="/student/vocabulary">
-                  <div className="group glass hover-lift rounded-2xl p-5 border border-sky-500/30 hover:border-sky-500/60 transition-all cursor-pointer h-full flex flex-col justify-between bg-sky-500/5">
-                    <div>
-                      <div className="flex items-start justify-between gap-3 mb-4">
-                        <div className="p-3 rounded-xl bg-sky-500/20">
-                          <BookOpen className="h-5 w-5 text-sky-600 dark:text-sky-400" />
-                        </div>
-                        <span className="text-[11px] px-2 py-1 rounded-lg font-semibold bg-sky-500/10 text-sky-600 dark:text-sky-400">
-                          Spaced Repetition
-                        </span>
+            {/* Spaced Repetition Assignment Cards - Pending (Red) */}
+            {pendingRepetitions.map(assignment => (
+              <Link key={assignment.id} href={`/student/vocabulary?assignId=${assignment.id}&srs=true`}>
+                <div className="group glass hover-lift rounded-2xl p-5 border border-red-500/30 hover:border-red-500/60 transition-all cursor-pointer h-full flex flex-col justify-between bg-red-500/5">
+                  <div>
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="p-3 rounded-xl bg-red-500/20">
+                        <BookOpen className="h-5 w-5 text-red-600 dark:text-red-400" />
                       </div>
-                      <h3 className="font-semibold text-sm leading-snug mb-2 transition-colors group-hover:text-sky-600 dark:group-hover:text-sky-400">
-                        {assignment.title}
-                      </h3>
-                      <p className="text-xs text-muted-foreground mb-4">
-                        {dueWordsCount} từ vựng • Cần ôn lại ngay hôm nay
-                      </p>
+                      <span className="text-[11px] px-2 py-1 rounded-lg font-semibold bg-red-500/10 text-red-600 dark:text-red-400">
+                        Spaced Repetition
+                      </span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-sm font-medium group-hover:gap-2.5 transition-all text-sky-600 dark:text-sky-400">
-                      Bắt đầu ôn tập <ChevronRight className="h-4 w-4" />
-                    </div>
+                    <h3 className="font-semibold text-sm leading-snug mb-2 transition-colors group-hover:text-red-600 dark:group-hover:text-red-400">
+                      {assignment.title}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      {assignment.vocabCards?.length || 0} từ vựng • Cần ôn lại ngay hôm nay
+                    </p>
                   </div>
-                </Link>
-              );
-            })}
+                  <div className="flex items-center gap-1.5 text-sm font-medium group-hover:gap-2.5 transition-all text-red-600 dark:text-red-400">
+                    Bắt đầu ôn tập <ChevronRight className="h-4 w-4" />
+                  </div>
+                </div>
+              </Link>
+            ))}
+
+
 
             {/* Regular assignments */}
             {todo.map(a => {
@@ -384,6 +370,29 @@ export default function StudentAssignmentsPage() {
               {/* Regular completed assignments */}
               {done.map(a => {
                 const sub = getSubmission(a.id)!;
+                if (a.type === 'repetition') {
+                  return (
+                    <div key={a.id} className="flex items-center gap-4 px-6 py-4 bg-emerald-500/10 opacity-80 cursor-not-allowed border-l-4 border-emerald-500">
+                      <div className="p-2 rounded-lg bg-emerald-500/20">
+                        <BookOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate text-emerald-700 dark:text-emerald-400">{a.title} <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20">Spaced Repetition</span></p>
+                        <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-0.5 flex items-center gap-2">
+                          <span>{new Date(sub.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                          {sub.durationMs ? (
+                            <span className="text-[10px] font-medium flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                              • <Clock className="w-3 h-3" /> {formatDuration(sub.durationMs)}
+                            </span>
+                          ) : null}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><CheckCircle2 className="h-4 w-4" /> Đã ôn tập</span>
+                      </div>
+                    </div>
+                  );
+                }
                 const isShadowing = a.type === 'shadowing';
                 const href = isShadowing ? `/student/shadowing/${a.id}`
                   : sub ? `/student/review/${sub.id}`

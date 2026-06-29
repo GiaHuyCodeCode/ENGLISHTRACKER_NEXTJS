@@ -605,7 +605,19 @@ export function DictationBlock({
 
         {/* Input Area (Larger font/height for virtual keyboard safety) */}
         <div className="w-full max-w-md pt-2 space-y-4">
-          <div className="flex gap-3">
+          <form className="flex gap-3" onSubmit={(e) => {
+            e.preventDefault();
+            const currentFeedback = feedback[currentCard.word];
+            if (currentFeedback?.show && !currentFeedback.isCorrect) {
+              setFeedback(prev => ({
+                ...prev,
+                [currentCard.word]: { isCorrect: false, show: false }
+              }));
+              onAnswerChange(currentCard.word, '');
+            } else {
+              handleCheckSpelling();
+            }
+          }}>
             <input
               ref={inputRef}
               type="text"
@@ -620,20 +632,7 @@ export function DictationBlock({
                 }
               }}
               disabled={isSubmitted || wrongTimerActive}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  const currentFeedback = feedback[currentCard.word];
-                  if (currentFeedback?.show && !currentFeedback.isCorrect) {
-                    setFeedback(prev => ({
-                      ...prev,
-                      [currentCard.word]: { isCorrect: false, show: false }
-                    }));
-                    onAnswerChange(currentCard.word, '');
-                  } else {
-                    handleCheckSpelling();
-                  }
-                }
-              }}
+              enterKeyHint="done"
               placeholder="Nghe và gõ lại từ vựng..."
               className={`input-field flex-1 text-center font-bold tracking-wider text-lg md:text-xl h-14 md:h-16 transition-all ${
                 isSubmitted
@@ -648,7 +647,7 @@ export function DictationBlock({
             
             {!isSubmitted && !isRequirementWorkflow && (
               <button 
-                onClick={handleCheckSpelling} 
+                type="submit"
                 className="px-4 md:px-6 h-14 md:h-16 bg-black/5 dark:bg-white/5 text-foreground hover:bg-black/10 dark:bg-white/10 font-semibold rounded-xl text-sm transition-all hover-lift"
               >
                 Kiểm tra
@@ -656,13 +655,13 @@ export function DictationBlock({
             )}
             {!isSubmitted && isRequirementWorkflow && !wrongTimerActive && !currentFeedback?.isCorrect && (
               <button 
-                onClick={handleCheckSpelling} 
+                type="submit"
                 className="px-4 md:px-6 h-14 md:h-16 bg-[#0071e3] text-white font-bold rounded-xl text-sm transition-all hover-lift"
               >
                 Kiểm tra
               </button>
             )}
-          </div>
+          </form>
 
           {/* Peer error tracking (Enlarged circles, no label text) */}
           {uniqueFailedPeers.length > 0 && (

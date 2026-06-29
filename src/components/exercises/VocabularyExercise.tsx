@@ -132,9 +132,9 @@ export function VocabularyExercise({
   const answeredCount = getAnsweredCount();
   const isAllAnswered = vocabCards.length > 0 && answeredCount === vocabCards.length;
 
+  // 1. Xác định khi nào bắt đầu tự động đếm ngược
   useEffect(() => {
     if (isSubmitted || isSubmitting) {
-      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
       setAutoSubmitCountdown(null);
       return;
     }
@@ -148,26 +148,24 @@ export function VocabularyExercise({
       shouldAutoSubmit = activeMode !== 'flashcard' && isAllAnswered;
     }
 
-    if (shouldAutoSubmit && autoSubmitCountdown === null) {
-      setAutoSubmitCountdown(10);
-      countdownTimerRef.current = setInterval(() => {
-        setAutoSubmitCountdown(prev => {
-          if (prev === null || prev <= 1) {
-            if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else if (!shouldAutoSubmit && autoSubmitCountdown !== null) {
-      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    if (shouldAutoSubmit) {
+      // Chỉ gán bằng 10 nếu chưa bắt đầu đếm
+      setAutoSubmitCountdown(prev => prev === null ? 10 : prev);
+    } else {
       setAutoSubmitCountdown(null);
     }
+  }, [isSubmitted, isSubmitting, isRequirementWorkflow, isRepetitionWorkflow, activeMode, isAllAnswered]);
 
-    return () => {
-      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-    };
-  }, [isSubmitted, isSubmitting, isRequirementWorkflow, isRepetitionWorkflow, activeMode, isAllAnswered, autoSubmitCountdown]);
+  // 2. Thực hiện giảm đếm ngược 1s mỗi lần
+  useEffect(() => {
+    if (autoSubmitCountdown === null || autoSubmitCountdown <= 0) return;
+    
+    const timer = setTimeout(() => {
+      setAutoSubmitCountdown(prev => prev !== null ? prev - 1 : null);
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, [autoSubmitCountdown]);
 
   const handleSpeak = useCallback((text: string, rate: number = 1.0, audioUrl?: string) => {
     audioManager.speak(text, rate, audioUrl);
@@ -282,6 +280,8 @@ export function VocabularyExercise({
     if (!isRepetitionWorkflow) {
       setActiveMode('test');
       setProgressStats(null); // Reset progress để block test cập nhật
+    } else {
+      setAutoSubmitCountdown(0);
     }
   };
 
@@ -719,7 +719,7 @@ export function VocabularyExercise({
 
           {/* Submit Section (Chỉ hiển thị khi làm bài tự do, hoặc khi ở phần trắc nghiệm trong chế độ bắt buộc) */}
           {!isSubmitted && ((!isRequirementWorkflow && !isRepetitionWorkflow) || (isRequirementWorkflow && activeMode === 'test') || (isRepetitionWorkflow && activeMode === 'dictation')) && (
-            <div className="pt-6 border-t border-black/5 dark:border-white/5 space-y-4 max-w-3xl mx-auto w-full">
+            <div className="pt-6 border-t border-black/5 dark:border-white/5 space-y-4 max-w-3xl mx-auto w-full hidden lg:block">
               <div className="flex justify-between items-center text-xs font-bold text-muted-foreground uppercase tracking-widest px-2">
                 <span>
                   {activeMode === 'test' ? `Đã trả lời: ${Object.keys(mcAnswers).length} / ${vocabCards.length}` :

@@ -87,6 +87,7 @@ export interface Assignment {
   sentences?: DictationSentence[];
   /** ID của bài Dictation gốc nếu bài Shadowing này được tạo tự động từ Dictation */
   sourceDictationId?: string;
+  isHidden?: boolean; // Cho bài tập Spaced Repetition bị ẩn
 }
 
 export interface VocabAnswerResult {
@@ -448,6 +449,43 @@ export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { cr
     });
     if (hasNewCards) {
       saveVocabularyCards(updatedCards);
+    }
+
+    // Tự động sinh ra 5 bài tập Spaced Repetition (Stages 1-5) với trạng thái isHidden = true
+    const intervals = [1, 3, 7, 14, 30]; // Stage 1, 2, 3, 4, 5
+    let cumulativeDays = 0;
+    
+    const createdDateRaw = new Date(a.createdAt);
+    createdDateRaw.setHours(0, 0, 0, 0);
+    const createdMidnight = createdDateRaw.getTime();
+
+    const newRepetitions: Assignment[] = [];
+
+    for (let i = 0; i < intervals.length; i++) {
+      cumulativeDays += intervals[i];
+      const stage = i + 1;
+      
+      const targetDate = new Date(createdMidnight);
+      targetDate.setDate(targetDate.getDate() + cumulativeDays);
+      targetDate.setHours(8, 0, 0, 0); // 8:00 AM of target day
+      
+      const repId = `rep-stage${stage}-${a.id}`;
+      const repAssignment: Assignment = {
+        id: repId,
+        title: `Stage ${stage} - ${a.title}`,
+        type: 'repetition',
+        vocabCards: a.vocabCards,
+        createdAt: targetDate.toISOString(),
+        isHidden: true
+      };
+      newRepetitions.push(repAssignment);
+      syncAssignmentToSheet(repAssignment);
+    }
+    
+    if (newRepetitions.length > 0) {
+      const updatedAll = getAssignments();
+      // It's possible updatedAll doesn't have `a` if it was fetched before writing, but we did write before this.
+      write(KEYS.assignments, [...updatedAll, ...newRepetitions]);
     }
   }
 
@@ -1400,71 +1438,50 @@ export function importExternalVocabWithProgress(
 }
 
 export function autoSyncAllSpacedRepetition() {
+  // Chạy một lần để đồng bộ (backfill) các bài tập Spaced Repetition (Stages 1-5) 
+  // cho những bài tập Từ vựng cũ chưa được tạo.
   const assignments = getAssignments();
-  const progressList = getVocabProgressList();
-  const students = getStudentNames();
   let hasChanges = false;
-  
-  const intervals = REVIEW_INTERVALS;
+  const newReps: Assignment[] = [];
 
-  assignments.forEach(assignment => {
-    if ((assignment.type === 'vocabulary' || assignment.type === 'repetition') && assignment.vocabCards) {
-      const createdDate = new Date(assignment.createdAt || new Date());
-      const created = createdDate.getTime();
-      const now = new Date().getTime();
-      
-      const daysDiff = Math.floor((now - created) / (1000 * 3600 * 24));
-      
-      // "khong bao gom viec Repetition cua ngay hien tai" 
-      if (daysDiff === 0) return;
-      
-      let calculatedStage = 1;
+  assignments.forEach(a => {
+    if (a.type === 'vocabulary' && a.vocabCards) {
+      const intervals = [1, 3, 7, 14, 30]; // Stage 1, 2, 3, 4, 5
       let cumulativeDays = 0;
       
+      const createdDateRaw = new Date(a.createdAt || new Date());
+      createdDateRaw.setHours(0, 0, 0, 0);
+      const createdMidnight = createdDateRaw.getTime();
+
       for (let i = 0; i < intervals.length; i++) {
-        if (daysDiff > cumulativeDays + intervals[i]) {
-          cumulativeDays += intervals[i];
-          calculatedStage = i + 2;
-        } else {
-          break;
+        cumulativeDays += intervals[i];
+        const stage = i + 1;
+        const repId = `rep-stage${stage}-${a.id}`;
+        
+        // Nếu bài repetition này chưa tồn tại trong mảng gốc và mảng mới
+        if (!assignments.find(x => x.id === repId) && !newReps.find(x => x.id === repId)) {
+          const targetDate = new Date(createdMidnight);
+          targetDate.setDate(targetDate.getDate() + cumulativeDays);
+          targetDate.setHours(8, 0, 0, 0); // Đúng 8:00 AM của ngày cần ôn tập
+          
+          newReps.push({
+            id: repId,
+            title: `Stage ${stage} - ${a.title}`,
+            type: 'repetition',
+            vocabCards: a.vocabCards,
+            createdAt: targetDate.toISOString(),
+            isHidden: true
+          });
+          hasChanges = true;
         }
       }
-      calculatedStage = Math.min(calculatedStage, 6);
-      
-      const calculatedNextReviewDate = new Date(createdDate);
-      calculatedNextReviewDate.setDate(calculatedNextReviewDate.getDate() + cumulativeDays + (intervals[calculatedStage - 1] || 1));
-      const nextReviewStr = calculatedNextReviewDate.toISOString();
-      const interval = intervals[Math.max(0, calculatedStage - 1)] || 1;
-
-      students.forEach(studentName => {
-        (assignment.vocabCards || []).forEach(card => {
-          const pIndex = progressList.findIndex(p => p.studentName === studentName && p.wordId === card.id);
-          if (pIndex !== -1) {
-            if (progressList[pIndex].stage !== calculatedStage || progressList[pIndex].nextReviewDate !== nextReviewStr) {
-              progressList[pIndex].stage = calculatedStage;
-              progressList[pIndex].nextReviewDate = nextReviewStr;
-              progressList[pIndex].interval = interval;
-              hasChanges = true;
-            }
-          } else {
-            progressList.push({
-              studentName,
-              wordId: card.id,
-              stage: calculatedStage,
-              repetitions: calculatedStage > 1 ? calculatedStage : 0,
-              interval: interval,
-              lastReviewed: new Date().toISOString(),
-              nextReviewDate: nextReviewStr
-            });
-            hasChanges = true;
-          }
-        });
-      });
     }
   });
 
-  if (hasChanges) {
-    saveVocabProgressList(progressList);
+  if (hasChanges && newReps.length > 0) {
+    write(KEYS.assignments, [...assignments, ...newReps]);
+    // Sync lên Google Sheets
+    newReps.forEach(rep => syncAssignmentToSheet(rep));
   }
 }
 

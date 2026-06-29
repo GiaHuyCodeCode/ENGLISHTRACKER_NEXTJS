@@ -17,6 +17,13 @@ export const metadata: Metadata = {
   description: "Hệ thống theo dõi và luyện tập tiếng Anh thông minh",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 // No-flash theme script — runs before paint to avoid white flash
 const themeScript = `(function(){try{var t=localStorage.getItem('et_theme')||'dark';var h=document.documentElement;h.classList.remove('dark','light');h.classList.add(t);}catch(e){document.documentElement.classList.add('dark');}})();`;
 

@@ -7,27 +7,34 @@ import {
 import { useSpeechRecognition } from './useSpeechRecognition';
 import { usePhonetic } from '@/lib/usePhonetic';
 
+let globalAudioCtx: AudioContext | null = null;
+function getGlobalAudioContext() {
+  if (!globalAudioCtx) {
+    const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (AudioCtx) {
+      globalAudioCtx = new AudioCtx();
+    }
+  }
+  return globalAudioCtx;
+}
+
 // ── Real-time waveform from microphone via Web Audio API ─────────────────────
 function useWaveform(stream: MediaStream | null): number[] {
   const [bars, setBars] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   const rafRef = useRef<number>(0);
-  const ctxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     if (!stream) {
       setBars([0, 0, 0, 0, 0, 0, 0]);
       return;
     }
-    // AudioContext must be created inside a user-gesture context.
-    // This effect runs after the user tapped "record", so it's safe.
-    const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx() as AudioContext;
+    const ctx = getGlobalAudioContext();
+    if (!ctx) return;
+    
     // Ensure AudioContext is running (some browsers suspend it if created outside click handler)
     if (ctx.state === 'suspended') {
       ctx.resume().catch(() => {});
     }
-    ctxRef.current = ctx;
     const source = ctx.createMediaStreamSource(stream);
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 256;
@@ -53,9 +60,8 @@ function useWaveform(stream: MediaStream | null): number[] {
 
     return () => {
       cancelAnimationFrame(rafRef.current);
-      try { ctx.close(); } catch { /* ignore */ }
-      ctxRef.current = null;
       setBars([0, 0, 0, 0, 0, 0, 0]);
+      source.disconnect();
     };
   }, [stream]);
 
@@ -202,6 +208,12 @@ export function ShadowingBlock({
 
   const handleRecordStart = async () => {
     if (!currentCard || phaseRef.current === 'recording' || !isSupported) return;
+    
+    // Unlock AudioContext synchronously inside click handler for Safari
+    const ctx = getGlobalAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
 
     setPhase('recording');
     setIsRecording(true);
@@ -281,27 +293,29 @@ export function ShadowingBlock({
       }
     }, autoStopDuration * 1000);
 
-    // MediaRecorder is optional — used only for audio playback after recording.
-    // We also pipe the stream to the waveform analyser for real-time visualization.
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!recordingActiveRef.current) {
-        stream.getTracks().forEach(t => t.stop());
-        return;
+    const iosDevice = typeof window !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+    if (!iosDevice) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        if (!recordingActiveRef.current) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+        micStreamRef.current = stream;
+        setWaveformStream(stream);
+        const mimeType = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+        mimeTypeRef.current = mimeType;
+        const mediaRecorder = new MediaRecorder(stream, { mimeType });
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+        mediaRecorder.start();
+      } catch (err) {
+        console.warn('[Shadowing] getUserMedia failed — SR-only mode:', err);
       }
-      // Feed stream to real-time waveform
-      setWaveformStream(stream);
-      const mimeType = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-      mimeTypeRef.current = mimeType;
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-      mediaRecorder.start();
-    } catch (err) {
-      console.warn('Could not set up audio recording for playback:', err);
     }
   };
 

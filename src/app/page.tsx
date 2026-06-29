@@ -15,7 +15,7 @@ import { StudentTimeChart } from '@/components/ui/StudentTimeChart';
 import { toLocalDateString } from '@/lib/utils';
 import {
   Users, BookOpen, Clock, Target, Edit2, Save, X, XCircle,
-  Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2, Lightbulb, Settings, Loader2, RefreshCw, FileJson, Volume2, Headphones, Calendar, Mic
+  Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2, Lightbulb, Settings, Loader2, RefreshCw, FileJson, Volume2, Headphones, Calendar, Mic, Lock, Unlock, Eye, EyeOff
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -335,6 +335,12 @@ export default function TeacherDashboard() {
         setConfirmDialog(null);
       }
     });
+  };
+
+  const handleToggleHidden = (a: any) => {
+    const currentlyHidden = a.isHidden !== false;
+    updateAssignment(a.id, { isHidden: !currentlyHidden });
+    refreshData();
   };
 
   const handleToggleHint = (a: Assignment) => {
@@ -1104,6 +1110,7 @@ export default function TeacherDashboard() {
                 {[
                   { value: 'all', label: 'Tất cả' },
                   { value: 'Vocab', label: 'Từ vựng (Vocab)' },
+                  { value: 'Repetition', label: 'Spaced Repetition' },
                   { value: 'Grammar', label: 'Ngữ pháp (Grammar)' },
                   { value: 'Reading', label: 'Đọc hiểu (Reading)' },
                   { value: 'Listening', label: 'Nghe chép (Listening)' },
@@ -1149,9 +1156,17 @@ export default function TeacherDashboard() {
           {/* Assignments list */}
           {(() => {
             const filteredMgmtAssignments = allAssignments.filter(a => {
+              if (mgmtSkillFilter === 'all' && a.type === 'repetition') {
+                return false; // Mặc định ẩn bài repetition ở tab "Tất cả"
+              }
               if (mgmtSkillFilter !== 'all') {
-                const skill = a.skill || 'Vocab';
-                if (skill.toLowerCase() !== mgmtSkillFilter.toLowerCase()) return false;
+                if (mgmtSkillFilter === 'Repetition') {
+                  if (a.type !== 'repetition') return false;
+                } else {
+                  if (a.type === 'repetition') return false;
+                  const skill = a.skill || 'Vocab';
+                  if (skill.toLowerCase() !== mgmtSkillFilter.toLowerCase()) return false;
+                }
               }
               if (mgmtDateFilter) {
                 if (!a.createdAt) return false;
@@ -1248,6 +1263,20 @@ export default function TeacherDashboard() {
                           >
                             <Lightbulb className="h-4 w-4 pointer-events-none" />
                             <span className="font-semibold">{a.allowHints ? '' : ''}</span>
+                          </button>
+                        )}
+                        {a.type === 'repetition' && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleHidden(a); }}
+                            className={`p-2 rounded-xl transition-colors relative z-10 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold ${a.isHidden === false
+                              ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                              : 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
+                              }`}
+                            title={a.isHidden === false ? "Đang hiện (Học sinh thấy được)" : "Đang ẩn (Học sinh chưa thấy)"}
+                          >
+                            {a.isHidden !== false ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            {a.isHidden !== false ? "Đang Ẩn" : "Đang Mở"}
                           </button>
                         )}
                         <button
