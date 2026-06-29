@@ -77,6 +77,9 @@ export default function StudentVocabularyPage() {
     meaning: '',
     example: ''
   });
+  
+
+
   const [speakingWord, setSpeakingWord] = useState<string | null>(null);
 
   const handleFinishSrsReview = (answers: { word: string; studentAnswer: string; isCorrect: boolean }[]) => {
@@ -141,7 +144,13 @@ export default function StudentVocabularyPage() {
       setStudentName(saved);
     }
 
-    const loadedCards = getVocabularyCards();
+    const baseCards = getVocabularyCards();
+    const assignCards = getAssignments().filter(a => a.type === 'vocabulary').flatMap(a => a.vocabCards || []);
+    const totalCardsMap = new Map<string, VocabCard>();
+    baseCards.forEach(c => totalCardsMap.set(c.id, c));
+    assignCards.forEach(c => totalCardsMap.set(c.id, c as VocabCard));
+    const loadedCards = Array.from(totalCardsMap.values());
+    
     setCards(loadedCards);
     const now = new Date();
     setLessons(getAssignments().filter(a => {

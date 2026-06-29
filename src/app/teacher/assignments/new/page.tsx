@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { saveAssignment, VocabKeyword, QuizQuestion, getVocabularyCards, DictationSentence } from '@/lib/local-store';
+import { saveAssignment, VocabKeyword, QuizQuestion, getVocabularyCards, DictationSentence, getStudentNames, importExternalVocabWithProgress } from '@/lib/local-store';
 import {
   BookOpen, ListChecks, Plus, Trash2, Upload,
   CheckCircle2, AlertCircle, ArrowLeft, Eye, FileJson, PenTool,
@@ -47,6 +47,38 @@ export default function NewAssignmentPage() {
     const { createShadowing, ...assignmentData } = data;
     saveAssignment({ ...assignmentData, type, skill, createdAt: createdAtISO } as any);
     
+    // Tự động thêm dữ liệu Spaced Repetition (SRS) cho toàn bộ học sinh 
+    // nếu là bài tập từ vựng, tính toán phase và số lần lặp dựa vào ngày tạo
+    if (type === 'vocabulary' && assignmentData.vocabCards) {
+      const created = new Date(createdAtISO).getTime();
+      const now = new Date().getTime();
+      const daysDiff = Math.floor((now - created) / (1000 * 3600 * 24));
+      
+      let stage = 1;
+      let repetitions = 0;
+      
+      if (daysDiff > 0) {
+        const intervals = [1, 3, 7, 14, 30, 60];
+        let totalDays = 0;
+        for (let i = 0; i < intervals.length; i++) {
+          totalDays += intervals[i];
+          if (daysDiff >= totalDays) {
+            stage = i + 2;
+            repetitions = i + 1;
+          } else {
+            break;
+          }
+        }
+      }
+      
+      stage = Math.min(stage, 6);
+      
+      const students = getStudentNames();
+      students.forEach(student => {
+        importExternalVocabWithProgress(student, assignmentData.vocabCards, stage, repetitions, createdAtISO);
+      });
+    }
+
     if (type === 'dictation' && createShadowing) {
       saveAssignment({
         ...assignmentData,

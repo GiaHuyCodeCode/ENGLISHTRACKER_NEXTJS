@@ -6,7 +6,8 @@ import {
   updateSubmissionScore, updateTrackingScore, deleteSubmission, deleteTracking, clearAllData,
   Assignment, Submission, DailyTracking, getStudentNames, getStudentColors, getStudentAvatar,
   seedIfEmpty, getGamificationProfiles, getBadges, GamificationProfile, importAssignment, updateAssignment, syncAllFromCloud, createStudent,
-  getVocabularyCards, getVocabProgressList, saveVocabularyCards, VocabCard
+  getVocabularyCards, getVocabProgressList, saveVocabProgressList, saveVocabularyCards, VocabCard,
+  importExternalVocabWithProgress, STAGE_CONFIG
 } from '@/lib/local-store';
 import { syncVocabListToSheet } from '@/lib/google-sheets';
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
@@ -56,6 +57,100 @@ export default function TeacherDashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [mgmtDateFilter, setMgmtDateFilter] = useState<string>('');
   const [mgmtSkillFilter, setMgmtSkillFilter] = useState<string>('all');
+
+  const [importVocabDialog, setImportVocabDialog] = useState(false);
+  const [importStudent, setImportStudent] = useState('');
+  const [importText, setImportText] = useState('');
+  const [importStage, setImportStage] = useState(3);
+  const [importRepetitions, setImportRepetitions] = useState(5);
+  const [importCreationDate, setImportCreationDate] = useState(toLocalDateString());
+  const [parseError, setParseError] = useState('');
+  const [parsedCards, setParsedCards] = useState<VocabCard[]>([]);
+  
+  // SRS Manual Override States
+  const [syncPhaseDialog, setSyncPhaseDialog] = useState<{ assignment: Assignment, studentName: string, phase: number } | null>(null);
+
+  const handleAutoSyncPhase = (assignment: Assignment) => {
+    if (!confirm('Đồng bộ Phase cho TẤT CẢ học viên trong bài tập này dựa trên ngày tạo?')) return;
+    const created = new Date(assignment.createdAt || new Date()).getTime();
+    const daysDiff = Math.floor((new Date().getTime() - created) / (1000 * 3600 * 24));
+    
+    let targetStage = 1;
+    let totalDays = 0;
+    const intervals = [1, 3, 7, 14, 30, 60];
+    for (let i = 0; i < intervals.length; i++) {
+      totalDays += intervals[i];
+      if (daysDiff >= totalDays) targetStage = i + 2;
+      else break;
+    }
+    targetStage = Math.min(targetStage, 6);
+    
+    const nextReviewDate = new Date();
+    nextReviewDate.setDate(nextReviewDate.getDate() + intervals[targetStage - 1]);
+
+    const progressList = getVocabProgressList();
+    const students = getStudentNames();
+    
+    students.forEach(studentName => {
+      (assignment.vocabCards || []).forEach(card => {
+        const pIndex = progressList.findIndex(p => p.studentName === studentName && p.wordId === card.id);
+        if (pIndex !== -1) {
+          progressList[pIndex].stage = targetStage;
+          progressList[pIndex].nextReviewDate = nextReviewDate.toISOString();
+        } else {
+          progressList.push({
+            studentName,
+            wordId: card.id,
+            stage: targetStage,
+            repetitions: targetStage > 1 ? targetStage : 0,
+            interval: intervals[targetStage - 1] || 1,
+            lastReviewed: new Date().toISOString(),
+            nextReviewDate: nextReviewDate.toISOString()
+          });
+        }
+      });
+    });
+    
+    saveVocabProgressList(progressList);
+    // Note: We don't sync progressList to Sheet using syncVocabListToSheet because that is for Cards.
+    // Progress is managed locally or needs a separate sync endpoint.
+    alert('Đồng bộ Phase thành công!');
+    refreshData();
+  };
+
+  const submitManualPhaseEdit = () => {
+    if (!syncPhaseDialog || !syncPhaseDialog.studentName) return alert('Vui lòng chọn học viên!');
+    
+    const targetStage = syncPhaseDialog.phase;
+    const intervals = [1, 3, 7, 14, 30, 60];
+    const nextReviewDate = new Date();
+    nextReviewDate.setDate(nextReviewDate.getDate() + intervals[targetStage - 1]);
+
+    const progressList = getVocabProgressList();
+    
+    (syncPhaseDialog.assignment.vocabCards || []).forEach(card => {
+      const pIndex = progressList.findIndex(p => p.studentName === syncPhaseDialog.studentName && p.wordId === card.id);
+      if (pIndex !== -1) {
+        progressList[pIndex].stage = targetStage;
+        progressList[pIndex].nextReviewDate = nextReviewDate.toISOString();
+      } else {
+        progressList.push({
+          studentName: syncPhaseDialog.studentName,
+          wordId: card.id,
+          stage: targetStage,
+          repetitions: targetStage > 1 ? targetStage : 0,
+          interval: intervals[targetStage - 1] || 1,
+          lastReviewed: new Date().toISOString(),
+          nextReviewDate: nextReviewDate.toISOString()
+        });
+      }
+    });
+
+    saveVocabProgressList(progressList);
+    alert('Cập nhật Phase thành công!');
+    setSyncPhaseDialog(null);
+    refreshData();
+  };
 
   // allAssignments = assignments thực từ localStorage (Shadowing được tạo thực khi teacher chọn, không dùng virtual shadowing nữa)
   const allAssignments = assignments;
@@ -134,6 +229,72 @@ export default function TeacherDashboard() {
     } catch (e: any) {
       alert(e.message);
     }
+  };
+
+  const handleParseText = () => {
+    setParseError('');
+    if (!importText.trim()) return;
+    try {
+      const entries = importText.split(/;|\n/).map(s => s.trim()).filter(Boolean);
+      const parsed: VocabCard[] = [];
+      for (const entry of entries) {
+        let example = "";
+        let mainPart = entry;
+        const exIndex = entry.indexOf("[Ex]");
+        if (exIndex !== -1) {
+          example = entry.substring(exIndex + 4).trim();
+          mainPart = entry.substring(0, exIndex).trim();
+        }
+        let meaning = "";
+        const tildeIndex = mainPart.indexOf("~");
+        if (tildeIndex !== -1) {
+          meaning = mainPart.substring(tildeIndex + 1).trim();
+          mainPart = mainPart.substring(0, tildeIndex).trim();
+        }
+        let synonymsStr = "";
+        const equalIndex = mainPart.indexOf("=");
+        if (equalIndex !== -1) {
+          synonymsStr = mainPart.substring(equalIndex + 1).trim();
+          mainPart = mainPart.substring(0, equalIndex).trim();
+        }
+        if (synonymsStr.endsWith('.')) synonymsStr = synonymsStr.slice(0, -1).trim();
+        const synonyms = synonymsStr ? synonymsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+        let word = "";
+        let phonetic = "";
+        const plusIndex = mainPart.indexOf("+");
+        if (plusIndex !== -1) {
+          word = mainPart.substring(0, plusIndex).trim();
+          phonetic = mainPart.substring(plusIndex + 1).trim();
+        } else {
+          word = mainPart.trim();
+        }
+        if (word) {
+          parsed.push({
+            id: word.toLowerCase().replace(/[^a-z0-9]/g, '') || Math.random().toString(36).substring(7),
+            word, phonetic, synonyms, meaning, example,
+            createdAt: new Date().toISOString()
+          });
+        }
+      }
+      if (parsed.length === 0) setParseError('Không tìm thấy từ vựng hợp lệ.');
+      else setParsedCards(parsed);
+    } catch (e) {
+      setParseError('Lỗi phân tích cú pháp.');
+    }
+  };
+
+  const saveImportedCards = () => {
+    if (!importStudent) {
+      alert('Vui lòng chọn học viên!');
+      return;
+    }
+    if (parsedCards.length === 0) return;
+    importExternalVocabWithProgress(importStudent, parsedCards, importStage, importRepetitions, importCreationDate);
+    alert(`Đã nhập thành công ${parsedCards.length} từ vựng cho ${importStudent}!`);
+    setImportVocabDialog(false);
+    setParsedCards([]);
+    setImportText('');
+    refreshData();
   };
 
   const handleDelete = (id: string) => {
@@ -467,6 +628,127 @@ export default function TeacherDashboard() {
             <div className="flex justify-end gap-3">
               <button onClick={() => setAddStudentDialog(false)} className="px-4 py-2 rounded-lg font-medium hover:bg-secondary transition-colors text-foreground">Hủy</button>
               <button onClick={handleAddStudent} className="px-4 py-2 rounded-lg font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity">Thêm Mới</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {importVocabDialog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-background p-6 rounded-2xl border border-white/10 max-w-2xl w-full mx-4 shadow-xl my-8 relative">
+            <button onClick={() => setImportVocabDialog(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-xl font-bold mb-1 text-foreground flex items-center gap-2"><BookOpen className="w-5 h-5 text-primary" /> Cập Nhật Dữ Liệu Học Spaced Repetition</h3>
+            <p className="text-sm text-muted-foreground mb-6">Đồng bộ lịch sử học từ vựng (Quizlet/nguồn ngoài) cho học viên cụ thể để tiếp tục lịch ôn tập.</p>
+            
+            <div className="space-y-5 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Chọn Học Viên</label>
+                  <select
+                    value={importStudent}
+                    onChange={e => setImportStudent(e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="">-- Chọn học viên --</option>
+                    {getStudentNames().map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Ngày học đầu tiên</label>
+                  <input
+                    type="date"
+                    value={importCreationDate}
+                    onChange={e => setImportCreationDate(e.target.value)}
+                    className="input-field w-full text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Stage hiện tại (1-6)</label>
+                  <select
+                    value={importStage}
+                    onChange={e => setImportStage(Number(e.target.value))}
+                    className="input-field w-full text-sm appearance-none"
+                  >
+                    <option value="1">Stage 1 (1 ngày)</option>
+                    <option value="2">Stage 2 (3 ngày)</option>
+                    <option value="3">Stage 3 (7 ngày)</option>
+                    <option value="4">Stage 4 (14 ngày)</option>
+                    <option value="5">Stage 5 (30 ngày)</option>
+                    <option value="6">Stage 6 (60 ngày - Master)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Số lần ôn tập trước đó</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={importRepetitions}
+                    onChange={e => setImportRepetitions(Number(e.target.value))}
+                    className="input-field w-full text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Nội Dung Từ Vựng (Text format)</label>
+                <div className="text-[11px] text-muted-foreground mb-2 p-2 bg-secondary/30 rounded border border-white/5">
+                  Cú pháp: <code className="text-primary">Từ vựng + Phiên âm = Từ đồng nghĩa ~ Nghĩa Tiếng Việt [Ex] Câu ví dụ;</code> (mỗi từ cách nhau bằng dấu <code>;</code>)
+                </div>
+                <textarea
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  className="input-field w-full h-32 font-mono text-sm resize-y"
+                  placeholder="Ví dụ: Hello + /həˈləʊ/ = Hi, Greetings ~ Xin chào [Ex] Hello there!;"
+                />
+                
+                {parseError && (
+                  <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 text-red-500 text-xs rounded flex items-center gap-2">
+                    <XCircle className="w-3.5 h-3.5" /> {parseError}
+                  </div>
+                )}
+                
+                <div className="mt-2 flex justify-end">
+                  <button onClick={handleParseText} className="px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-xl text-sm font-semibold transition-colors">
+                    Phân tích Text
+                  </button>
+                </div>
+              </div>
+
+              {parsedCards.length > 0 && (
+                <div className="border border-border rounded-xl p-3 bg-secondary/10">
+                  <h4 className="font-semibold text-sm mb-2 flex items-center justify-between">
+                    <span>Xem trước dữ liệu ({parsedCards.length} từ)</span>
+                  </h4>
+                  <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                    {parsedCards.map((c, i) => (
+                      <div key={i} className="flex gap-3 p-2 bg-background rounded-lg border border-border text-xs">
+                        <div className="w-1/3">
+                          <p className="font-bold">{c.word}</p>
+                          <p className="text-[10px] text-muted-foreground">{c.phonetic}</p>
+                        </div>
+                        <div className="w-2/3">
+                          <p>{c.meaning}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <button onClick={() => setImportVocabDialog(false)} className="px-5 py-2.5 rounded-xl font-medium hover:bg-secondary transition-colors text-foreground">Hủy</button>
+              <button 
+                onClick={saveImportedCards} 
+                disabled={parsedCards.length === 0 || !importStudent}
+                className="px-5 py-2.5 rounded-xl font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" /> Đồng Bộ Lịch Sử
+              </button>
             </div>
           </div>
         </div>
@@ -1077,13 +1359,28 @@ export default function TeacherDashboard() {
         <div className="grid grid-cols-1 gap-6 fade-in">
           {/* Báo cáo ôn tập */}
           <div className="glass-strong rounded-3xl p-6 border border-white/5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h3 className="text-xl font-bold font-heading">Báo Cáo Ôn Tập Từ Vựng</h3>
                 <p className="text-sm text-muted-foreground mt-1">Theo dõi tiến độ lặp lại ngắt quãng (Spaced Repetition) của học sinh</p>
               </div>
-              <div className="text-xs px-3 py-1.5 rounded-xl bg-secondary/80 text-muted-foreground font-semibold self-start sm:self-center">
-                Tổng số từ thư viện chung: <span className="text-primary font-bold">{getVocabularyCards().length} từ</span>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setImportVocabDialog(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-semibold text-sm rounded-xl transition-colors"
+                >
+                  <PlusCircle className="w-4 h-4" /> Đồng bộ Dữ liệu Cũ
+                </button>
+                <div className="text-xs px-3 py-2 rounded-xl bg-secondary/80 text-muted-foreground font-semibold">
+                  Tổng số từ: <span className="text-primary font-bold">
+                    {(() => {
+                      const baseCards = getVocabularyCards();
+                      const assignCards = allAssignments.filter(a => a.type === 'vocabulary').flatMap(a => a.vocabCards || []);
+                      const uniqueIds = new Set([...baseCards.map(c => c.id), ...assignCards.map(c => c.id)]);
+                      return uniqueIds.size;
+                    })()} từ
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1102,7 +1399,14 @@ export default function TeacherDashboard() {
                 <tbody className="divide-y divide-white/5">
                   {getStudentNames().map(name => {
                     const progress = getVocabProgressList().filter(p => p.studentName === name);
-                    const totalCards = getVocabularyCards();
+                    
+                    const baseCards = getVocabularyCards();
+                    const assignCards = allAssignments.filter(a => a.type === 'vocabulary').flatMap(a => a.vocabCards || []);
+                    const totalCardsMap = new Map<string, any>();
+                    baseCards.forEach(c => totalCardsMap.set(c.id, c));
+                    assignCards.forEach(c => totalCardsMap.set(c.id, c));
+                    const totalCards = Array.from(totalCardsMap.values());
+                    
                     const progressMap = new Map<string, any>();
                     progress.forEach(p => progressMap.set(p.wordId, p));
 
@@ -1150,6 +1454,117 @@ export default function TeacherDashboard() {
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* List of Vocabulary Assignments */}
+          <div className="glass-strong rounded-3xl p-6 border border-white/5 mt-2 space-y-4">
+            <h3 className="text-xl font-bold font-heading flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-indigo-400" />
+              Các Bài Tập Từ Vựng Đã Giao
+            </h3>
+            <p className="text-sm text-muted-foreground">Theo dõi phase ghi nhớ hiện tại của các bài tập từ vựng đã được giao cho lớp.</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {allAssignments.filter(a => a.type === 'vocabulary').sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).map(a => {
+                const created = new Date(a.createdAt || new Date()).getTime();
+                const daysDiff = Math.floor((new Date().getTime() - created) / (1000 * 3600 * 24));
+                let stage = 1;
+                let totalDays = 0;
+                const intervals = [1, 3, 7, 14, 30, 60];
+                for (let i = 0; i < intervals.length; i++) {
+                  totalDays += intervals[i];
+                  if (daysDiff >= totalDays) stage = i + 2;
+                  else break;
+                }
+                stage = Math.min(stage, 6);
+                const config = STAGE_CONFIG[stage] || STAGE_CONFIG[1];
+
+                return (
+                  <div key={a.id} className="p-4 rounded-xl border border-white/5 bg-secondary/10 hover:bg-secondary/30 transition-colors flex flex-col gap-3">
+                    <div className="flex justify-between items-start gap-2">
+                      <h4 className="font-semibold text-sm line-clamp-2 leading-tight">{a.title}</h4>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border shrink-0 ${config.badge}`}>
+                        {config.label}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
+                      <span className="flex items-center gap-1"><FileJson className="w-3.5 h-3.5" /> {a.vocabCards?.length || 0} từ</span>
+                      {a.createdAt && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                          {new Date(a.createdAt).toLocaleDateString('vi-VN')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-2 pt-3 border-t border-white/5">
+                      <button onClick={() => handleAutoSyncPhase(a)} className="flex-1 py-1.5 px-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-sky-500/20">
+                        <RefreshCw className="w-3 h-3" /> Đồng bộ
+                      </button>
+                      <button onClick={() => setSyncPhaseDialog({ assignment: a, studentName: '', phase: stage })} className="flex-1 py-1.5 px-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-amber-500/20">
+                        <Edit2 className="w-3 h-3" /> Chỉnh Phase
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {allAssignments.filter(a => a.type === 'vocabulary').length === 0 && (
+                <div className="col-span-full p-4 text-center text-sm text-muted-foreground bg-secondary/5 rounded-xl border border-dashed border-white/10">
+                  Chưa có bài tập từ vựng nào được giao.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {syncPhaseDialog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-background border border-border p-6 rounded-2xl shadow-xl w-full max-w-md space-y-4">
+            <h3 className="text-xl font-bold font-heading flex items-center gap-2">
+              <Edit2 className="w-5 h-5 text-amber-500" />
+              Chỉnh Sửa Phase
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">Bài tập: <strong>{syncPhaseDialog.assignment.title}</strong></p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Chọn Học Viên</label>
+                <select
+                  value={syncPhaseDialog.studentName}
+                  onChange={e => setSyncPhaseDialog(s => s ? { ...s, studentName: e.target.value } : null)}
+                  className="input-field w-full"
+                >
+                  <option value="">-- Chọn học viên --</option>
+                  {getStudentNames().map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Phase (1-6)</label>
+                <select
+                  value={syncPhaseDialog.phase}
+                  onChange={e => setSyncPhaseDialog(s => s ? { ...s, phase: Number(e.target.value) } : null)}
+                  className="input-field w-full"
+                >
+                  <option value={1}>Phase 1 (1 ngày)</option>
+                  <option value={2}>Phase 2 (3 ngày)</option>
+                  <option value={3}>Phase 3 (7 ngày)</option>
+                  <option value={4}>Phase 4 (14 ngày)</option>
+                  <option value={5}>Phase 5 (30 ngày)</option>
+                  <option value={6}>Phase 6 (60 ngày)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end pt-4 border-t border-border mt-4">
+              <button onClick={() => setSyncPhaseDialog(null)} className="px-4 py-2 rounded-lg text-sm font-semibold hover:bg-secondary transition-colors">
+                Hủy
+              </button>
+              <button onClick={submitManualPhaseEdit} className="px-4 py-2 rounded-lg text-sm font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors">
+                Lưu Thay Đổi
+              </button>
             </div>
           </div>
         </div>

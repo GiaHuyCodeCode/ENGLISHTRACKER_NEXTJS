@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser, logoutUser, UserSession } from '@/lib/local-store';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
@@ -202,21 +202,26 @@ const studentLinks = [
 ───────────────────────────────────────────────────────────────────────────── */
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<UserSession | null>(null);
-  const [currentSearch, setCurrentSearch] = useState('');
+
+  const currentSearch = searchParams ? '?' + searchParams.toString() : '';
 
   useEffect(() => {
     setIsOpen(false);
     setUser(getCurrentUser());
-    if (typeof window !== 'undefined') setCurrentSearch(window.location.search);
-  }, [pathname]);
+  }, [pathname, searchParams]);
 
   const isActive = (href: string) => {
-    if (href === '/') return pathname === '/' && (!currentSearch || currentSearch === '?tab=overview');
+    if (href === '/') return pathname === '/' && (!currentSearch || currentSearch === '?tab=overview' || currentSearch === '?');
     if (href.includes('?')) {
       const [path, query] = href.split('?');
+      // For exact query matching
       return pathname === path && currentSearch.includes(query);
+    }
+    if (href !== '/' && href !== '/student' && pathname?.startsWith(href)) {
+      return true;
     }
     return pathname === href;
   };
@@ -257,8 +262,8 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* ── Mobile Bottom Navigation (Student) ─────────────────────────────── */}
-      {user?.role !== 'admin' && pathname !== '/login' && (
+      {/* ── Mobile Bottom Navigation ─────────────────────────────── */}
+      {pathname !== '/login' && (
         <nav
           className="md:hidden fixed bottom-0 inset-x-0 z-50"
           aria-label="Điều hướng học viên"
@@ -273,15 +278,8 @@ export function Sidebar() {
           }}
         >
           <div className="flex h-[3.75rem]">
-            {([
-              { href: '/student',             Icon: FlowerCherry, label: '🌸 Dashboard' },
-              { href: '/student/assignments', Icon: FlowerLotus,  label: 'Bài Tập'      },
-              { href: '/student/library',     Icon: FlowerRose,   label: 'Thư Viện'     },
-              { href: '/student/lessons',     Icon: FlowerFolder, label: 'Bài Học'      },
-            ] as const).map(({ href, Icon, label }) => {
-              const active = href === '/student'
-                ? pathname === '/student'
-                : pathname?.startsWith(href) ?? false;
+            {(user?.role === 'admin' ? teacherLinks : studentLinks).map(({ href, Icon, label }) => {
+              const active = isActive(href);
               return (
                 <Link
                   key={href}

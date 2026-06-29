@@ -151,7 +151,12 @@ export function useSpeechRecognition(lang = 'en-US'): UseSpeechRecognitionReturn
   const stop = useCallback(() => {
     // Set flag BEFORE calling .stop() so onend/onerror know not to restart
     explicitlyStoppedRef.current = true;
-    
+
+    // Capture the current session ID so the failsafe timer below can verify
+    // it belongs to the same session — prevents a stale timer from calling
+    // the NEW session's onComplete with an old/empty transcript.
+    const sessionIdAtStop = sessionIdRef.current;
+
     try { recognitionRef.current?.stop(); } catch { /* ignore */ }
 
     // Dành cho Mobile: Đôi khi gọi .stop() nhưng trình duyệt KHÔNG bao giờ fire onend.
@@ -162,7 +167,18 @@ export function useSpeechRecognition(lang = 'en-US'): UseSpeechRecognitionReturn
     }
     failsafeTimerRef.current = setTimeout(() => {
       failsafeTimerRef.current = null;
+      // Guard: if a new session has already started, do NOT settle — that would
+      // call the new session's onComplete with this session's stale transcript.
+      if (sessionIdRef.current !== sessionIdAtStop) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[SR] stop() failsafe skipped — new session already active');
+        }
+        return;
+      }
       if (!settledRef.current) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[SR] stop() failsafe fired — onend never arrived from browser');
+        }
         settledRef.current = true;
         setIsListening(false);
         try { recognitionRef.current?.abort(); } catch { /* ignore */ }

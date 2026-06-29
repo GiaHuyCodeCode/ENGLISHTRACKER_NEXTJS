@@ -1197,7 +1197,9 @@ export function seedIfEmpty(): void {
 }
 
 export function getVocabularyCards(): VocabCard[] {
-  return read<VocabCard[]>(KEYS.vocabulary, []);
+  const cards = read<VocabCard[]>(KEYS.vocabulary, []);
+  // Filter out corrupted cards (e.g. VocabProgress objects mistakenly saved as cards)
+  return cards.filter(c => c.word !== undefined);
 }
 
 export function saveVocabularyCards(cards: VocabCard[]): void {
@@ -1207,6 +1209,10 @@ export function saveVocabularyCards(cards: VocabCard[]): void {
 
 export function getVocabProgressList(): VocabProgress[] {
   return read<VocabProgress[]>(KEYS.vocabProgress, []);
+}
+
+export function saveVocabProgressList(list: VocabProgress[]): void {
+  write(KEYS.vocabProgress, list);
 }
 
 export function getStudentVocabProgress(studentName: string): VocabProgress[] {
@@ -1297,3 +1303,70 @@ export function recalculateVocabProgress(studentName: string): void {
     });
   });
 }
+
+export function importExternalVocabWithProgress(
+  studentName: string,
+  vocabCards: VocabCard[],
+  stage: number,
+  repetitions: number,
+  creationDateStr: string
+): void {
+  const currentCards = getVocabularyCards();
+  const updatedCards = [...currentCards];
+  let hasNewCards = false;
+
+  const resolvedCards: VocabCard[] = [];
+
+  vocabCards.forEach(c => {
+    let existingCard = updatedCards.find(curr => curr.word.toLowerCase() === c.word.toLowerCase());
+    if (!existingCard) {
+      existingCard = {
+        ...c,
+        id: c.id || (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(7)),
+        createdAt: c.createdAt || new Date().toISOString()
+      };
+      updatedCards.push(existingCard);
+      hasNewCards = true;
+    }
+    resolvedCards.push(existingCard);
+  });
+
+  if (hasNewCards) {
+    saveVocabularyCards(updatedCards);
+  }
+
+  const allProgress = getVocabProgressList();
+  const creationDate = new Date(creationDateStr);
+  
+  const interval = REVIEW_INTERVALS[Math.max(0, stage - 1)] || 1;
+  const nextReviewDate = new Date(creationDate.getTime() + interval * 24 * 60 * 60 * 1000).toISOString();
+
+  resolvedCards.forEach(c => {
+    const wordId = c.id;
+    const progressIndex = allProgress.findIndex(p => p.studentName === studentName && p.wordId === wordId);
+
+    if (progressIndex === -1) {
+      allProgress.push({
+        studentName,
+        wordId,
+        stage,
+        interval,
+        nextReviewDate,
+        repetitions,
+        lastReviewed: creationDate.toISOString()
+      });
+    } else {
+      allProgress[progressIndex] = {
+        ...allProgress[progressIndex],
+        stage,
+        interval,
+        nextReviewDate,
+        repetitions,
+        lastReviewed: creationDate.toISOString()
+      };
+    }
+  });
+
+  write(KEYS.vocabProgress, allProgress);
+}
+

@@ -556,7 +556,7 @@ export function DictationForm({ onSave, isSaving, initialData }: {
         audioUrl: s.audioUrl || '',
       }));
       setSentences(parsed);
-      if (json.title && !title) setTitle(json.title);
+      if (json.title) setTitle(json.title);
       setError('');
     } catch {
       setError('JSON không hợp lệ. Vui lòng kiểm tra lại định dạng.');
@@ -800,7 +800,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
         };
       });
 
-      if (!title && parsed.title) setTitle(parsed.title);
+      if (parsed.title) setTitle(parsed.title);
       setVocabCards(validated);
       setError('');
     } catch (e: unknown) {
@@ -817,22 +817,25 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
     setJsonText(JSON.stringify(updated, null, 2));
   };
 
-  const jsonTemplate = `[
-  {
-    "word": "Consume",
-    "phonetic": "/kənˈsjuːm/",
-    "synonyms": ["Absorb", "Use up", "Deplete"],
-    "meaning": "Tiêu thụ, sử dụng hết",
-    "example": "This machine ___ too much energy."
-  }
-]`;
+  const jsonTemplate = `{
+  "title": "Tên bài từ vựng (tuỳ chọn)",
+  "cards": [
+    {
+      "word": "Consume",
+      "phonetic": "/kənˈsjuːm/",
+      "synonyms": ["Absorb", "Use up", "Deplete"],
+      "meaning": "Tiêu thụ, sử dụng hết",
+      "example": "This machine ___ too much energy."
+    }
+  ]
+}`;
 
   return (
     <div className="space-y-6">
       {/* Guide & Template */}
       <div className="p-4 rounded-xl bg-violet-500/10 dark:bg-violet-500/10 border border-violet-500/20 text-sm space-y-3">
         <div className="flex items-center gap-2 font-semibold text-violet-600 dark:text-violet-400">
-          <FileJson className="h-4 w-4" /> Định dạng JSON mẫu (Mảng các từ vựng):
+          <FileJson className="h-4 w-4" /> Định dạng JSON mẫu (Kèm tự động nhận diện Tiêu đề):
         </div>
         <pre className="text-xs text-muted-foreground bg-black/30 p-3 rounded-lg overflow-x-auto font-mono">
           {jsonTemplate}

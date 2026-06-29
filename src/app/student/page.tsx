@@ -4,11 +4,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  getSubmissions, getAssignments, seedIfEmpty, getDailyTrackings,
+  getAssignments, seedIfEmpty, getDailyTrackings, getSubmissions,
   getStudentNames, getStudentColors, getStudentAvatar,
   Submission, Assignment, DailyTracking,
   getGamificationProfiles, GamificationProfile, getBadges,
-  getVocabularyCards, getStudentVocabProgress, syncAllFromCloud
+  getVocabularyCards, getStudentVocabProgress, syncAllFromCloud, STAGE_CONFIG
 } from '@/lib/local-store';
 
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
@@ -946,31 +946,44 @@ export default function StudentDashboard() {
                       <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
                         {dueAssignments.map(assignment => {
                           const totalWords = assignment.vocabCards?.length || 0;
+                          const studentProg = getStudentVocabProgress(selectedStudent || '');
                           const dueWordsInAssign = (assignment.vocabCards || []).filter(card => {
-                            const prog = getStudentVocabProgress(selectedStudent || '').find(p => p.wordId === card.id);
+                            const prog = studentProg.find(p => p.wordId === card.id);
                             if (!prog) return true;
                             return new Date(prog.nextReviewDate) <= new Date();
-                          }).length;
+                          });
+                          
+                          let minStage = 6;
+                          dueWordsInAssign.forEach(card => {
+                             const prog = studentProg.find(p => p.wordId === card.id);
+                             const stage = prog ? prog.stage : 0;
+                             if (stage < minStage) minStage = stage;
+                          });
+                          
+                          const stageConfig = STAGE_CONFIG[minStage] || STAGE_CONFIG[0];
+                          const bgClass = stageConfig.badge.split(' ')[0] || 'bg-[#0071e3]/15';
+                          const textClass = stageConfig.badge.split(' ')[1] || 'text-[#0071e3]';
+
                           return (
                             <button
                               key={assignment.id}
                               onClick={() => router.push(`/student/assignments/${assignment.id}`)}
-                              className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-card border border-border hover:border-[#0071e3]/50 hover:bg-[#0071e3]/10 transition-all text-left group"
+                              className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-card border border-border hover:border-foreground/20 hover:bg-muted/50 transition-all text-left group"
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-9 h-9 rounded-xl bg-[#0071e3]/15 flex items-center justify-center flex-shrink-0">
-                                  <FBook className="h-4.5 w-4.5 text-[#0071e3]" strokeWidth={1.5} />
+                                <div className={`w-9 h-9 rounded-xl ${bgClass} flex items-center justify-center flex-shrink-0`}>
+                                  <FBook className={`h-4.5 w-4.5 ${textClass}`} strokeWidth={1.5} />
                                 </div>
                                 <div className="min-w-0">
                                   <p className="font-semibold text-xs text-foreground truncate">{assignment.title}</p>
-                                  <p className="text-[11px] text-muted-foreground">{totalWords} từ • <span className="text-amber-600 dark:text-amber-600 dark:text-amber-400 font-semibold">{dueWordsInAssign} từ đến hạn</span></p>
+                                  <p className="text-[11px] text-muted-foreground">{totalWords} từ • <span className="text-amber-600 dark:text-amber-600 dark:text-amber-400 font-semibold">{dueWordsInAssign.length} từ đến hạn</span></p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 flex-shrink-0">
-                                <span className="px-2 py-0.5 rounded bg-[#0071e3]/15 text-[#0071e3] text-[10px] font-bold border border-[#0071e3]/20">
-                                  Ôn ngay
+                                <span className={`px-2 py-0.5 rounded ${bgClass} ${textClass} text-[10px] font-bold border border-current/20`}>
+                                  Phase {minStage}
                                 </span>
-                                <FChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-[#0071e3] transition-colors" />
+                                <FChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                               </div>
                             </button>
                           );
@@ -1149,14 +1162,7 @@ export default function StudentDashboard() {
               </div>
             )}
 
-            {/* CTA */}
-            {todo.length > 0 && (
-              <button onClick={() => router.push('/student/assignments')}
-                className="w-full flex items-center justify-center gap-2 py-4 rounded-3xl bg-primary/15 border border-primary/30 text-primary font-semibold hover:bg-primary/25 transition-all fade-in stagger-4">
-                Xem {todo.length} bài tập đang chờ
-                <FChevronRight className="h-4 w-4" />
-              </button>
-            )}
+
           </div>
         );
       })()}

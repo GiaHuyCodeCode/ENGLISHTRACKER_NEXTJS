@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   getAssignments, getSubmissions, seedIfEmpty, syncAllFromCloud,
   Assignment, Submission, getStudentNames, getStudentColors, getStudentAvatar,
+  getVocabularyCards, getVocabProgressList,
 } from '@/lib/local-store';
 import {
   BookOpen, ListChecks, ChevronRight, CheckCircle2,
@@ -183,6 +184,19 @@ export default function StudentAssignmentsPage() {
     return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
   });
 
+  const allAssignments = getAssignments();
+  const vocabProgress = getVocabProgressList().filter(p => p.studentName === studentName);
+  
+  const dueVocabAssignments = allAssignments.filter(a => {
+    if (a.type !== 'vocabulary') return false;
+    const dueWordsInAssign = (a.vocabCards || []).filter(card => {
+      const prog = vocabProgress.find(p => p.wordId === card.id);
+      if (!prog) return true;
+      return new Date(prog.nextReviewDate) <= now;
+    });
+    return dueWordsInAssign.length > 0;
+  });
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Header */}
@@ -221,7 +235,7 @@ export default function StudentAssignmentsPage() {
         {[
           { label: 'Đã hoàn thành', value: done.length, color: 'text-teal-600 dark:text-teal-400', bg: 'border-white/5' },
           { label: 'Điểm Trung Bình', value: myAvgScore !== null ? `${myAvgScore}đ` : '—', color: 'text-[#0071e3]', bg: 'border-white/5' },
-          { label: 'Chờ làm', value: todo.length, color: 'text-amber-600 dark:text-amber-400', bg: 'border-white/5' },
+          { label: 'Chờ làm', value: todo.length + dueVocabAssignments.length, color: 'text-amber-600 dark:text-amber-400', bg: 'border-white/5' },
         ].map(({ label, value, color, bg }) => (
           <div key={label} className={`glass rounded-2xl p-5 border ${bg}`}>
             <p className="text-xs text-muted-foreground mb-2">{label}</p>
@@ -231,16 +245,51 @@ export default function StudentAssignmentsPage() {
       </div>
 
       {/* Pending Assignments */}
-      {(todo.length > 0) && (
+      {(todo.length > 0 || dueVocabAssignments.length > 0) && (
         <section>
           <h2 className="text-lg font-semibold font-heading mb-4 flex items-center gap-2">
             <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             Bài Tập Chờ Làm
             <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 text-xs border border-amber-500/30">
-              {todo.length}
+              {todo.length + dueVocabAssignments.length}
             </span>
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
+            
+            {/* Spaced Repetition Assignment Cards */}
+            {dueVocabAssignments.map(assignment => {
+              const dueWordsCount = (assignment.vocabCards || []).filter(card => {
+                const prog = vocabProgress.find(p => p.wordId === card.id);
+                if (!prog) return true;
+                return new Date(prog.nextReviewDate) <= now;
+              }).length;
+              return (
+                <Link key={assignment.id} href="/student/vocabulary">
+                  <div className="group glass hover-lift rounded-2xl p-5 border border-sky-500/30 hover:border-sky-500/60 transition-all cursor-pointer h-full flex flex-col justify-between bg-sky-500/5">
+                    <div>
+                      <div className="flex items-start justify-between gap-3 mb-4">
+                        <div className="p-3 rounded-xl bg-sky-500/20">
+                          <BookOpen className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                        </div>
+                        <span className="text-[11px] px-2 py-1 rounded-lg font-semibold bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                          Spaced Repetition
+                        </span>
+                      </div>
+                      <h3 className="font-semibold text-sm leading-snug mb-2 transition-colors group-hover:text-sky-600 dark:group-hover:text-sky-400">
+                        {assignment.title}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        {dueWordsCount} từ vựng • Cần ôn lại ngay hôm nay
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-sm font-medium group-hover:gap-2.5 transition-all text-sky-600 dark:text-sky-400">
+                      Bắt đầu ôn tập <ChevronRight className="h-4 w-4" />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+
             {/* Regular assignments */}
             {todo.map(a => {
               const isShadowing = a.type === 'shadowing';

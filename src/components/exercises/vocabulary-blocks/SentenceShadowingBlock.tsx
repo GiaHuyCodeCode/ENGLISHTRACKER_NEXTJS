@@ -21,6 +21,10 @@ function useWaveform(stream: MediaStream | null): number[] {
     const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx() as AudioContext;
+    // Ensure AudioContext is running (some browsers suspend it if created outside click handler)
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
     const source = ctx.createMediaStreamSource(stream);
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 256;
@@ -30,10 +34,14 @@ function useWaveform(stream: MediaStream | null): number[] {
     const BAR_COUNT = 7;
 
     const tick = () => {
-      analyser.getByteTimeDomainData(data);
+      analyser.getByteFrequencyData(data);
       const newBars = Array.from({ length: BAR_COUNT }, (_, i) => {
-        const idx = Math.floor((i / BAR_COUNT) * data.length);
-        return Math.min(1, Math.abs(data[idx] - 128) / 60);
+        // fftSize 256 -> 128 bins. At 44.1kHz, each bin is ~172Hz.
+        // Map bars to voice frequencies: bins 2 (344Hz) to 20 (3.4kHz)
+        const binIndex = 2 + i * 3;
+        const value = data[binIndex] || 0;
+        // Boost sensitivity by dividing by 180 instead of 255
+        return Math.min(1, value / 180);
       });
       setBars(newBars);
       rafRef.current = requestAnimationFrame(tick);
@@ -103,6 +111,8 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
   const [shake, setShake] = useState(false);
   const [speed, setSpeed] = useState(1.0);
   const [isRecording, setIsRecording] = useState(false);
+  // User-selectable max recording duration (seconds)
+  const [autoStopDuration, setAutoStopDuration] = useState(4);
 
   const phaseRef = useRef(phase);
   const attemptsRef = useRef(attempts);
@@ -223,7 +233,12 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
       const acc = transcript.trim() === '' ? 0 : (tgtWords.length ? Math.round((hits / tgtWords.length) * 100) : 0);
       const count = (attemptsRef.current[sentenceId] || 0) + 1;
 
+      // Guard: ensure saveResult is only called once even if both the
+      // MediaRecorder.onstop path and the fallback path fire concurrently.
+      let resultSaved = false;
       const saveResult = (audioUrl?: string) => {
+        if (resultSaved) return;
+        resultSaved = true;
         setResults(prev => ({ ...prev, [sentenceId]: { recognized: transcript, accuracy: acc, wordDiff, userAudioUrl: audioUrl } }));
         setAttempts(prev => ({ ...prev, [sentenceId]: count }));
         setIsTextRevealed(true);
@@ -255,9 +270,9 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
         recordingActiveRef.current = false;
         stopSR();
         setIsRecording(false);
-        releaseMicStream();
+        setWaveformStream(null);
       }
-    }, 4000);
+    }, autoStopDuration * 1000);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -290,9 +305,9 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
       recordingActiveRef.current = false;
       stopSR();
       setIsRecording(false);
-      releaseMicStream();
+      setWaveformStream(null);
     }
-  }, [stopSR, releaseMicStream]);
+  }, [stopSR]);
 
   const toggleRecord = useCallback(() => {
     if (recordingActiveRef.current) {
@@ -420,12 +435,17 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
       }`}>
 
         <div className="relative w-full flex justify-center py-4">
-          <div className="absolute top-0 right-0">
+          <div className="absolute top-0 right-0 flex flex-col items-end gap-1">
             <select value={speed} onChange={e => setSpeed(Number(e.target.value))} className="bg-secondary/50 border border-black/10 dark:border-white/10 rounded-lg text-xs py-1 px-2 text-muted-foreground hover:text-foreground outline-none">
               <option value={0.75}>0.75x</option>
               <option value={1.0}>1.0x (Chuẩn)</option>
               <option value={1.25}>1.25x</option>
               <option value={1.5}>1.5x</option>
+            </select>
+            <select value={autoStopDuration} onChange={e => setAutoStopDuration(Number(e.target.value))} className="bg-secondary/50 border border-black/10 dark:border-white/10 rounded-lg text-xs py-1 px-2 text-muted-foreground hover:text-foreground outline-none">
+              <option value={4}>Tự dừng: 4s</option>
+              <option value={6}>Tự dừng: 6s</option>
+              <option value={8}>Tự dừng: 8s</option>
             </select>
           </div>
           <div className="relative">

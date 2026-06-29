@@ -77,7 +77,7 @@ function ResultScreen({
         </h3>
         <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
           {sentences.map((s, i) => {
-            const r = results.find(r => r.sentenceId === s.id);
+            const r = results.find(r => String(r.sentenceId) === String(s.id));
             const acc = r?.accuracy ?? 0;
             const isCorrect = acc >= 80;
             const isClose = acc >= 50 && acc < 80;
