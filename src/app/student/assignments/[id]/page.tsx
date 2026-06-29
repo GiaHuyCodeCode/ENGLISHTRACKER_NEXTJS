@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   getAssignment, getStudentSubmission, getSubmissions, submitVocab, submitQuiz, submitRewrite, submitVocabularyAssignment,
   Assignment, Submission, getStudentNames, getStudentColors, getStudentAvatar, seedIfEmpty,
+  getAssignmentNextReviewDate,
 } from '@/lib/local-store';
 import { VocabContextExercise } from '@/components/exercises/VocabContextExercise';
 import { MultipleChoiceExercise } from '@/components/exercises/MultipleChoiceExercise';
@@ -89,6 +90,18 @@ export default function ExercisePage() {
       router.replace('/student/assignments');
       return;
     }
+
+    // For repetition assignments, gate access by nextReviewDate of SRS progress
+    if (a.type === 'repetition') {
+      const savedStudent = localStorage.getItem('et_current_student');
+      if (savedStudent) {
+        const nextReview = getAssignmentNextReviewDate(id, savedStudent);
+        if (nextReview && new Date(nextReview) > new Date()) {
+          router.replace('/student/assignments');
+          return;
+        }
+      }
+    }
     
     // Safely parse properties because Google Sheets sync may save arrays/objects as stringified JSON
     const parsed: Assignment = { ...a };
@@ -124,7 +137,7 @@ export default function ExercisePage() {
           const detailsParsed = parseJsonSafely(parsedExisting.details);
           if (parsedExisting.assignmentType === 'multiple_choice') {
             parsedExisting.quizAnswers = detailsParsed;
-          } else if (parsedExisting.assignmentType === 'vocab_context' || parsedExisting.assignmentType === 'vocabulary') {
+          } else if (parsedExisting.assignmentType === 'vocab_context' || parsedExisting.assignmentType === 'vocabulary' || parsedExisting.assignmentType === 'repetition') {
             parsedExisting.vocabAnswers = detailsParsed;
           } else if (parsedExisting.assignmentType === 'rewrite_vocab') {
             parsedExisting.rewriteAnswers = detailsParsed;
@@ -252,7 +265,7 @@ export default function ExercisePage() {
   const handleModalConfirm = (name: string) => {
     if (assignment?.type === 'vocab_context') doSubmitVocab(name, pendingAnswers, pendingOverrides);
     else if (assignment?.type === 'multiple_choice') doSubmitQuiz(name, pendingAnswers);
-    else if (assignment?.type === 'vocabulary') doSubmitVocabulary(name, pendingAnswers);
+    else if (assignment?.type === 'vocabulary' || assignment?.type === 'repetition') doSubmitVocabulary(name, pendingAnswers);
     else doSubmitRewrite(name, pendingAnswers);
   };
 
@@ -285,12 +298,12 @@ export default function ExercisePage() {
               <span className={`text-[11px] px-2 py-0.5 rounded-md font-semibold ${
                 assignment.type === 'vocab_context' ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400' : 
                 assignment.type === 'multiple_choice' ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400' :
-                assignment.type === 'vocabulary' ? 'bg-[#0071e3]/15 text-sky-600 dark:text-sky-400' :
+                (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? 'bg-[#0071e3]/15 text-sky-600 dark:text-sky-400' :
                 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
               }`}>
                 {assignment.type === 'vocab_context' ? 'Vocab In-Context' : 
                  assignment.type === 'multiple_choice' ? 'Trắc Nghiệm' :
-                 assignment.type === 'vocabulary' ? 'Học Từ Vựng' : 'Viết Chuyện Chêm'}
+                 (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? 'Học Từ Vựng' : 'Viết Chuyện Chêm'}
               </span>
               {isReview && (
                 <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-medium">
@@ -313,24 +326,24 @@ export default function ExercisePage() {
           <div className={`p-2 rounded-lg ${
             assignment.type === 'vocab_context' ? 'bg-violet-500/15' : 
             assignment.type === 'multiple_choice' ? 'bg-teal-500/15' : 
-            assignment.type === 'vocabulary' ? 'bg-[#0071e3]/15' : 
+            (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? 'bg-[#0071e3]/15' : 
             'bg-amber-500/15'
           }`}>
             {assignment.type === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={1.5} /> : 
              assignment.type === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-600 dark:text-teal-400" strokeWidth={1.5} /> :
-             assignment.type === 'vocabulary' ? <FileJson className="h-4 w-4 text-sky-600 dark:text-sky-400" strokeWidth={1.5} /> :
+             (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? <FileJson className="h-4 w-4 text-sky-600 dark:text-sky-400" strokeWidth={1.5} /> :
              <PenTool className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />}
           </div>
           <div>
             <p className="text-sm font-semibold">
               {assignment.type === 'vocab_context' ? 'Điền Nghĩa Từ Vựng' : 
                assignment.type === 'multiple_choice' ? 'Chọn Đáp Án Đúng' :
-               assignment.type === 'vocabulary' ? 'Học & Kiểm Tra Từ Vựng' : 'Viết Chuyện Chêm'}
+               (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? 'Học & Kiểm Tra Từ Vựng' : 'Viết Chuyện Chêm'}
             </p>
             <p className="text-xs text-muted-foreground">
               {assignment.type === 'vocab_context' ? `${assignment.keywords?.length} từ khóa` : 
                assignment.type === 'multiple_choice' ? `${assignment.questions?.length} câu hỏi` :
-               assignment.type === 'vocabulary' ? `${assignment.vocabCards?.length || 0} từ vựng` :
+               (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? `${assignment.vocabCards?.length || 0} từ vựng` :
                `${assignment.keywords?.length} từ khóa cần dùng`}
             </p>
           </div>
@@ -381,7 +394,7 @@ export default function ExercisePage() {
             </div>
           )}
 
-          {assignment.type === 'vocabulary' && assignment.vocabCards && (
+          {(assignment.type === 'vocabulary' || assignment.type === 'repetition') && assignment.vocabCards && (
             <VocabularyExercise
               vocabCards={assignment.vocabCards}
               onSubmit={handleVocabularySubmit}
@@ -389,8 +402,10 @@ export default function ExercisePage() {
               result={displayResult?.vocabAnswers}
               score={displayResult?.score}
               durationMs={displayResult?.durationMs}
-              initialMode={initialMode}
-              isRequirementWorkflow={true}
+              initialMode={assignment.type === 'repetition' ? 'dictation' : initialMode}
+              isRequirementWorkflow={assignment.type === 'vocabulary'}
+              isRepetitionWorkflow={assignment.type === 'repetition'}
+              hideTabs={assignment.type === 'vocabulary' || assignment.type === 'repetition'}
               allSubmissions={getSubmissions().filter(s => s.assignmentId === id)}
             />
           )}

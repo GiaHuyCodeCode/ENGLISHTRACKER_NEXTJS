@@ -74,7 +74,7 @@ export interface ShadowingResult {
 export interface Assignment {
   id: string;
   title: string;
-  type: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary' | 'shadowing';
+  type: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary' | 'shadowing' | 'repetition';
   passage?: string;
   keywords?: VocabKeyword[];
   questions?: QuizQuestion[];
@@ -106,7 +106,7 @@ export interface Submission {
   id: string;
   assignmentId: string;
   assignmentTitle: string;
-  assignmentType: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary' | 'shadowing';
+  assignmentType: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary' | 'shadowing' | 'repetition';
   studentName: string;
   score: number;
   vocabAnswers?: VocabAnswerResult[];
@@ -723,19 +723,21 @@ export function clearAllData(): void {
 
 // ─── Scoring & Submit ─────────────────────────────────────────────────────────
 
-function getAdjustedSubmitTime(assignmentCreatedAt: string | undefined): string {
+function getAdjustedSubmitTime(assignmentCreatedAt: string | undefined, overrideDate?: string): string {
   const now = new Date();
-  if (!assignmentCreatedAt) return now.toISOString();
+  // If an overrideDate is provided (e.g. nextReviewDate for repetition), use it
+  const anchorDateStr = overrideDate || assignmentCreatedAt;
+  if (!anchorDateStr) return now.toISOString();
 
   try {
-    const createdDate = new Date(assignmentCreatedAt);
-    if (isNaN(createdDate.getTime())) return now.toISOString();
+    const anchorDate = new Date(anchorDateStr);
+    if (isNaN(anchorDate.getTime())) return now.toISOString();
 
-    const createdDay = new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate());
+    const anchorDay = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate());
     const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    if (nowDay > createdDay) {
-      const adjusted = new Date(createdDay);
+    if (nowDay > anchorDay) {
+      const adjusted = new Date(anchorDay);
       adjusted.setHours(23, 59, 59, 999);
       return adjusted.toISOString();
     }
@@ -743,6 +745,24 @@ function getAdjustedSubmitTime(assignmentCreatedAt: string | undefined): string 
     // Ignore error
   }
   return now.toISOString();
+}
+
+// Get the nextReviewDate for all vocab cards in an assignment for a specific student.
+// Returns the earliest nextReviewDate so the assignment's submission is aligned to it.
+export function getAssignmentNextReviewDate(assignmentId: string, studentName: string): string | undefined {
+  const assignment = getAssignment(assignmentId);
+  if (!assignment?.vocabCards || assignment.vocabCards.length === 0) return undefined;
+  const progressList = getVocabProgressList();
+  let earliest: string | undefined;
+  assignment.vocabCards.forEach(card => {
+    const prog = progressList.find(p => p.studentName === studentName && p.wordId === card.id);
+    if (prog?.nextReviewDate) {
+      if (!earliest || prog.nextReviewDate < earliest) {
+        earliest = prog.nextReviewDate;
+      }
+    }
+  });
+  return earliest;
 }
 
 export function submitVocab(payload: {
@@ -792,11 +812,20 @@ export function submitVocabularyAssignment(payload: {
   const assignment = getAssignment(payload.assignmentId);
   if (!assignment) throw new Error('Assignment not found');
 
+  const isRepetition = assignment.type === 'repetition';
+  
+  // For repetition assignments, stamp submission on the nextReviewDate
+  const nextReviewDate = isRepetition
+    ? getAssignmentNextReviewDate(payload.assignmentId, payload.studentName)
+    : undefined;
+
+  const submittedAt = getAdjustedSubmitTime(assignment.createdAt, nextReviewDate);
+
   const sub: Submission = {
     id: crypto.randomUUID(),
     assignmentId: payload.assignmentId,
     assignmentTitle: assignment.title,
-    assignmentType: 'vocabulary',
+    assignmentType: isRepetition ? 'repetition' : 'vocabulary',
     studentName: payload.studentName,
     score: payload.score,
     vocabAnswers: payload.answers.map(ans => ({
@@ -806,7 +835,7 @@ export function submitVocabularyAssignment(payload: {
       correctAnswer: ans.word
     })),
     durationMs: payload.durationMs,
-    submittedAt: getAdjustedSubmitTime(assignment.createdAt),
+    submittedAt,
   };
 
   // Save the submission
@@ -820,7 +849,7 @@ export function submitVocabularyAssignment(payload: {
       studentName: payload.studentName,
       category: 'Dictation',
       score: payload.dictationScore,
-      submittedAt: getAdjustedSubmitTime(assignment.createdAt),
+      submittedAt,
     };
     write(KEYS.dailyTracking, [...getDailyTrackings(), trackingRecord]);
     syncSubmissionToSheet({
@@ -1368,5 +1397,74 @@ export function importExternalVocabWithProgress(
   });
 
   write(KEYS.vocabProgress, allProgress);
+}
+
+export function autoSyncAllSpacedRepetition() {
+  const assignments = getAssignments();
+  const progressList = getVocabProgressList();
+  const students = getStudentNames();
+  let hasChanges = false;
+  
+  const intervals = REVIEW_INTERVALS;
+
+  assignments.forEach(assignment => {
+    if ((assignment.type === 'vocabulary' || assignment.type === 'repetition') && assignment.vocabCards) {
+      const createdDate = new Date(assignment.createdAt || new Date());
+      const created = createdDate.getTime();
+      const now = new Date().getTime();
+      
+      const daysDiff = Math.floor((now - created) / (1000 * 3600 * 24));
+      
+      // "khong bao gom viec Repetition cua ngay hien tai" 
+      if (daysDiff === 0) return;
+      
+      let calculatedStage = 1;
+      let cumulativeDays = 0;
+      
+      for (let i = 0; i < intervals.length; i++) {
+        if (daysDiff > cumulativeDays + intervals[i]) {
+          cumulativeDays += intervals[i];
+          calculatedStage = i + 2;
+        } else {
+          break;
+        }
+      }
+      calculatedStage = Math.min(calculatedStage, 6);
+      
+      const calculatedNextReviewDate = new Date(createdDate);
+      calculatedNextReviewDate.setDate(calculatedNextReviewDate.getDate() + cumulativeDays + (intervals[calculatedStage - 1] || 1));
+      const nextReviewStr = calculatedNextReviewDate.toISOString();
+      const interval = intervals[Math.max(0, calculatedStage - 1)] || 1;
+
+      students.forEach(studentName => {
+        (assignment.vocabCards || []).forEach(card => {
+          const pIndex = progressList.findIndex(p => p.studentName === studentName && p.wordId === card.id);
+          if (pIndex !== -1) {
+            if (progressList[pIndex].stage !== calculatedStage || progressList[pIndex].nextReviewDate !== nextReviewStr) {
+              progressList[pIndex].stage = calculatedStage;
+              progressList[pIndex].nextReviewDate = nextReviewStr;
+              progressList[pIndex].interval = interval;
+              hasChanges = true;
+            }
+          } else {
+            progressList.push({
+              studentName,
+              wordId: card.id,
+              stage: calculatedStage,
+              repetitions: calculatedStage > 1 ? calculatedStage : 0,
+              interval: interval,
+              lastReviewed: new Date().toISOString(),
+              nextReviewDate: nextReviewStr
+            });
+            hasChanges = true;
+          }
+        });
+      });
+    }
+  });
+
+  if (hasChanges) {
+    saveVocabProgressList(progressList);
+  }
 }
 

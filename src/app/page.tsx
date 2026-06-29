@@ -7,7 +7,7 @@ import {
   Assignment, Submission, DailyTracking, getStudentNames, getStudentColors, getStudentAvatar,
   seedIfEmpty, getGamificationProfiles, getBadges, GamificationProfile, importAssignment, updateAssignment, syncAllFromCloud, createStudent,
   getVocabularyCards, getVocabProgressList, saveVocabProgressList, saveVocabularyCards, VocabCard,
-  importExternalVocabWithProgress, STAGE_CONFIG
+  importExternalVocabWithProgress, STAGE_CONFIG, autoSyncAllSpacedRepetition
 } from '@/lib/local-store';
 import { syncVocabListToSheet } from '@/lib/google-sheets';
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
@@ -72,40 +72,59 @@ export default function TeacherDashboard() {
 
   const handleAutoSyncPhase = (assignment: Assignment) => {
     if (!confirm('Đồng bộ Phase cho TẤT CẢ học viên trong bài tập này dựa trên ngày tạo?')) return;
-    const created = new Date(assignment.createdAt || new Date()).getTime();
+    const createdDate = new Date(assignment.createdAt || new Date());
+    const created = createdDate.getTime();
     const daysDiff = Math.floor((new Date().getTime() - created) / (1000 * 3600 * 24));
     
-    let targetStage = 1;
-    let totalDays = 0;
+    let calculatedStage = 1;
+    let cumulativeDays = 0;
     const intervals = [1, 3, 7, 14, 30, 60];
-    for (let i = 0; i < intervals.length; i++) {
-      totalDays += intervals[i];
-      if (daysDiff >= totalDays) targetStage = i + 2;
-      else break;
-    }
-    targetStage = Math.min(targetStage, 6);
     
-    const nextReviewDate = new Date();
-    nextReviewDate.setDate(nextReviewDate.getDate() + intervals[targetStage - 1]);
+    if (daysDiff === 0) {
+      calculatedStage = 0;
+    } else {
+      for (let i = 0; i < intervals.length; i++) {
+        if (daysDiff > cumulativeDays + intervals[i]) {
+          cumulativeDays += intervals[i];
+          calculatedStage = i + 2;
+        } else {
+          break;
+        }
+      }
+      calculatedStage = Math.min(calculatedStage, 6);
+    }
+    
+    const calculatedNextReviewDate = new Date(createdDate);
+    if (calculatedStage === 0) {
+      calculatedNextReviewDate.setDate(calculatedNextReviewDate.getDate()); // Due today
+    } else {
+      calculatedNextReviewDate.setDate(calculatedNextReviewDate.getDate() + cumulativeDays + (intervals[calculatedStage - 1] || 1));
+    }
 
     const progressList = getVocabProgressList();
     const students = getStudentNames();
     
     students.forEach(studentName => {
+      // Mặc định coi như học sinh đã làm bài và tính phase theo ngày tạo
+      const targetStage = calculatedStage;
+      const nextReviewDate = calculatedNextReviewDate.toISOString();
+      const interval = intervals[Math.max(0, targetStage - 1)] || 1;
+
       (assignment.vocabCards || []).forEach(card => {
         const pIndex = progressList.findIndex(p => p.studentName === studentName && p.wordId === card.id);
         if (pIndex !== -1) {
           progressList[pIndex].stage = targetStage;
-          progressList[pIndex].nextReviewDate = nextReviewDate.toISOString();
+          progressList[pIndex].nextReviewDate = nextReviewDate;
+          progressList[pIndex].interval = interval;
         } else {
           progressList.push({
             studentName,
             wordId: card.id,
             stage: targetStage,
             repetitions: targetStage > 1 ? targetStage : 0,
-            interval: intervals[targetStage - 1] || 1,
+            interval: interval,
             lastReviewed: new Date().toISOString(),
-            nextReviewDate: nextReviewDate.toISOString()
+            nextReviewDate: nextReviewDate
           });
         }
       });
@@ -124,26 +143,33 @@ export default function TeacherDashboard() {
     const targetStage = syncPhaseDialog.phase;
     const intervals = [1, 3, 7, 14, 30, 60];
     const nextReviewDate = new Date();
-    nextReviewDate.setDate(nextReviewDate.getDate() + intervals[targetStage - 1]);
+    nextReviewDate.setDate(nextReviewDate.getDate() + (intervals[Math.max(0, targetStage - 1)] || 1));
 
     const progressList = getVocabProgressList();
     
-    (syncPhaseDialog.assignment.vocabCards || []).forEach(card => {
-      const pIndex = progressList.findIndex(p => p.studentName === syncPhaseDialog.studentName && p.wordId === card.id);
-      if (pIndex !== -1) {
-        progressList[pIndex].stage = targetStage;
-        progressList[pIndex].nextReviewDate = nextReviewDate.toISOString();
-      } else {
-        progressList.push({
-          studentName: syncPhaseDialog.studentName,
-          wordId: card.id,
-          stage: targetStage,
-          repetitions: targetStage > 1 ? targetStage : 0,
-          interval: intervals[targetStage - 1] || 1,
-          lastReviewed: new Date().toISOString(),
-          nextReviewDate: nextReviewDate.toISOString()
-        });
-      }
+    const targetStudents = syncPhaseDialog.studentName === 'ALL_STUDENTS'
+      ? getStudentNames()
+      : [syncPhaseDialog.studentName];
+
+    targetStudents.forEach(studentName => {
+      (syncPhaseDialog.assignment.vocabCards || []).forEach(card => {
+        const pIndex = progressList.findIndex(p => p.studentName === studentName && p.wordId === card.id);
+        if (pIndex !== -1) {
+          progressList[pIndex].stage = targetStage;
+          progressList[pIndex].nextReviewDate = nextReviewDate.toISOString();
+          progressList[pIndex].interval = intervals[Math.max(0, targetStage - 1)] || 1;
+        } else {
+          progressList.push({
+            studentName: studentName,
+            wordId: card.id,
+            stage: targetStage,
+            repetitions: targetStage > 1 ? targetStage : 0,
+            interval: intervals[Math.max(0, targetStage - 1)] || 1,
+            lastReviewed: new Date().toISOString(),
+            nextReviewDate: nextReviewDate.toISOString()
+          });
+        }
+      });
     });
 
     saveVocabProgressList(progressList);
@@ -204,6 +230,7 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     seedIfEmpty();
+    autoSyncAllSpacedRepetition();
     refreshData();
   }, []);
 
@@ -1470,14 +1497,21 @@ export default function TeacherDashboard() {
                 const created = new Date(a.createdAt || new Date()).getTime();
                 const daysDiff = Math.floor((new Date().getTime() - created) / (1000 * 3600 * 24));
                 let stage = 1;
-                let totalDays = 0;
+                let cumulativeDays = 0;
                 const intervals = [1, 3, 7, 14, 30, 60];
-                for (let i = 0; i < intervals.length; i++) {
-                  totalDays += intervals[i];
-                  if (daysDiff >= totalDays) stage = i + 2;
-                  else break;
+                if (daysDiff === 0) {
+                  stage = 0;
+                } else {
+                  for (let i = 0; i < intervals.length; i++) {
+                    if (daysDiff > cumulativeDays + intervals[i]) {
+                      cumulativeDays += intervals[i];
+                      stage = i + 2;
+                    } else {
+                      break;
+                    }
+                  }
+                  stage = Math.min(stage, 6);
                 }
-                stage = Math.min(stage, 6);
                 const config = STAGE_CONFIG[stage] || STAGE_CONFIG[1];
 
                 return (
@@ -1536,18 +1570,20 @@ export default function TeacherDashboard() {
                   className="input-field w-full"
                 >
                   <option value="">-- Chọn học viên --</option>
+                  <option value="ALL_STUDENTS">Tất cả học viên</option>
                   {getStudentNames().map(name => (
                     <option key={name} value={name}>{name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Phase (1-6)</label>
+                <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Phase (0-6)</label>
                 <select
                   value={syncPhaseDialog.phase}
                   onChange={e => setSyncPhaseDialog(s => s ? { ...s, phase: Number(e.target.value) } : null)}
                   className="input-field w-full"
                 >
+                  <option value={0}>Phase 0 (Chưa học)</option>
                   <option value={1}>Phase 1 (1 ngày)</option>
                   <option value={2}>Phase 2 (3 ngày)</option>
                   <option value={3}>Phase 3 (7 ngày)</option>

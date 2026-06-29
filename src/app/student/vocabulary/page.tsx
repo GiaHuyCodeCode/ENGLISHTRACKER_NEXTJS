@@ -12,7 +12,8 @@ import {
   getStudentColors,
   getStudentAvatar,
   getAssignments,
-  Assignment
+  Assignment,
+  submitVocabularyAssignment
 } from '@/lib/local-store';
 import {
   BookOpen,
@@ -84,14 +85,43 @@ export default function StudentVocabularyPage() {
 
   const handleFinishSrsReview = (answers: { word: string; studentAnswer: string; isCorrect: boolean }[]) => {
     const freshCards = getVocabularyCards();
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    const validAnswersForScore: { word: string; studentAnswer: string; isCorrect: boolean }[] = [];
+
     reviewQueue.forEach(ac => {
       const matched = freshCards.find(fc => fc.word.toLowerCase() === ac.word.toLowerCase());
       if (matched) {
         const ansStatus = answers.find(a => a.word.toLowerCase() === ac.word.toLowerCase());
         const rating = ansStatus ? (ansStatus.isCorrect ? 'good' : 'again') : 'good';
         updateVocabProgress(studentName, matched.id, rating);
+        
+        // Bỏ qua các từ vựng thuộc bài tập mới tạo hôm nay khỏi việc tính điểm Repetition
+        const cardCreatedStr = new Date(matched.createdAt || new Date()).toISOString().split('T')[0];
+        if (cardCreatedStr !== todayStr && ansStatus) {
+          validAnswersForScore.push(ansStatus);
+        }
       }
     });
+
+    if (validAnswersForScore.length > 0) {
+      const correctCount = validAnswersForScore.filter(a => a.isCorrect).length;
+      const score = Math.round((correctCount / validAnswersForScore.length) * 100);
+      // Use submitVocabularyAssignment — it detects repetition type automatically
+      // For vocabulary page SRS review, we submit against the first due vocabulary assignment
+      const dueAssignment = getAssignments().find(a =>
+        (a.type === 'vocabulary' || a.type === 'repetition') &&
+        (a.vocabCards || []).some(c => validAnswersForScore.some(va => va.word === c.word))
+      );
+      if (dueAssignment) {
+        submitVocabularyAssignment({
+          assignmentId: dueAssignment.id,
+          studentName,
+          score,
+          answers: validAnswersForScore
+        });
+      }
+    }
 
     setIsReviewingSrs(false);
     setReviewQueue([]);

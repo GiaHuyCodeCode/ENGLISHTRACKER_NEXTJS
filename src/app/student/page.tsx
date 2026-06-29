@@ -8,7 +8,8 @@ import {
   getStudentNames, getStudentColors, getStudentAvatar,
   Submission, Assignment, DailyTracking,
   getGamificationProfiles, GamificationProfile, getBadges,
-  getVocabularyCards, getStudentVocabProgress, syncAllFromCloud, STAGE_CONFIG
+  getVocabularyCards, getStudentVocabProgress, syncAllFromCloud, STAGE_CONFIG,
+  autoSyncAllSpacedRepetition
 } from '@/lib/local-store';
 
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
@@ -233,6 +234,7 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     seedIfEmpty();
+    autoSyncAllSpacedRepetition();
     setAssignments(getAssignments());
     const session = JSON.parse(localStorage.getItem('et_session') || 'null');
     setUser(session);

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   getAssignments, getSubmissions, seedIfEmpty, syncAllFromCloud,
   Assignment, Submission, getStudentNames, getStudentColors, getStudentAvatar,
-  getVocabularyCards, getVocabProgressList,
+  getVocabularyCards, getVocabProgressList, getAssignmentNextReviewDate,
 } from '@/lib/local-store';
 import {
   BookOpen, ListChecks, ChevronRight, CheckCircle2,
@@ -158,6 +158,12 @@ export default function StudentAssignmentsPage() {
 
   const now = new Date();
   const visibleAssignments = assignments.filter(a => {
+    // For repetition type: only show when nextReviewDate is reached
+    if (a.type === 'repetition') {
+      const nextReview = getAssignmentNextReviewDate(a.id, studentName);
+      if (!nextReview) return false; // No progress entry yet, not visible
+      return new Date(nextReview) <= now;
+    }
     if (!a.createdAt) return true;
     return new Date(a.createdAt) <= now;
   });
@@ -342,9 +348,14 @@ export default function StudentAssignmentsPage() {
                          a.type === 'multiple_choice' ? `${a.questions?.length || 0} câu hỏi` :
                          a.type === 'dictation' ? `${getDictationCount(a)} câu • Nghe & gõ lại` :
                          a.type === 'vocabulary' ? `${a.vocabCards?.length || 0} từ • Học & Kiểm tra` :
+                         a.type === 'repetition' ? `${a.vocabCards?.length || 0} từ • Nghe chép ôn tập` :
                          a.type === 'shadowing' ? `${getDictationCount(a)} câu • Nghe & nhắc lại` :
                          `${a.keywords?.length || 0} từ khóa cần dùng`}
-                        {a.createdAt && ` • Ngày giao: ${new Date(a.createdAt).toLocaleDateString('vi-VN')}`}
+                        {a.type !== 'repetition' && a.createdAt && ` • Ngày giao: ${new Date(a.createdAt).toLocaleDateString('vi-VN')}`}
+                        {a.type === 'repetition' && (() => {
+                          const nr = getAssignmentNextReviewDate(a.id, studentName);
+                          return nr ? ` • Ngày ôn: ${new Date(nr).toLocaleDateString('vi-VN')}` : '';
+                        })()}
                       </p>
                     </div>
                     <div className={`flex items-center gap-1.5 text-sm font-medium group-hover:gap-2.5 transition-all ${
