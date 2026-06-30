@@ -294,10 +294,7 @@ export function ShadowingBlock({
       }
     }, autoStopDuration * 1000);
 
-    const iosDevice = typeof window !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
-
-    if (!iosDevice) {
-      try {
+    try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         if (!recordingActiveRef.current) {
           stream.getTracks().forEach(t => t.stop());
@@ -317,7 +314,6 @@ export function ShadowingBlock({
       } catch (err) {
         console.warn('[Shadowing] getUserMedia failed — SR-only mode:', err);
       }
-    }
   };
 
   const handleRecordStop = () => {
