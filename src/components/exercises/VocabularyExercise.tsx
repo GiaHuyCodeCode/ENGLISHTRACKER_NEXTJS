@@ -143,7 +143,7 @@ export function VocabularyExercise({
     if (isRequirementWorkflow) {
       shouldAutoSubmit = activeMode === 'test' && isAllAnswered;
     } else if (isRepetitionWorkflow) {
-      shouldAutoSubmit = activeMode === 'dictation' && isAllAnswered;
+      shouldAutoSubmit = false; // Tắt auto-submit để người dùng có thể làm tiếp Round 2, 3...
     } else {
       shouldAutoSubmit = activeMode !== 'flashcard' && isAllAnswered;
     }

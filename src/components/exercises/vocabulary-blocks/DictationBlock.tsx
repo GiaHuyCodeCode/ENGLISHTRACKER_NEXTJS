@@ -214,8 +214,14 @@ export function DictationBlock({
     onProgressUpdate
   ]);
 
+  const isInitialMount = useRef(true);
+  
   // Tự động phát âm khi chuyển từ
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return; // Không tự động phát âm khi mới vào bài tập
+    }
     if (!currentCard || isSubmitted || isFinished || wrongTimerActive) return;
     if (speakMode === 'before') {
       const timer = setTimeout(() => handleSpeak(currentCard.word, 1.0, currentCard.audioUrl), 300);
@@ -775,11 +781,23 @@ export function DictationBlock({
             <ChevronLeft className="h-4 w-4" strokeWidth={1.5} /> Từ trước
           </button>
           <button 
-            onClick={() => { setCurrentIdx(prev => Math.min(vocabCards.length - 1, prev + 1)); setFeedback({}); }} 
-            disabled={currentIdx === vocabCards.length - 1} 
+            onClick={() => {
+              if (!currentCard) return;
+              if (!feedback[currentCard.word]?.show && !hasCorrectedLocally[currentCard.word]) {
+                handleCheckSpelling();
+                return;
+              }
+              if (currentIdx === roundWords.length - 1) {
+                setShowEndScreen(true);
+              } else {
+                setCurrentIdx(prev => Math.min(roundWords.length - 1, prev + 1)); 
+                setFeedback({});
+              }
+            }} 
+            disabled={currentIdx === roundWords.length - 1 && feedback[currentCard?.word]?.show && currentFeedback?.isCorrect} 
             className="px-5 py-3 rounded-xl bg-[#0071e3]/10 border border-[#0071e3]/20 text-sky-600 dark:text-sky-400 hover:bg-[#0071e3] hover:text-white disabled:opacity-30 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
           >
-            Từ tiếp theo <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
+            {currentIdx === roundWords.length - 1 && feedback[currentCard?.word]?.show ? 'Hoàn thành' : 'Từ tiếp theo'} <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
           </button>
         </div>
       )}

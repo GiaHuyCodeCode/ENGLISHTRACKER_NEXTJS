@@ -9,7 +9,7 @@ import {
   getVocabularyCards, getVocabProgressList, saveVocabProgressList, saveVocabularyCards, VocabCard,
   importExternalVocabWithProgress, STAGE_CONFIG, autoSyncAllSpacedRepetition
 } from '@/lib/local-store';
-import { syncVocabListToSheet } from '@/lib/google-sheets';
+import { syncVocabListToSheet, syncActionToSheet } from '@/lib/google-sheets';
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
 import { StudentTimeChart } from '@/components/ui/StudentTimeChart';
 import { toLocalDateString } from '@/lib/utils';
@@ -133,6 +133,17 @@ export default function TeacherDashboard() {
     saveVocabProgressList(progressList);
     // Note: We don't sync progressList to Sheet using syncVocabListToSheet because that is for Cards.
     // Progress is managed locally or needs a separate sync endpoint.
+
+    if (calculatedStage > 1) {
+      syncActionToSheet({
+        action: 'auto_submit_previous_stage',
+        assignmentId: assignment.id,
+        assignmentTitle: assignment.title,
+        targetStage: calculatedStage,
+        studentName: 'ALL_STUDENTS'
+      });
+    }
+
     alert('Đồng bộ Phase thành công!');
     refreshData();
   };
@@ -173,6 +184,17 @@ export default function TeacherDashboard() {
     });
 
     saveVocabProgressList(progressList);
+    
+    if (targetStage > 1) {
+      syncActionToSheet({
+        action: 'auto_submit_previous_stage',
+        assignmentId: syncPhaseDialog.assignment.id,
+        assignmentTitle: syncPhaseDialog.assignment.title,
+        targetStage: targetStage,
+        studentName: syncPhaseDialog.studentName
+      });
+    }
+
     alert('Cập nhật Phase thành công!');
     setSyncPhaseDialog(null);
     refreshData();
