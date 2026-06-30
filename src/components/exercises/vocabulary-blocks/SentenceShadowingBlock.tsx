@@ -96,6 +96,7 @@ export interface SentenceShadowingResult {
   recognized: string;
   accuracy: number;
   attempts: number;
+  userAudioUrl?: string;
 }
 
 interface Props {
@@ -149,7 +150,7 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
   const currentSentence = sentences[currentIdx];
   useEffect(() => { currentSentenceRef.current = currentSentence; }, [currentSentence]);
 
-  const { phonetic: displayPhonetic, loading: phoneticLoading } = usePhonetic(currentSentence?.text, currentSentence?.phonetic);
+  const { phonetic: displayPhonetic, loading: phoneticLoading } = usePhonetic(currentSentence?.text);
 
   const handleSpeak = useCallback((text: string, audioUrl?: string, customStart?: number) => {
     const start = customStart ?? currentSentence.startTime;
@@ -381,6 +382,7 @@ export function SentenceShadowingBlock({ sentences, onComplete, onSkip }: Props)
       recognized: results[s.id]?.recognized || '',
       accuracy: results[s.id]?.accuracy ?? 0,
       attempts: attempts[s.id] || 0,
+      userAudioUrl: results[s.id]?.userAudioUrl,
     }));
     const overallScore = Math.round(
       sentences.reduce((sum, s) => sum + (results[s.id]?.accuracy ?? 0), 0) / sentences.length,

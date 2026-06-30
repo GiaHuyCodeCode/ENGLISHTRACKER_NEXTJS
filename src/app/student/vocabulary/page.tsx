@@ -106,30 +106,30 @@ export default function StudentVocabularyPage() {
       }
     });
 
-    if (validAnswersForScore.length > 0) {
-      const correctCount = validAnswersForScore.filter(a => a.isCorrect).length;
-      const score = Math.round((correctCount / validAnswersForScore.length) * 100);
+    if (answers.length > 0) {
+      const correctCount = answers.filter(a => a.isCorrect).length;
+      const score = Math.round((correctCount / answers.length) * 100);
       
       if (assignIdParam) {
         submitVocabularyAssignment({
           assignmentId: assignIdParam,
           studentName: studentName,
           score: score,
-          answers: validAnswersForScore,
+          answers: answers,
           durationMs: 0
         });
         // Do not redirect, let the UI show the big success screen
       } else {
         const dueAssignment = getAssignments().find(a =>
           (a.type === 'vocabulary' || a.type === 'repetition') &&
-          (a.vocabCards || []).some(c => validAnswersForScore.some(va => va.word === c.word))
+          (a.vocabCards || []).some(c => answers.some(va => va.word === c.word))
         );
         if (dueAssignment) {
           submitVocabularyAssignment({
             assignmentId: dueAssignment.id,
             studentName: studentName,
             score: score,
-            answers: validAnswersForScore,
+            answers: answers,
             durationMs: 0
           });
         }

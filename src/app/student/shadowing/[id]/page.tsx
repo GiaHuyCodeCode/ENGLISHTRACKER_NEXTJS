@@ -99,6 +99,14 @@ function ResultScreen({
                       Bạn nói: &ldquo;{r.recognized}&rdquo;
                     </p>
                   )}
+                  {r?.userAudioUrl && (
+                    <audio 
+                      controls 
+                      src={r.userAudioUrl} 
+                      className="h-6 w-full max-w-[200px] mt-1 outline-none opacity-80 hover:opacity-100 transition-opacity" 
+                      title="Nghe lại giọng của bạn"
+                    />
+                  )}
                 </div>
                 <span className={`shrink-0 text-xs font-extrabold px-2 py-0.5 rounded-full ${
                   isCorrect ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' :
@@ -194,6 +202,7 @@ export default function ShadowingExercisePage() {
             recognized: r.recognized,
             accuracy: r.accuracy,
             attempts: r.attempts,
+            userAudioUrl: undefined,
           })
         );
         setFinalResults(prevResults);

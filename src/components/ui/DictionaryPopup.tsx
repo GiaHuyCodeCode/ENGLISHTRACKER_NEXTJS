@@ -99,7 +99,8 @@ export function DictionaryPopup() {
         
         if (rect && rect.width > 0) {
           let x = rect.left + rect.width / 2;
-          let y = rect.top - 10;
+          // Hiển thị phía dưới từ bôi đen (+10px) thay vì phía trên
+          let y = rect.bottom + 10;
           
           setSelectedWord(text.toLowerCase());
           setPosition({ x, y });
@@ -175,14 +176,14 @@ export function DictionaryPopup() {
   return (
     <div 
       id="dictionary-popup"
-      className="fixed z-[100] transform -translate-x-1/2 -translate-y-full px-3 py-2 glass-strong rounded-xl border border-white/20 shadow-2xl w-max min-w-[140px] max-w-[200px] sm:max-w-[240px] animate-in fade-in zoom-in-95 duration-200"
+      className="fixed z-[100] transform -translate-x-1/2 px-3 py-2 glass-strong rounded-xl border border-white/20 shadow-2xl w-max min-w-[140px] max-w-[200px] sm:max-w-[240px] animate-in fade-in zoom-in-95 duration-200"
       style={{ 
         left: Math.max(120, Math.min(window.innerWidth - 120, position.x)), 
         top: Math.max(60, position.y) 
       }}
     >
-      {/* Arrow */}
-      <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-background border-b border-r border-white/20 rotate-45" />
+      {/* Arrow (Chỉ lên trên) */}
+      <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-background border-t border-l border-white/20 rotate-45" />
 
       {/* Content */}
       <div className="flex flex-col gap-0.5 relative z-10">

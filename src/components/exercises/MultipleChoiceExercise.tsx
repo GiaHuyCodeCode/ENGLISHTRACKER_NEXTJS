@@ -25,9 +25,6 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
   const [revealedHints, setRevealedHints] = useState<Set<number>>(new Set());
   const [isMobileMapOpen, setIsMobileMapOpen] = useState(false);
   const [autoSubmitCountdown, setAutoSubmitCountdown] = useState<number | null>(null);
-  // Mobile selection-based translation
-  const [selectionTooltip, setSelectionTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
-
   // Tự động reveal hint khi người dùng đã chọn đáp án cho câu đó
   useEffect(() => {
     if (!allowHints) return;
@@ -43,26 +40,6 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
       return changed ? next : prev;
     });
   }, [selected, allowHints, questions]);
-
-  // Handle text selection for mobile translation (bôi đen = dịch)
-  const handleTextSelection = () => {
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-      setSelectionTooltip(null);
-      return;
-    }
-    const text = sel.toString().trim();
-    if (text.length < 2 || text.length > 200) return;
-    const range = sel.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    setSelectionTooltip({
-      text,
-      x: rect.left + rect.width / 2,
-      y: rect.top + window.scrollY - 8,
-    });
-  };
-
-  const dismissTooltip = () => setSelectionTooltip(null);
 
   const isSubmitted = !!result;
   const answered = Object.keys(selected).length;
@@ -119,44 +96,9 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
 
   return (
     <>
-      {/* ── Mobile Selection Tooltip (bôi đen từ để dịch) ─────────── */}
-      {selectionTooltip && (
-        <>
-          <div
-            className="fixed inset-0 z-[60]"
-            onClick={dismissTooltip}
-            style={{ pointerEvents: 'none' }}
-          />
-          <div
-            className="fixed z-[70] pointer-events-auto"
-            style={{
-              left: Math.min(selectionTooltip.x, window.innerWidth - 200),
-              top: selectionTooltip.y - 52,
-              transform: 'translateX(-50%)',
-            }}
-          >
-            <div className="flex flex-col items-center gap-1">
-              <div
-                className="bg-[#1a1a1a] border border-white/15 rounded-xl px-3 py-2 shadow-2xl text-xs max-w-[220px] text-center"
-                style={{ color: 'hsl(150 10% 70%)' }}
-              >
-                <span className="font-semibold text-white block mb-0.5 truncate">&ldquo;{selectionTooltip.text}&rdquo;</span>
-                <span className="opacity-60">Bôi đen để tra từ điển</span>
-              </div>
-              <button
-                onClick={dismissTooltip}
-                className="text-[10px] text-white/40 hover:text-white/70 transition-colors"
-              >
-                ✕ Đóng
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
       {/* Sticky Mobile Status Bar */}
       {!hideSidebar && (
-        <div className="sticky top-16 z-40 lg:hidden -mx-4 px-4 py-3 bg-black/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between gap-3 shadow-md">
+        <div className="sticky top-16 z-40 lg:hidden -mx-4 px-4 py-3 bg-white/80 dark:bg-black/60 backdrop-blur-md border-b border-black/5 dark:border-white/5 flex items-center justify-between gap-3 shadow-md">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-muted-foreground">Tiến độ:</span>
             <span className="text-xs font-extrabold text-primary">{answered}/{questions.length}</span>
@@ -165,7 +107,7 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
             <div className="bg-primary h-full transition-all duration-500" style={{ width: `${(answered / questions.length) * 100}%` }} />
           </div>
           {!isSubmitted && (
-            <div className="flex items-center gap-1 px-2.5 py-1 bg-black/5 dark:bg-white/5 border border-white/5 rounded-xl">
+            <div className="flex items-center gap-1 px-2.5 py-1 bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-xl">
               <ExerciseTimer isRunning={true} className="!p-0 !bg-transparent text-xs font-bold text-foreground" />
             </div>
           )}
@@ -339,10 +281,7 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                       )}
 
                       {/* Câu hỏi */}
-                      <p className="font-medium text-sm leading-relaxed select-text"
-                        onMouseUp={handleTextSelection}
-                        onTouchEnd={handleTextSelection}
-                      >
+                      <p className="font-medium text-sm leading-relaxed select-text">
                         {q.question}
                       </p>
 

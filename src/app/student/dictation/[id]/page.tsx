@@ -300,11 +300,35 @@ export default function DictationExercisePage() {
     if (firstWrongIdx === -1) return null;
     
     const hintWords = originalWords.map((word, i) => {
-      if (i < firstWrongIdx) return word;
-      if (i === firstWrongIdx) {
-        if (attempts === 1) return word[0] + '_'.repeat(Math.max(0, word.length - 1));
-        return word;
+      if (i < sw.length && isFuzzyMatch(sw[i], cw[i], 0.85)) {
+        return word; // correctly guessed
       }
+      
+      if (attempts >= 2) {
+        return word; // reveal after 2 fails
+      }
+      
+      const userTyped = (sw[i] || '').toLowerCase();
+      const targetWord = word.toLowerCase();
+      let matchLen = 0;
+      for (let k = 0; k < Math.min(targetWord.length, userTyped.length); k++) {
+        if (targetWord[k] === userTyped[k]) {
+          matchLen++;
+        } else {
+          break;
+        }
+      }
+      
+      if (matchLen > 0) {
+        // Show matching prefix
+        return word.substring(0, matchLen) + word.substring(matchLen).replace(/[a-zA-Z0-9]/g, '_');
+      }
+      
+      if (i === firstWrongIdx && attempts === 1) {
+        // Fallback for first wrong word on attempt 1: show first letter
+        return word.substring(0, 1) + word.substring(1).replace(/[a-zA-Z0-9]/g, '_');
+      }
+      
       return '***';
     });
     
