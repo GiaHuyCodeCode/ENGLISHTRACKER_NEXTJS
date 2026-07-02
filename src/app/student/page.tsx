@@ -348,7 +348,7 @@ export default function StudentDashboard() {
   const sortedSkills = [...skillData].filter(s => s.A > 0).sort((a, b) => a.A - b.A);
   const weakestSkill = sortedSkills.length > 0 ? sortedSkills[0] : null;
 
-  const totalScores = [...submissions.map(s => s.score), ...trackings.map(t => t.score)];
+  const totalScores = [...submissions.map(s => s.score)];
   const avg = totalScores.length ? Math.round(totalScores.reduce((a, b) => a + b, 0) / totalScores.length) : null;
   const nowVal = new Date();
   const visibleAssignments = assignments.filter(a => {
@@ -371,7 +371,7 @@ export default function StudentDashboard() {
   // ── Comparison Calculation ────────────────────────────────────────────────
   const allSubmissions = getSubmissions();
   const allTrackings = getDailyTrackings();
-  const allScoresList = [...allSubmissions.map(s => s.score), ...allTrackings.map(t => t.score)];
+  const allScoresList = [...allSubmissions.map(s => s.score)];
   const classAvg = allScoresList.length ? Math.round(allScoresList.reduce((a, b) => a + b, 0) / allScoresList.length) : null;
 
   // ── Advanced Analytics Calculation ─────────────────────────────────────────
@@ -385,13 +385,13 @@ export default function StudentDashboard() {
     // Student daily score
     const dSubs = submissions.filter(s => toLocalDateString(s.submittedAt) === date);
     const dTrks = trackings.filter(t => toLocalDateString(t.submittedAt) === date);
-    const dScores = [...dSubs.map(s => s.score), ...dTrks.map(t => t.score)];
+    const dScores = [...dSubs.map(s => s.score)];
     const myAvg = dScores.length ? Math.round(dScores.reduce((a, b) => a + b, 0) / dScores.length) : null;
 
     // Class daily score
     const classSubs = allSubmissions.filter(s => toLocalDateString(s.submittedAt) === date);
     const classTrks = allTrackings.filter(t => toLocalDateString(t.submittedAt) === date);
-    const classScores = [...classSubs.map(s => s.score), ...classTrks.map(t => t.score)];
+    const classScores = [...classSubs.map(s => s.score)];
     const clsAvg = classScores.length ? Math.round(classScores.reduce((a, b) => a + b, 0) / classScores.length) : null;
 
     return { date: date.slice(5), score: myAvg, classScore: clsAvg };

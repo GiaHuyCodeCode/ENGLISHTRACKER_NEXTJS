@@ -446,9 +446,9 @@ export default function TeacherDashboard() {
     const trks = filteredTrackings.filter(t => t.studentName === name);
     const profile = profiles.find(p => p.studentName === name);
 
-    // Tổng hợp điểm từ cả bài tập và tracking
-    const totalScore = subs.reduce((s, x) => s + x.score, 0) + trks.reduce((s, x) => s + x.score, 0);
-    const totalCount = subs.length + trks.length;
+    // Chỉ tính điểm trung bình từ các bài tập (submissions)
+    const totalScore = subs.reduce((s, x) => s + x.score, 0);
+    const totalCount = subs.length;
     const totalMs = subs.reduce((sum, s) => sum + (s.durationMs || 0), 0);
 
     const avg = totalCount ? Math.round(totalScore / totalCount) : null;
