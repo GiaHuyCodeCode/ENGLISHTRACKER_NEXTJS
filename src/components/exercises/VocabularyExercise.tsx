@@ -23,6 +23,7 @@ interface Props {
   isRequirementWorkflow?: boolean;
   isRepetitionWorkflow?: boolean;
   hideTabs?: boolean;
+  hideStudentAnswer?: boolean;
   allSubmissions?: Submission[];
   isPracticeOnly?: boolean;
   onRetry?: () => void;
@@ -42,6 +43,7 @@ export function VocabularyExercise({
   isRequirementWorkflow = false,
   isRepetitionWorkflow = false,
   hideTabs = false,
+  hideStudentAnswer = false,
   allSubmissions,
   isPracticeOnly = false,
   onRetry,
@@ -140,10 +142,8 @@ export function VocabularyExercise({
     }
 
     let shouldAutoSubmit = false;
-    if (isRequirementWorkflow) {
-      shouldAutoSubmit = activeMode === 'test' && isAllAnswered;
-    } else if (isRepetitionWorkflow) {
-      shouldAutoSubmit = false; // Tắt auto-submit để người dùng có thể làm tiếp Round 2, 3...
+    if (isRequirementWorkflow || isRepetitionWorkflow) {
+      shouldAutoSubmit = false; // Auto-submit is triggered manually via handleDictationFinished
     } else {
       shouldAutoSubmit = activeMode !== 'flashcard' && isAllAnswered;
     }
@@ -186,13 +186,7 @@ export function VocabularyExercise({
   };
 
   const calculateScore = useCallback(() => {
-    if (isRequirementWorkflow) {
-      let testCorrect = 0;
-      vocabCards.forEach(c => { if (mcAnswers[c.id] === c.word) testCorrect++; });
-      const testScore = Math.round((testCorrect / vocabCards.length) * 100);
-      return Math.round(((dictationScore || 0) + testScore) / 2);
-    }
-    if (isRepetitionWorkflow) {
+    if (isRequirementWorkflow || isRepetitionWorkflow) {
       return dictationScore || 0;
     }
 
@@ -225,10 +219,10 @@ export function VocabularyExercise({
       let studentAnswer = '';
       let isCorrect = false;
 
-      if (isRequirementWorkflow || activeMode === 'test') {
+      if (activeMode === 'test') {
         studentAnswer = mcAnswers[c.id] || '';
         isCorrect = studentAnswer.toLowerCase() === c.word.toLowerCase();
-      } else if (isRepetitionWorkflow) {
+      } else if (isRequirementWorkflow || isRepetitionWorkflow) {
         studentAnswer = (textAnswers[c.word] || '').trim();
         isCorrect = studentAnswer.toLowerCase() === c.word.toLowerCase();
       } else if (activeMode === 'game_match') {
@@ -277,12 +271,9 @@ export function VocabularyExercise({
     setIsDictationFinished(true);
     setTextAnswers(dictationAnswers);
     if (attempts) setDictationAttempts(attempts);
-    if (!isRepetitionWorkflow) {
-      setActiveMode('test');
-      setProgressStats(null); // Reset progress để block test cập nhật
-    } else {
-      setAutoSubmitCountdown(0);
-    }
+    
+    // Automatically submit when dictation is finished in requirement/repetition workflows
+    setAutoSubmitCountdown(0);
   };
 
   // Lắng nghe phím Enter để nộp bài tự động khi hoàn thành trắc nghiệm
@@ -387,7 +378,7 @@ export function VocabularyExercise({
 
 
   return (
-    <div className="space-y-6 fade-in w-full pb-24">
+    <div className="space-y-6 fade-in w-full pb-40 lg:pb-12">
       {/* Result Score */}
       {showScoreBanner && (
         <div className={`rounded-3xl p-8 text-center border-2 score-pop relative overflow-hidden ${
@@ -425,19 +416,8 @@ export function VocabularyExercise({
             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${isDictationFinished ? 'bg-emerald-500 text-black' : activeMode === 'dictation' ? 'bg-[#0071e3] text-white' : 'bg-black/5 dark:bg-white/5 text-muted-foreground'}`}>
               {isDictationFinished ? '✓' : '1'}
             </span>
-            Phần 1: Nghe Chép
+            Nghe Chép
           </div>
-          {!isRepetitionWorkflow && (
-            <>
-              <div className="w-12 h-px bg-white/10"></div>
-              <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${activeMode === 'test' ? 'text-[#0071e3]' : 'text-muted-foreground'}`}>
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${activeMode === 'test' ? 'bg-[#0071e3] text-white' : 'bg-black/5 dark:bg-white/5 text-muted-foreground'}`}>
-                  2
-                </span>
-                Phần 2: Trắc Nghiệm
-              </div>
-            </>
-          )}
         </div>
       )}
 
@@ -662,6 +642,7 @@ export function VocabularyExercise({
                 onProgressUpdate={handleProgressUpdate}
                 allSubmissions={allSubmissions}
                 speakMode={speakMode}
+                hideStudentAnswer={hideStudentAnswer}
               />
             ) : (
               <>
@@ -686,6 +667,7 @@ export function VocabularyExercise({
                     onProgressUpdate={handleProgressUpdate}
                     allSubmissions={allSubmissions}
                     speakMode={speakMode}
+                    hideStudentAnswer={hideStudentAnswer}
                   />
                 )}
                 
@@ -717,8 +699,8 @@ export function VocabularyExercise({
             )}
           </div>
 
-          {/* Submit Section (Chỉ hiển thị khi làm bài tự do, hoặc khi ở phần trắc nghiệm trong chế độ bắt buộc) */}
-          {!isSubmitted && ((!isRequirementWorkflow && !isRepetitionWorkflow) || (isRequirementWorkflow && activeMode === 'test') || (isRepetitionWorkflow && activeMode === 'dictation')) && (
+          {/* Submit Section (Chỉ hiển thị khi làm bài tự do, hoặc khi ở chế độ bắt buộc/lặp lại) */}
+          {!isSubmitted && ((!isRequirementWorkflow && !isRepetitionWorkflow) || ((isRequirementWorkflow || isRepetitionWorkflow) && activeMode === 'dictation') || activeMode === 'test') && (
             <div className="pt-6 border-t border-black/5 dark:border-white/5 space-y-4 max-w-3xl mx-auto w-full hidden lg:block">
               <div className="flex justify-between items-center text-xs font-bold text-muted-foreground uppercase tracking-widest px-2">
                 <span>
@@ -734,7 +716,7 @@ export function VocabularyExercise({
               </div>
               <button
                 onClick={handleSubmitAll}
-                disabled={isSubmitting || (isRequirementWorkflow && Object.keys(mcAnswers).length < vocabCards.length) || (isRepetitionWorkflow && Object.keys(textAnswers).filter(k => textAnswers[k]?.trim()).length < vocabCards.length)}
+                disabled={isSubmitting || ((isRequirementWorkflow || isRepetitionWorkflow) && Object.keys(textAnswers).filter(k => textAnswers[k]?.trim()).length < vocabCards.length)}
                 className="w-full h-12 md:h-14 flex items-center justify-center gap-2 rounded-2xl bg-[#0071e3] text-white font-bold text-sm hover:bg-[#0071e3]/90 disabled:opacity-40 transition-all hover-lift"
               >
                 <Send className="h-5 w-5" strokeWidth={1.5} />

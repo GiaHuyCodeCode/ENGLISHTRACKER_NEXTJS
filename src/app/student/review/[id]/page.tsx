@@ -11,7 +11,7 @@ import { MultipleChoiceExercise } from '@/components/exercises/MultipleChoiceExe
 import { RewriteVocabExercise } from '@/components/exercises/RewriteVocabExercise';
 import { VocabularyExercise } from '@/components/exercises/VocabularyExercise';
 import { RaceTrackLeaderboard } from '@/components/ui/RaceTrackLeaderboard';
-import { ArrowLeft, Clock, CheckCircle2, Trophy, HelpCircle, Star, X } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, Trophy, HelpCircle, Star, X, Headphones, Volume2, Mic } from 'lucide-react';
 import Link from 'next/link';
 
 export default function StudentReviewPage() {
@@ -234,23 +234,30 @@ export default function StudentReviewPage() {
     return [];
   };
 
-  const questionMap = getQuestionMap();
+  let dictationSentences: any[] = [];
+  if (assignment && (assignment.type === 'dictation' || assignment.type === 'shadowing')) {
+    let parsed = assignment.sentences || assignment.passage;
+    if (typeof parsed === 'string') {
+      try { parsed = JSON.parse(parsed); } catch {}
+      if (typeof parsed === 'string') {
+        try { parsed = JSON.parse(parsed); } catch {}
+      }
+    }
+    if (Array.isArray(parsed)) dictationSentences = parsed;
+  }
 
-  // Fallback: nếu vocabAnswers là Record<string,string> thay vì array,
-  // hoặc nếu questionMap trả về toàn bộ sai dù điểm > 0,
-  // thì tính correctCount từ answers gốc
+  const questionMap = getQuestionMap();
   let correctCount = questionMap.filter(q => q.isCorrect).length;
   let totalCount = questionMap.length;
 
   if (
-    (assignment.type === 'vocabulary' || assignment.type === 'vocab_context') &&
+    (assignment.type === 'vocabulary' || assignment.type === 'vocab_context' || assignment.type === 'repetition') &&
     correctCount === 0 && submission.score > 0 &&
     totalCount > 0
   ) {
-    // Thử tính lại từ vocabAnswers dạng object
     const rawAnswers = submission.vocabAnswers as any;
     if (rawAnswers && !Array.isArray(rawAnswers) && typeof rawAnswers === 'object') {
-      const words = assignment.type === 'vocabulary'
+      const words = (assignment.type === 'vocabulary' || assignment.type === 'repetition')
         ? (assignment.vocabCards || []).map((c: any) => c.word)
         : (assignment.keywords || []).map((k: any) => k.word);
       correctCount = words.filter((w: string) => {
@@ -263,7 +270,7 @@ export default function StudentReviewPage() {
   return (
     <>
       {/* Mobile Sticky Question Map Bar */}
-      {questionMap.length > 0 && assignment.type !== 'vocabulary' && (
+      {questionMap.length > 0 && assignment.type !== 'vocabulary' && assignment.type !== 'repetition' && (
         <div className="sticky top-16 z-40 lg:hidden -mx-4 px-4 py-3 bg-black/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between shadow-md">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-muted-foreground">Đối chiếu đáp án:</span>
@@ -337,7 +344,7 @@ export default function StudentReviewPage() {
       {/* Main Grid Layout: Left Sidebar + Right Content */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         {/* Left Sticky Sidebar: Sơ đồ câu hỏi (Desktop Only) */}
-        {questionMap.length > 0 && assignment.type !== 'vocabulary' && (
+        {questionMap.length > 0 && assignment.type !== 'vocabulary' && assignment.type !== 'repetition' && (
           <div className="hidden lg:block lg:col-span-1 lg:sticky lg:top-4 z-30 space-y-4 self-start">
             <div className="glass-strong rounded-3xl border border-black/10 dark:border-white/10 p-5 md:p-6 shadow-xl space-y-4 max-h-[calc(100vh-140px)] overflow-y-auto">
               <div className="flex justify-between items-center text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
@@ -367,7 +374,7 @@ export default function StudentReviewPage() {
         )}
 
         {/* Right Column: Exercise Content Area - Read only mode */}
-        <div id="vocab-exercise-container" className={`${questionMap.length > 0 && assignment.type !== 'vocabulary' ? 'lg:col-span-3' : 'lg:col-span-4'} w-full space-y-6 order-first lg:order-last`}>
+        <div id="vocab-exercise-container" className={`${questionMap.length > 0 && assignment.type !== 'vocabulary' && assignment.type !== 'repetition' ? 'lg:col-span-3' : 'lg:col-span-4'} w-full space-y-6 order-first lg:order-last`}>
           {/* Teacher feedback panel if available */}
           {submission.feedback && (
             <div className="glass rounded-2xl p-5 border border-amber-500/20 bg-amber-500/5 space-y-2">
@@ -422,7 +429,7 @@ export default function StudentReviewPage() {
             </div>
           )}
 
-          {assignment.type === 'vocabulary' && assignment.vocabCards && (
+          {(assignment.type === 'vocabulary' || assignment.type === 'repetition') && assignment.vocabCards && (
             <VocabularyExercise
               vocabCards={assignment.vocabCards}
               onSubmit={() => {}}
@@ -432,7 +439,97 @@ export default function StudentReviewPage() {
               durationMs={submission.durationMs}
               initialMode="dictation"
               isRequirementWorkflow={true}
+              hideStudentAnswer={true}
             />
+          )}
+
+          {assignment.type === 'dictation' && dictationSentences.length > 0 && (
+            <div className="glass rounded-3xl border border-white/5 p-6 md:p-8 space-y-4">
+              <h3 className="text-lg font-bold font-heading mb-4 text-foreground flex items-center gap-2">
+                <Headphones className="w-5 h-5 text-sky-600 dark:text-sky-400" /> Script Nghe Chép
+              </h3>
+              <div className="grid gap-3">
+                {dictationSentences.map((s: any, idx: number) => (
+                  <div key={s.id || idx} className="glass-strong rounded-2xl p-4 md:p-5 border border-white/5 flex flex-col md:flex-row gap-4 items-start md:items-center">
+                    <button 
+                      onClick={() => {
+                        const a = new Audio(s.audioUrl);
+                        a.play();
+                      }}
+                      className="shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full bg-sky-500/10 border border-sky-500/20 hover:bg-sky-500 hover:text-white text-sky-600 dark:text-sky-400 flex items-center justify-center transition-all shadow-sm hover-lift"
+                    >
+                      <Volume2 className="w-5 h-5 md:w-6 md:h-6" />
+                    </button>
+                    <div className="flex-1 min-w-0 space-y-1.5 w-full">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                        <span className="font-extrabold text-lg md:text-xl text-foreground">{s.text}</span>
+                        {s.translation && (
+                          <span className="text-sm md:text-base text-muted-foreground italic truncate">- {s.translation}</span>
+                        )}
+                      </div>
+                      {/* Chỉ hiển thị đáp án, không so sánh với đáp án cũ */}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {assignment.type === 'shadowing' && dictationSentences.length > 0 && (
+            <div className="glass rounded-3xl border border-white/5 p-6 md:p-8 space-y-4">
+              <h3 className="text-lg font-bold font-heading mb-4 text-foreground flex items-center gap-2">
+                <Mic className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> Chi Tiết Shadowing
+              </h3>
+              <div className="grid gap-3">
+                {dictationSentences.map((s: any, i: number) => {
+                  const r = (submission.shadowingResults || []).find((res: any) => String(res.word || res.sentenceId) === String(s.id));
+                  const acc = r?.accuracy ?? 0;
+                  const isCorrect = acc >= 80;
+                  const isClose = acc >= 50 && acc < 80;
+                  return (
+                    <div key={s.id || i} className={`flex items-start gap-3 p-4 rounded-xl border text-sm ${
+                      isCorrect ? 'bg-emerald-500/5 border-emerald-500/20' :
+                      isClose   ? 'bg-amber-500/5 border-amber-500/20' :
+                                  'bg-red-500/5 border-red-500/20'
+                    }`}>
+                      <span className={`shrink-0 font-bold text-sm mt-0.5 ${
+                        isCorrect ? 'text-emerald-600 dark:text-emerald-400' : isClose ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        C{i + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <button onClick={() => new Audio(s.audioUrl).play()} className="p-1 rounded-md bg-secondary hover:bg-secondary/80 text-foreground transition-colors shrink-0">
+                            <Volume2 className="w-3.5 h-3.5" />
+                          </button>
+                          <p className="font-extrabold text-foreground/90 text-sm leading-relaxed">{s.text}</p>
+                        </div>
+                        {r?.recognized && (
+                          <div className="bg-black/20 p-2 rounded-lg w-fit mt-2">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mr-2">Bạn đọc:</span>
+                            <span className="italic font-medium text-sm text-foreground/80">&ldquo;{r.recognized}&rdquo;</span>
+                          </div>
+                        )}
+                        {r?.userAudioUrl && (
+                          <audio 
+                            controls 
+                            src={r.userAudioUrl} 
+                            className="h-7 w-full max-w-[200px] mt-2 outline-none opacity-80 hover:opacity-100 transition-opacity rounded-md" 
+                          />
+                        )}
+                      </div>
+                      <span className={`shrink-0 text-sm font-extrabold px-2.5 py-1 rounded-full ${
+                        isCorrect ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' :
+                        isClose   ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300' :
+                                    'bg-red-500/20 text-red-700 dark:text-red-300'
+                      }`}>
+                        {acc}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
           {/* Standings Leaderboard */}
@@ -442,7 +539,7 @@ export default function StudentReviewPage() {
     </div>
 
     {/* Bottom Sheet for Mobile Sơ đồ câu hỏi */}
-    {questionMap.length > 0 && assignment.type !== 'vocabulary' && (
+    {questionMap.length > 0 && assignment.type !== 'vocabulary' && assignment.type !== 'repetition' && (
       <>
         {/* Backdrop */}
         <div 

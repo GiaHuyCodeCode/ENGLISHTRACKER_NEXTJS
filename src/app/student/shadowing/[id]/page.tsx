@@ -198,7 +198,7 @@ export default function ShadowingExercisePage() {
         // Map ShadowingResult[] sang SentenceShadowingResult[]
         const prevResults: SentenceShadowingResult[] = (prevSub.shadowingResults || []).map(
           (r: ShadowingResult) => ({
-            sentenceId: r.word, // word lưu sentenceId
+            sentenceId: r.word || (r as any).sentenceId, // word lưu sentenceId hoặc dùng trực tiếp nếu dữ liệu cũ
             recognized: r.recognized,
             accuracy: r.accuracy,
             attempts: r.attempts,

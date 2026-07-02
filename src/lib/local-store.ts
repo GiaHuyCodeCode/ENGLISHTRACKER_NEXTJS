@@ -69,6 +69,7 @@ export interface ShadowingResult {
   recognized: string;  // transcript từ SpeechRecognition
   accuracy: number;    // 0–100, levenshtein word-overlap score
   attempts: number;
+  userAudioUrl?: string;
 }
 
 export interface Assignment {
@@ -82,7 +83,7 @@ export interface Assignment {
   imageUrl?: string;
   allowHints?: boolean;
   createdAt: string;
-  skill?: 'Vocab' | 'Grammar' | 'Reading' | 'Listening' | 'Writing' | 'Speaking';
+  skill?: 'Vocab' | 'Grammar' | 'Reading' | 'Listening' | 'Writing' | 'Speaking' | 'Repetition';
   // Dictation / Shadowing fields
   sentences?: DictationSentence[];
   /** ID của bài Dictation gốc nếu bài Shadowing này được tạo tự động từ Dictation */
@@ -452,41 +453,43 @@ export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { cr
     }
 
     // Tự động sinh ra 5 bài tập Spaced Repetition (Stages 1-5) với trạng thái isHidden = true
-    const intervals = [1, 3, 7, 14, 30]; // Stage 1, 2, 3, 4, 5
-    let cumulativeDays = 0;
-    
-    const createdDateRaw = new Date(a.createdAt);
-    createdDateRaw.setHours(0, 0, 0, 0);
-    const createdMidnight = createdDateRaw.getTime();
-
-    const newRepetitions: Assignment[] = [];
-
-    for (let i = 0; i < intervals.length; i++) {
-      cumulativeDays += intervals[i];
-      const stage = i + 1;
-      
-      const targetDate = new Date(createdMidnight);
-      targetDate.setDate(targetDate.getDate() + cumulativeDays);
-      targetDate.setHours(8, 0, 0, 0); // 8:00 AM of target day
-      
-      const repId = `rep-stage${stage}-${a.id}`;
-      const repAssignment: Assignment = {
-        id: repId,
-        title: `Stage ${stage} - ${a.title}`,
-        type: 'repetition',
-        vocabCards: a.vocabCards,
-        createdAt: targetDate.toISOString(),
-        isHidden: true
-      };
-      newRepetitions.push(repAssignment);
-      syncAssignmentToSheet(repAssignment);
-    }
-    
-    if (newRepetitions.length > 0) {
-      const updatedAll = getAssignments();
-      // It's possible updatedAll doesn't have `a` if it was fetched before writing, but we did write before this.
-      write(KEYS.assignments, [...updatedAll, ...newRepetitions]);
-    }
+    // Đã comment out: tạm ngừng tự động tạo bài tập Spaced Repetition.
+    // const intervals = [1, 3, 7, 14, 30]; // Stage 1, 2, 3, 4, 5
+    // let cumulativeDays = 0;
+    //
+    // const createdDateRaw = new Date(a.createdAt);
+    // createdDateRaw.setHours(0, 0, 0, 0);
+    // const createdMidnight = createdDateRaw.getTime();
+    //
+    // const newRepetitions: Assignment[] = [];
+    //
+    // for (let i = 0; i < intervals.length; i++) {
+    //   cumulativeDays += intervals[i];
+    //   const stage = i + 1;
+    //
+    //   const targetDate = new Date(createdMidnight);
+    //   targetDate.setDate(targetDate.getDate() + cumulativeDays);
+    //   targetDate.setHours(8, 0, 0, 0); // 8:00 AM of target day
+    //
+    //   const repId = `rep-stage${stage}-${a.id}`;
+    //   const repAssignment: Assignment = {
+    //     id: repId,
+    //     title: `Stage ${stage} - ${a.title}`,
+    //     type: 'repetition',
+    //     skill: 'Repetition',
+    //     vocabCards: a.vocabCards,
+    //     createdAt: targetDate.toISOString(),
+    //     isHidden: true
+    //   };
+    //   newRepetitions.push(repAssignment);
+    //   syncAssignmentToSheet(repAssignment);
+    // }
+    //
+    // if (newRepetitions.length > 0) {
+    //   const updatedAll = getAssignments();
+    //   // It's possible updatedAll doesn't have `a` if it was fetched before writing, but we did write before this.
+    //   write(KEYS.assignments, [...updatedAll, ...newRepetitions]);
+    // }
   }
 
   // Tự động tạo bài tập Viết chuyện chêm từ Điền chuyện chêm (vocab_context)
@@ -563,9 +566,21 @@ export function syncAllFromCloud(cloudData: any): boolean {
           Array.isArray(localA.sentences) && !Array.isArray(cloudA.sentences)) {
         return localA;
       }
+      // Prefer local createdAt/isHidden for repetition phases: GAS stores the
+      // sheet-row insert timestamp, not the staggered target date computed
+      // client-side, so trusting cloud here collapses every phase onto the
+      // same date as the base assignment.
+      if (localA.type === 'repetition') {
+        return { ...cloudA, createdAt: localA.createdAt, isHidden: localA.isHidden };
+      }
       return cloudA; // Cloud is authoritative otherwise
     });
-    write(KEYS.assignments, merged);
+    // Local-only assignments (not yet known to cloud, or dropped from its
+    // response) must actually be kept — mapping over cloudData.assignments
+    // alone silently drops them despite the comment above claiming otherwise.
+    const cloudIds = new Set(cloudData.assignments.map((c: any) => c.id));
+    const localOnly = local.filter(a => !cloudIds.has(a.id));
+    write(KEYS.assignments, [...merged, ...localOnly]);
     hasChanges = true;
   }
 
@@ -1195,10 +1210,40 @@ export function migrateStaleSubmitTimestamps(): void {
   localStorage.setItem(MIGRATION_KEY, '1');
 }
 
+const CLEANUP_REPETITION_SUBS_KEY = 'et_migration_v1_cleanupRepetitionSubs';
+
+/**
+ * Removes fake submissions (score: 100) that autoSubmitPreviousStagesLocal
+ * injected for skipped Spaced Repetition stages. These aren't real test
+ * results and were skewing class-average stats. The Repetition feature
+ * itself has been removed, so this is a one-time cleanup.
+ *
+ * Uses a localStorage flag so the full scan only runs once per device.
+ */
+export function cleanupFakeRepetitionSubmissions(): void {
+  if (typeof window === 'undefined') return;
+  if (localStorage.getItem(CLEANUP_REPETITION_SUBS_KEY)) return;
+
+  const submissions = getSubmissions();
+  const filtered = submissions.filter(s => s.assignmentType !== 'repetition');
+
+  if (filtered.length !== submissions.length) {
+    write(KEYS.submissions, filtered);
+  }
+
+  // Trigger GAS to run the same cleanup on the Google Sheets database.
+  // Fire-and-forget (no-cors) — GAS handles the 'cleanup_fake_repetition_submissions'
+  // action by calling cleanupFakeRepetitionSubmissions() on the server side.
+  void syncActionToSheet({ action: 'cleanup_fake_repetition_submissions' });
+
+  localStorage.setItem(CLEANUP_REPETITION_SUBS_KEY, '1');
+}
+
 // Auto-run on every page that imports this module (client-side only).
 // setTimeout defers past React's hydration so localStorage is definitely available.
 if (typeof window !== 'undefined') {
   setTimeout(migrateStaleSubmitTimestamps, 0);
+  setTimeout(cleanupFakeRepetitionSubmissions, 0);
 }
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
@@ -1233,12 +1278,17 @@ export function seedIfEmpty(): void {
       update.vocabCards = [];
       patched = true;
     }
+    if (update.type === 'repetition' && (!update.skill || update.skill !== 'Repetition')) {
+      update.skill = 'Repetition';
+      patched = true;
+    }
     if (patched) changed = true;
     return update;
   });
 
   if (changed) {
     write(KEYS.assignments, updatedAssignments);
+    void syncActionToSheet({ action: 'fix_repetition_skill' });
   }
 
   migrateStaleSubmitTimestamps();
@@ -1438,50 +1488,108 @@ export function importExternalVocabWithProgress(
 }
 
 export function autoSyncAllSpacedRepetition() {
-  // Chạy một lần để đồng bộ (backfill) các bài tập Spaced Repetition (Stages 1-5) 
+  // Đã comment out: tạm ngừng tự động backfill bài tập Spaced Repetition.
+  return;
+  // Chạy một lần để đồng bộ (backfill) các bài tập Spaced Repetition (Stages 1-5)
   // cho những bài tập Từ vựng cũ chưa được tạo.
-  const assignments = getAssignments();
-  let hasChanges = false;
-  const newReps: Assignment[] = [];
-
-  assignments.forEach(a => {
-    if (a.type === 'vocabulary' && a.vocabCards) {
-      const intervals = [1, 3, 7, 14, 30]; // Stage 1, 2, 3, 4, 5
-      let cumulativeDays = 0;
-      
-      const createdDateRaw = new Date(a.createdAt || new Date());
-      createdDateRaw.setHours(0, 0, 0, 0);
-      const createdMidnight = createdDateRaw.getTime();
-
-      for (let i = 0; i < intervals.length; i++) {
-        cumulativeDays += intervals[i];
-        const stage = i + 1;
-        const repId = `rep-stage${stage}-${a.id}`;
-        
-        // Nếu bài repetition này chưa tồn tại trong mảng gốc và mảng mới
-        if (!assignments.find(x => x.id === repId) && !newReps.find(x => x.id === repId)) {
-          const targetDate = new Date(createdMidnight);
-          targetDate.setDate(targetDate.getDate() + cumulativeDays);
-          targetDate.setHours(8, 0, 0, 0); // Đúng 8:00 AM của ngày cần ôn tập
-          
-          newReps.push({
-            id: repId,
-            title: `Stage ${stage} - ${a.title}`,
-            type: 'repetition',
-            vocabCards: a.vocabCards,
-            createdAt: targetDate.toISOString(),
-            isHidden: true
-          });
-          hasChanges = true;
-        }
-      }
-    }
-  });
-
-  if (hasChanges && newReps.length > 0) {
-    write(KEYS.assignments, [...assignments, ...newReps]);
-    // Sync lên Google Sheets
-    newReps.forEach(rep => syncAssignmentToSheet(rep));
-  }
+  // const assignments = getAssignments();
+  // let hasChanges = false;
+  // const newReps: Assignment[] = [];
+  //
+  // assignments.forEach(a => {
+  //   if (a.type === 'vocabulary' && a.vocabCards) {
+  //     const intervals = [1, 3, 7, 14, 30]; // Stage 1, 2, 3, 4, 5
+  //     let cumulativeDays = 0;
+  //
+  //     const createdDateRaw = new Date(a.createdAt || new Date());
+  //     createdDateRaw.setHours(0, 0, 0, 0);
+  //     const createdMidnight = createdDateRaw.getTime();
+  //
+  //     for (let i = 0; i < intervals.length; i++) {
+  //       cumulativeDays += intervals[i];
+  //       const stage = i + 1;
+  //       const repId = `rep-stage${stage}-${a.id}`;
+  //
+  //       // Nếu bài repetition này chưa tồn tại trong mảng gốc và mảng mới
+  //       if (!assignments.find(x => x.id === repId) && !newReps.find(x => x.id === repId)) {
+  //         const targetDate = new Date(createdMidnight);
+  //         targetDate.setDate(targetDate.getDate() + cumulativeDays);
+  //         targetDate.setHours(8, 0, 0, 0); // Đúng 8:00 AM của ngày cần ôn tập
+  //
+  //         newReps.push({
+  //           id: repId,
+  //           title: `Stage ${stage} - ${a.title}`,
+  //           type: 'repetition',
+  //           skill: 'Repetition',
+  //           vocabCards: a.vocabCards,
+  //           createdAt: targetDate.toISOString(),
+  //           isHidden: true
+  //         });
+  //         hasChanges = true;
+  //       }
+  //     }
+  //   }
+  // });
+  //
+  // if (hasChanges && newReps.length > 0) {
+  //   write(KEYS.assignments, [...assignments, ...newReps]);
+  //   // Sync lên Google Sheets
+  //   newReps.forEach(rep => syncAssignmentToSheet(rep));
+  // }
 }
 
+export function autoSubmitPreviousStagesLocal(
+  baseAssignId: string,
+  originalTitle: string,
+  targetStage: number,
+  specificStudent: string | null
+): void {
+  const baseAssign = getAssignment(baseAssignId);
+  if (!baseAssign) return;
+
+  const createdDate = new Date(baseAssign.createdAt || new Date());
+  createdDate.setHours(0, 0, 0, 0);
+
+  const allSubs = getSubmissions();
+  const students = specificStudent && specificStudent !== 'ALL_STUDENTS' 
+    ? [specificStudent] 
+    : getStudentNames();
+    
+  let hasChanges = false;
+  const intervals = [1, 3, 7, 14, 30]; // Stage 1..5
+  let cumulativeDays = 0;
+
+  for (let s = 1; s < targetStage; s++) {
+    const repAssignId = `rep-stage${s}-${baseAssignId}`;
+    const repTitle = `Stage ${s} - ${originalTitle}`;
+    
+    // Tính ngày DUE của stage s
+    cumulativeDays += intervals[s - 1] || 1;
+    const dueDate = new Date(createdDate.getTime());
+    dueDate.setDate(dueDate.getDate() + cumulativeDays);
+    dueDate.setHours(23, 59, 59, 999);
+    const submittedAtStr = dueDate.toISOString();
+    
+    students.forEach(student => {
+      const exists = allSubs.find(sub => sub.studentName === student && sub.assignmentId === repAssignId);
+      if (!exists) {
+        allSubs.push({
+          id: crypto.randomUUID(),
+          assignmentId: repAssignId,
+          assignmentTitle: repTitle,
+          assignmentType: 'repetition',
+          studentName: student,
+          score: 100,
+          vocabAnswers: [],
+          durationMs: 0,
+          submittedAt: submittedAtStr
+        });
+        hasChanges = true;
+      }
+    });
+  }
+
+  if (hasChanges) {
+    write(KEYS.submissions, allSubs);
+  }
+}

@@ -59,14 +59,6 @@ export default function StudentVocabularyPage() {
   // Review states
   const [reviewQueue, setReviewQueue] = useState<VocabCard[]>([]);
   const [currentIdx, setCurrentIdx] = useState<number>(0);
-  const [showAnswer, setShowAnswer] = useState<boolean>(false);
-  const [testMode, setTestMode] = useState<'flashcard' | 'synonym' | 'fill' | 'dictation'>('flashcard');
-  const [selectedSynonymOption, setSelectedSynonymOption] = useState<string[] | null>(null);
-  const [synonymOptions, setSynonymOptions] = useState<string[][]>([]);
-  const [fillAnswer, setFillAnswer] = useState<string>('');
-  const [dictationAnswer, setDictationAnswer] = useState<string>('');
-  const [isAnswerChecked, setIsAnswerChecked] = useState<boolean>(false);
-  const [isAnswerCorrect, setIsAnswerCorrect] = useState<boolean>(false);
   const [isReviewingSrs, setIsReviewingSrs] = useState<boolean>(false);
   
   // Library search state
@@ -225,7 +217,6 @@ export default function StudentVocabularyPage() {
       if (specificAssign && specificAssign.vocabCards) {
         setReviewQueue(specificAssign.vocabCards);
         setCurrentIdx(0);
-        resetCardState(0, specificAssign.vocabCards);
         return;
       }
     }
@@ -244,51 +235,8 @@ export default function StudentVocabularyPage() {
     const shuffled = [...queue].sort(() => Math.random() - 0.5);
     setReviewQueue(shuffled);
     setCurrentIdx(0);
-    resetCardState(0, shuffled);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progressList, cards, studentName, assignIdParam, isSrsParam]);
-
-  // Prepare options for Synonym Matching mode
-  useEffect(() => {
-    if (reviewQueue.length === 0 || currentIdx >= reviewQueue.length) return;
-    const currentCard = reviewQueue[currentIdx];
-    if (testMode === 'synonym') {
-      // Current card synonyms
-      const correct = currentCard.synonyms;
-      // Get distractor cards
-      const distractors = cards
-        .filter(c => c.id !== currentCard.id && c.synonyms.length > 0)
-        .map(c => c.synonyms)
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3);
-      
-      const combined = [correct, ...distractors].sort(() => Math.random() - 0.5);
-      setSynonymOptions(combined);
-    }
-  }, [currentIdx, reviewQueue, testMode, cards]);
-
-  const resetCardState = useCallback((nextIdx?: number, customQueue?: VocabCard[]) => {
-    setShowAnswer(false);
-    setSelectedSynonymOption(null);
-    setFillAnswer('');
-    setDictationAnswer('');
-    setIsAnswerChecked(false);
-    setIsAnswerCorrect(false);
-    
-    // Choose test mode randomly using nextIdx if provided
-    const idxToUse = nextIdx !== undefined ? nextIdx : currentIdx;
-    const q = customQueue !== undefined ? customQueue : reviewQueue;
-    if (q.length > 0 && idxToUse < q.length) {
-      const card = q[idxToUse];
-      const modes: ('flashcard' | 'synonym' | 'fill' | 'dictation')[] = ['flashcard'];
-      if (card.synonyms.length > 0) modes.push('synonym');
-      if (card.example) modes.push('fill');
-      if (card.phonetic) modes.push('dictation');
-      
-      const randomMode = modes[Math.floor(Math.random() * modes.length)];
-      setTestMode(randomMode);
-    }
-  }, [currentIdx, reviewQueue]);
 
   const handleSpeak = (text: string) => {
     audioManager.speak(text, 0.9, undefined, undefined, undefined,
@@ -296,17 +244,6 @@ export default function StudentVocabularyPage() {
       () => setSpeakingWord(null)
     );
   };
-
-  useEffect(() => {
-    if (reviewQueue.length === 0 || currentIdx >= reviewQueue.length) return;
-    const card = reviewQueue[currentIdx];
-    if (testMode === 'dictation' || testMode === 'flashcard') {
-      const timer = setTimeout(() => {
-        handleSpeak(card.word);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [currentIdx, testMode, reviewQueue]);
 
   // Text Parser for Quizlet Export
   const handleParseText = () => {
@@ -431,49 +368,6 @@ export default function StudentVocabularyPage() {
     setImportText('');
     alert(`Đã thêm mới/cập nhật thành công ${parsedCards.length} từ vựng!`);
     setActiveTab('library');
-  };
-
-  // Submit Spaced Repetition feedback
-  const handleRating = (rating: 'easy' | 'good' | 'hard' | 'again') => {
-    if (reviewQueue.length === 0 || currentIdx >= reviewQueue.length) return;
-    const currentCard = reviewQueue[currentIdx];
-    
-    updateVocabProgress(studentName, currentCard.id, rating);
-    
-    // Play correct sound or micro-animation triggers
-    if (currentIdx + 1 < reviewQueue.length) {
-      const nextIdx = currentIdx + 1;
-      setCurrentIdx(nextIdx);
-      resetCardState(nextIdx);
-    } else {
-      // Queue empty
-      alert('🌟 Hoàn thành xuất sắc toàn bộ từ vựng cần ôn hôm nay!');
-      setReviewQueue([]);
-      // Reload progress lists
-      setProgressList(getStudentVocabProgress(studentName));
-    }
-  };
-
-  const checkAnswer = () => {
-    if (reviewQueue.length === 0) return;
-    const card = reviewQueue[currentIdx];
-    let correct = false;
-
-    if (testMode === 'synonym') {
-      correct = selectedSynonymOption?.join(', ') === card.synonyms.join(', ');
-    } else if (testMode === 'fill') {
-      correct = fillAnswer.trim().toLowerCase() === card.word.trim().toLowerCase();
-    } else if (testMode === 'dictation') {
-      correct = dictationAnswer.trim().toLowerCase() === card.word.trim().toLowerCase();
-    }
-
-    setIsAnswerCorrect(correct);
-    setIsAnswerChecked(true);
-    setShowAnswer(true);
-
-    if (correct) {
-      handleSpeak(card.word);
-    }
   };
 
   // Filtered Library

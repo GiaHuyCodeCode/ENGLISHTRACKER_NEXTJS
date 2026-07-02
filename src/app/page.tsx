@@ -7,7 +7,7 @@ import {
   Assignment, Submission, DailyTracking, getStudentNames, getStudentColors, getStudentAvatar,
   seedIfEmpty, getGamificationProfiles, getBadges, GamificationProfile, importAssignment, updateAssignment, syncAllFromCloud, createStudent,
   getVocabularyCards, getVocabProgressList, saveVocabProgressList, saveVocabularyCards, VocabCard,
-  importExternalVocabWithProgress, STAGE_CONFIG, autoSyncAllSpacedRepetition
+  importExternalVocabWithProgress, STAGE_CONFIG, autoSyncAllSpacedRepetition, autoSubmitPreviousStagesLocal
 } from '@/lib/local-store';
 import { syncVocabListToSheet, syncActionToSheet } from '@/lib/google-sheets';
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
@@ -135,12 +135,14 @@ export default function TeacherDashboard() {
     // Progress is managed locally or needs a separate sync endpoint.
 
     if (calculatedStage > 1) {
+      autoSubmitPreviousStagesLocal(assignment.id, assignment.title, calculatedStage, 'ALL_STUDENTS');
       syncActionToSheet({
         action: 'auto_submit_previous_stage',
         assignmentId: assignment.id,
         assignmentTitle: assignment.title,
         targetStage: calculatedStage,
-        studentName: 'ALL_STUDENTS'
+        studentName: 'ALL_STUDENTS',
+        baseCreatedAt: assignment.createdAt
       });
     }
 
@@ -186,12 +188,14 @@ export default function TeacherDashboard() {
     saveVocabProgressList(progressList);
     
     if (targetStage > 1) {
+      autoSubmitPreviousStagesLocal(syncPhaseDialog.assignment.id, syncPhaseDialog.assignment.title, targetStage, syncPhaseDialog.studentName);
       syncActionToSheet({
         action: 'auto_submit_previous_stage',
         assignmentId: syncPhaseDialog.assignment.id,
         assignmentTitle: syncPhaseDialog.assignment.title,
         targetStage: targetStage,
-        studentName: syncPhaseDialog.studentName
+        studentName: syncPhaseDialog.studentName,
+        baseCreatedAt: syncPhaseDialog.assignment.createdAt
       });
     }
 
@@ -1132,7 +1136,7 @@ export default function TeacherDashboard() {
                 {[
                   { value: 'all', label: 'Tất cả' },
                   { value: 'Vocab', label: 'Từ vựng (Vocab)' },
-                  { value: 'Repetition', label: 'Spaced Repetition' },
+                  { value: 'Repetition', label: 'Space Repetition' },
                   { value: 'Grammar', label: 'Ngữ pháp (Grammar)' },
                   { value: 'Reading', label: 'Đọc hiểu (Reading)' },
                   { value: 'Listening', label: 'Nghe chép (Listening)' },
@@ -1192,6 +1196,9 @@ export default function TeacherDashboard() {
               }
               if (mgmtDateFilter) {
                 if (!a.createdAt) return false;
+                // So sánh theo ngày dương lịch ở múi giờ local (nhất quán với <input type="date">).
+                // Không dùng string.startsWith trên chuỗi ISO (luôn ở UTC) vì có thể lệch ngày
+                // với giờ local, dẫn đến lọc sai gần mốc nửa đêm.
                 const d = new Date(a.createdAt);
                 const aDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                 if (aDate !== mgmtDateFilter) return false;
@@ -1210,13 +1217,13 @@ export default function TeacherDashboard() {
             }
 
             return (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full items-stretch">
                 {filteredMgmtAssignments.map(a => {
                   const subs = submissions.filter(s => s.assignmentId === a.id);
                   const avg = subs.length ? Math.round(subs.reduce((s, x) => s + x.score, 0) / subs.length) : null;
                   const skill = a.skill || 'Vocab';
                   return (
-                    <div key={a.id} className="flex items-start justify-between gap-4 p-5 rounded-2xl bg-white/5 border border-white/5 hover:border-primary/30 transition-all group">
+                    <div key={a.id} className="flex h-full items-start justify-between gap-4 p-5 rounded-2xl bg-white/5 border border-white/5 hover:border-primary/30 transition-all group">
                       <Link href={`/teacher/assignments/${a.id}/edit`} className="flex-1 flex items-start gap-3.5 min-w-0 cursor-pointer">
                         <div className={`p-3 rounded-xl flex-shrink-0 ${skill === 'Vocab' ? 'bg-violet-500/10 text-violet-400' :
                           skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-400' :
@@ -1228,7 +1235,7 @@ export default function TeacherDashboard() {
                           {a.type === 'vocab_context' ? <BookOpen className="h-5 w-5" /> :
                             a.type === 'multiple_choice' ? <ListChecks className="h-5 w-5" /> :
                               a.type === 'dictation' ? <Headphones className="h-5 w-5" /> :
-                                a.type === 'vocabulary' ? <FileJson className="h-5 w-5" /> :
+                                (a.type === 'vocabulary' || a.type === 'repetition') ? <FileJson className="h-5 w-5" /> :
                                   a.type === 'shadowing' ? <Mic className="h-5 w-5" /> :
                                     <PenTool className="h-5 w-5" />}
                         </div>
@@ -1249,7 +1256,7 @@ export default function TeacherDashboard() {
                               {a.type === 'vocab_context' ? `${a.keywords?.length || 0} từ khóa` :
                                 a.type === 'multiple_choice' ? `${a.questions?.length || 0} câu hỏi` :
                                   a.type === 'dictation' ? `${getDictationCount(a)} câu` :
-                                    a.type === 'vocabulary' ? `${a.vocabCards?.length || 0} từ vựng` :
+                                    (a.type === 'vocabulary' || a.type === 'repetition') ? `${a.vocabCards?.length || 0} từ vựng` :
                                       a.type === 'shadowing' ? `${getDictationCount(a)} câu` :
                                         `${a.keywords?.length || 0} từ khóa`}
                             </span>

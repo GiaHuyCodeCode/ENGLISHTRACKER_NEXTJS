@@ -18,7 +18,7 @@ export default function NewAssignmentPage() {
   const [tab, setTab] = useState<Tab>('vocab_context');
   const [isSaving, setIsSaving] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [skill, setSkill] = useState<'Vocab' | 'Grammar' | 'Reading' | 'Listening' | 'Writing' | 'Speaking'>('Vocab');
+  const [skill, setSkill] = useState<'Vocab' | 'Grammar' | 'Reading' | 'Listening' | 'Writing' | 'Speaking' | 'Repetition'>('Vocab');
   const [createdAtDate, setCreatedAtDate] = useState(() => {
     const local = new Date();
     const offset = local.getTimezoneOffset();

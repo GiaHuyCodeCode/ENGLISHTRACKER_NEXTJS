@@ -11,6 +11,7 @@ interface DictationBlockProps {
   isSubmitted: boolean;
   isRequirementWorkflow?: boolean;
   onFinishDictation?: (score: number, answers: Record<string, string>, attempts?: Record<string, number>) => void;
+  hideStudentAnswer?: boolean;
   onProgressUpdate?: (stats: {
     completed: number;
     incorrect: number;
@@ -35,7 +36,8 @@ export function DictationBlock({
   onFinishDictation,
   onProgressUpdate,
   allSubmissions,
-  speakMode = 'after'
+  speakMode = 'after',
+  hideStudentAnswer = false
 }: DictationBlockProps) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [feedback, setFeedback] = useState<Record<string, { isCorrect: boolean; show: boolean }>>({});
@@ -121,6 +123,7 @@ export function DictationBlock({
     setWrongTimerActive(false);
     setHasCorrectedLocally({});
     setIsWordWrongFirstTime({});
+    isInitialMount.current = true;
   }, [vocabCards, isSubmitted]);
 
   // Listen to top status bar jump event
@@ -218,11 +221,11 @@ export function DictationBlock({
   
   // Tự động phát âm khi chuyển từ
   useEffect(() => {
+    if (!currentCard || isSubmitted || isFinished || wrongTimerActive) return;
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return; // Không tự động phát âm khi mới vào bài tập
     }
-    if (!currentCard || isSubmitted || isFinished || wrongTimerActive) return;
     if (speakMode === 'before') {
       const timer = setTimeout(() => handleSpeak(currentCard.word, 1.0, currentCard.audioUrl), 300);
       return () => clearTimeout(timer);
@@ -416,7 +419,7 @@ export function DictationBlock({
   // === REVIEW MODE: Hiển thị toàn bộ đoạn Script + Phát âm ===
   if (isSubmitted) {
     return (
-      <div className="space-y-4 max-w-4xl mx-auto w-full slide-up">
+      <div className="space-y-4 max-w-5xl mx-auto w-full slide-up">
         <h3 className="text-lg font-bold font-heading mb-4 text-foreground flex items-center gap-2">
           <Headphones className="w-5 h-5 text-sky-600 dark:text-sky-400" /> Script Nghe Chép & Phát Âm
         </h3>
@@ -442,18 +445,20 @@ export function DictationBlock({
                   </div>
                   
                   {/* Answers */}
-                  <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm mt-2 bg-black/20 p-2 rounded-xl w-fit">
-                    <span className="text-muted-foreground uppercase font-bold text-[10px] md:text-xs tracking-widest">Lựa chọn:</span>
-                    <span className={`font-semibold ${isCorrect ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400 line-through'}`}>
-                      {studentAns || 'Chưa điền'}
-                    </span>
-                    {!isCorrect && (
-                      <>
-                        <span className="text-muted-foreground mx-1">→</span>
-                        <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">{card.word}</span>
-                      </>
-                    )}
-                  </div>
+                  {!hideStudentAnswer && (
+                    <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm mt-2 bg-black/20 p-2 rounded-xl w-fit">
+                      <span className="text-muted-foreground uppercase font-bold text-[10px] md:text-xs tracking-widest">Lựa chọn:</span>
+                      <span className={`font-semibold ${isCorrect ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400 line-through'}`}>
+                        {studentAns || 'Chưa điền'}
+                      </span>
+                      {!isCorrect && (
+                        <>
+                          <span className="text-muted-foreground mx-1">→</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">{card.word}</span>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );

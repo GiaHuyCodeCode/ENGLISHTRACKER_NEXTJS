@@ -372,12 +372,12 @@ export default function StudentAssignmentsPage() {
                 const sub = getSubmission(a.id)!;
                 if (a.type === 'repetition') {
                   return (
-                    <div key={a.id} className="flex items-center gap-4 px-6 py-4 bg-emerald-500/10 opacity-80 cursor-not-allowed border-l-4 border-emerald-500">
+                    <div key={a.id} className="flex items-center gap-4 px-6 py-4 bg-emerald-500/10 border-l-4 border-emerald-500 group">
                       <div className="p-2 rounded-lg bg-emerald-500/20">
                         <BookOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate text-emerald-700 dark:text-emerald-400">{a.title} <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20">Spaced Repetition</span></p>
+                        <p className="text-sm font-medium truncate text-emerald-700 dark:text-emerald-400">{a.title} <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">Spaced Repetition</span></p>
                         <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-0.5 flex items-center gap-2">
                           <span>{new Date(sub.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                           {sub.durationMs ? (
