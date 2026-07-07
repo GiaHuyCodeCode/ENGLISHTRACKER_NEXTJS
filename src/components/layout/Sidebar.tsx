@@ -208,6 +208,13 @@ export function Sidebar() {
 
   const currentSearch = searchParams ? '?' + searchParams.toString() : '';
 
+  const isExercisePage = pathname?.startsWith('/student/assignments/') ||
+    pathname?.startsWith('/student/dictation/') ||
+    pathname?.startsWith('/student/shadowing/') ||
+    (pathname === '/student/vocabulary' && searchParams?.get('assignId'));
+
+  const showBottomNav = pathname !== '/login' && !isExercisePage;
+
   useEffect(() => {
     setIsOpen(false);
     setUser(getCurrentUser());
@@ -234,28 +241,22 @@ export function Sidebar() {
     <>
       {/* ── Mobile Topbar ──────────────────────────────────────────────────── */}
       <div
-        className="md:hidden fixed top-0 left-0 right-0 h-14 z-40 flex items-center justify-between px-4"
+        className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 glass-fixed"
         style={{
-          background: 'hsl(150 30% 4% / 0.9)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderBottom: '1px solid hsl(0 0% 100% / 0.06)',
+          height: 'calc(3.5rem + env(safe-area-inset-top, 0px))',
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          borderBottom: '1px solid hsl(var(--border) / 0.1)',
         }}
       >
         <div className="flex items-center gap-2.5">
           <PetalMark size={30} />
-          <span className="font-bold text-base text-white" style={{ letterSpacing: '-0.025em' }}>
+          <span className="font-bold text-base text-foreground" style={{ letterSpacing: '-0.025em' }}>
             EduTrack
           </span>
         </div>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2 rounded-lg transition-colors"
-          style={{
-            background: 'hsl(0 0% 100% / 0.07)',
-            border: '1px solid hsl(0 0% 100% / 0.08)',
-            color: 'hsl(0 0% 80%)',
-          }}
+          className="p-2 rounded-lg transition-colors bg-black/5 dark:bg-white/5 text-foreground hover:bg-black/10 dark:hover:bg-white/10"
           aria-label="Toggle menu"
         >
           {isOpen ? <FlowerClose /> : <FlowerMenu />}
@@ -263,7 +264,7 @@ export function Sidebar() {
       </div>
 
       {/* ── Mobile Bottom Navigation ─────────────────────────────── */}
-      {pathname !== '/login' && (
+      {showBottomNav && (
         <nav
           className="md:hidden fixed bottom-0 inset-x-0 z-50"
           aria-label="Điều hướng học viên"
@@ -337,7 +338,7 @@ export function Sidebar() {
 
       {/* ── SIDEBAR ─────────────────────────────────────────────────────────── */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-64 z-50 flex flex-col
+        className={`fixed left-0 top-0 h-[100dvh] w-64 z-50 flex flex-col
           transition-transform duration-300
           ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
@@ -349,25 +350,16 @@ export function Sidebar() {
           boxShadow: '8px 0 48px hsl(150 30% 2% / 0.5)',
         }}
       >
-        {/* ── Botanical corner accent overlay */}
-        <div
-          className="absolute top-0 right-0 w-28 h-28 pointer-events-none opacity-[0.07]"
-          style={{
-            backgroundImage: 'url(/flower-corner.png)',
-            backgroundSize: 'cover',
-            backgroundPosition: 'top right',
-          }}
-          aria-hidden="true"
-        />
+
 
         {/* ── Brand (desktop) ───────────────────────────────────────────────── */}
         <div
           className="hidden md:flex items-center gap-3 px-5 pt-6 pb-5"
-          style={{ borderBottom: '1px solid hsl(0 0% 100% / 0.05)' }}
+          style={{ borderBottom: '1px solid hsl(var(--border) / 0.1)' }}
         >
           <PetalMark size={36} />
           <div>
-            <p className="font-bold text-[15px] text-white leading-tight" style={{ letterSpacing: '-0.025em' }}>
+            <p className="font-bold text-[15px] text-foreground leading-tight" style={{ letterSpacing: '-0.025em' }}>
               EduTrack
             </p>
             <div className="eyebrow-tag mt-1" style={{ fontSize: '9px', padding: '0.1rem 0.55rem' }}>
@@ -379,11 +371,11 @@ export function Sidebar() {
         {/* ── Brand (mobile) ────────────────────────────────────────────────── */}
         <div
           className="flex md:hidden items-center justify-between px-4 py-3.5"
-          style={{ borderBottom: '1px solid hsl(0 0% 100% / 0.05)' }}
+          style={{ borderBottom: '1px solid hsl(var(--border) / 0.1)' }}
         >
           <div className="flex items-center gap-2.5">
             <PetalMark size={30} />
-            <span className="font-bold text-sm text-white" style={{ letterSpacing: '-0.02em' }}>EduTrack</span>
+            <span className="font-bold text-sm text-foreground" style={{ letterSpacing: '-0.02em' }}>EduTrack</span>
           </div>
           <button
             onClick={() => setIsOpen(false)}
@@ -460,7 +452,7 @@ export function Sidebar() {
                   {userInitials}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate text-white" style={{ letterSpacing: '-0.01em' }}>
+                  <p className="text-sm font-semibold truncate text-foreground" style={{ letterSpacing: '-0.01em' }}>
                     {user.username}
                   </p>
                   <p className="text-[10px] uppercase tracking-wider" style={{ color: 'hsl(150 10% 55%)' }}>

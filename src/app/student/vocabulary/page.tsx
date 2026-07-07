@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   getVocabularyCards,
@@ -38,6 +38,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { VocabularyExercise } from '@/components/exercises/VocabularyExercise';
+import { ExerciseTimer } from '@/components/ui/ExerciseTimer';
 import { audioManager } from '@/lib/audio';
 
 export default function StudentVocabularyPage() {
@@ -45,6 +46,7 @@ export default function StudentVocabularyPage() {
   const searchParams = useSearchParams();
   const assignIdParam = searchParams?.get('assignId');
   const isSrsParam = searchParams?.get('srs') === 'true';
+  const startTimeRef = useRef<number>(Date.now());
   const [studentName, setStudentName] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'review' | 'library' | 'lessons'>('review');
   const [cards, setCards] = useState<VocabCard[]>([]);
@@ -79,19 +81,16 @@ export default function StudentVocabularyPage() {
 
   const [speakingWord, setSpeakingWord] = useState<string | null>(null);
 
-  const handleFinishSrsReview = (answers: { word: string; studentAnswer: string; isCorrect: boolean }[]) => {
+  const handleFinishSrsReview = (answers: { word: string; studentAnswer: string; isCorrect: boolean; attempts?: number }[]) => {
     const freshCards = getVocabularyCards();
     const todayStr = new Date().toISOString().split('T')[0];
     
-    const validAnswersForScore: { word: string; studentAnswer: string; isCorrect: boolean }[] = [];
+    const validAnswersForScore: { word: string; studentAnswer: string; isCorrect: boolean; attempts?: number }[] = [];
 
     reviewQueue.forEach(ac => {
       const matched = freshCards.find(fc => fc.word.toLowerCase() === ac.word.toLowerCase());
       if (matched) {
         const ansStatus = answers.find(a => a.word.toLowerCase() === ac.word.toLowerCase());
-        const rating = ansStatus ? (ansStatus.isCorrect ? 'good' : 'again') : 'good';
-        updateVocabProgress(studentName, matched.id, rating);
-        
         if (ansStatus) {
           validAnswersForScore.push(ansStatus);
         }
@@ -108,7 +107,7 @@ export default function StudentVocabularyPage() {
           studentName: studentName,
           score: score,
           answers: answers,
-          durationMs: 0
+          durationMs: Date.now() - startTimeRef.current
         });
         // Do not redirect, let the UI show the big success screen
       } else {
@@ -122,7 +121,7 @@ export default function StudentVocabularyPage() {
             studentName: studentName,
             score: score,
             answers: answers,
-            durationMs: 0
+            durationMs: Date.now() - startTimeRef.current
           });
         }
       }
@@ -217,6 +216,7 @@ export default function StudentVocabularyPage() {
       if (specificAssign && specificAssign.vocabCards) {
         setReviewQueue(specificAssign.vocabCards);
         setCurrentIdx(0);
+        startTimeRef.current = Date.now();
         return;
       }
     }
@@ -235,6 +235,7 @@ export default function StudentVocabularyPage() {
     const shuffled = [...queue].sort(() => Math.random() - 0.5);
     setReviewQueue(shuffled);
     setCurrentIdx(0);
+    startTimeRef.current = Date.now();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progressList, cards, studentName, assignIdParam, isSrsParam]);
 
@@ -468,34 +469,14 @@ export default function StudentVocabularyPage() {
                 Xem Thư Viện Từ Vựng
               </button>
             </div>
-          ) : !isReviewingSrs ? (
-            <div className="glass-strong rounded-3xl p-12 text-center border border-black/10 dark:border-white/10 max-w-2xl mx-auto space-y-6 slide-up glow-primary relative overflow-hidden">
-              <div className="absolute inset-0 bg-dot-pattern opacity-30"></div>
-              <div className="relative z-10 space-y-6">
-                <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto border border-primary/20">
-                  <Calendar className="w-10 h-10 text-violet-600 dark:text-violet-400 animate-pulse" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-2xl font-bold font-heading">Lịch Ôn Tập Hôm Nay</h3>
-                  <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                    Hôm nay bạn có <span className="text-primary font-bold">{reviewQueue.length} từ vựng</span> cần được ôn tập lại theo phương pháp Spaced Repetition.
-                  </p>
-                </div>
-                <div className="p-4 bg-secondary/30 rounded-2xl border border-white/5 inline-block text-xs font-semibold text-muted-foreground">
-                  ⚠️ Lưu ý: Bạn cần hoàn thành cả phần Nghe Chép và Trắc Nghiệm để hoàn tất lịch ôn tập hôm nay.
-                </div>
-                <div>
-                  <button 
-                    onClick={() => setIsReviewingSrs(true)}
-                    className="px-8 py-4 bg-primary text-primary-foreground font-bold rounded-2xl transition-all hover:bg-primary/90 flex items-center justify-center gap-2 mx-auto hover-lift glow-primary shadow-lg shadow-primary/20"
-                  >
-                    Bắt đầu Ôn Tập Ngay <ArrowRight className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            </div>
           ) : (
             <div className="slide-up">
+              <div className="flex items-center justify-between mb-6 px-4 py-3 glass-strong rounded-2xl border border-white/10">
+                <h2 className="text-sm md:text-base font-bold font-heading flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                  <Calendar className="w-5 h-5" /> Ôn Tập Spaced Repetition
+                </h2>
+                <ExerciseTimer isRunning={true} />
+              </div>
               <VocabularyExercise
                 vocabCards={reviewQueue}
                 isRepetitionWorkflow={true}
@@ -570,8 +551,9 @@ export default function StudentVocabularyPage() {
                             <Volume2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                        <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${badge.color}`}>
-                          {badge.label}
+                        <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold shrink-0 ${badge.color}`}>
+                          <span className="hidden sm:inline">{badge.label}</span>
+                          <span className="sm:hidden">{badge.label.split(' (')[0]}</span>
                         </span>
                       </div>
                       

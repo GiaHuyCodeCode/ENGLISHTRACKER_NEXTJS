@@ -33,6 +33,48 @@ const FRefresh  = ({className=""}: SvgIconProps) => <svg className={className} w
 const FChevronRight = ({className=""}: SvgIconProps) => <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6c3 2.2 5 4 6 6c-1 2-3 3.8-6 6"/></svg>;
 const FListChecks   = ({className=""}: SvgIconProps) => <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M10 6h11M10 12h11M10 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>;
 const FHeadphones   = ({className=""}: SvgIconProps) => <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3z"/><path d="M3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/><circle cx="12" cy="8" r="1" fill="currentColor" fillOpacity="0.35" stroke="none"/><path d="M12 6.5v1.3M11.2 7.1l.8.6M12.8 7.1l-.8.6" strokeWidth="1" opacity="0.4"/></svg>;
+
+function getShortTitle(title: string): string {
+  const t = title.trim();
+  const lower = t.toLowerCase();
+  
+  if (lower.includes('tân bình xuất sắc') || lower.includes('tân binh xuất sắc')) {
+    return 'Tân Binh XS';
+  }
+  if (lower.includes('học tập chăm chỉ')) {
+    return 'Chăm Chỉ';
+  }
+  if (lower.includes('thành viên tích cực')) {
+    return 'Tích Cực';
+  }
+  if (lower.includes('chiến thần từ vựng')) {
+    return 'Chiến Thần';
+  }
+  if (lower.includes('ông hoàng chăm chỉ')) {
+    return 'Chăm Chỉ';
+  }
+  if (lower.includes('thành tích xuất sắc')) {
+    return 'Xuất Sắc';
+  }
+  if (lower.includes('spaced repetition')) {
+    return 'Ôn Tập';
+  }
+  if (lower.includes('điểm trung bình')) {
+    return 'Điểm TB';
+  }
+  if (lower.includes('đã hoàn thành')) {
+    return 'Hoàn Thành';
+  }
+  
+  const words = t.split(/\s+/);
+  if (words.length > 3) {
+    if (lower.startsWith('huy hiệu ')) {
+      return getShortTitle(t.substring(9));
+    }
+    return words.slice(0, 3).join(' ');
+  }
+  return t;
+}
 const FFileJson     = ({className=""}: SvgIconProps) => <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M10 12a1 1 0 00-1 1v1a1 1 0 01-1 1 1 1 0 011 1v1a1 1 0 001 1"/><path d="M14 18a1 1 0 001-1v-1a1 1 0 011-1 1 1 0 01-1-1v-1a1 1 0 00-1-1"/></svg>;
 const FPenTool      = ({className=""}: SvgIconProps) => <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="1.9" fill="currentColor" fillOpacity="0.12"/><circle cx="11" cy="11" r="1.9"/></svg>;
 // Flower petal icon for "bloom" effect
@@ -55,7 +97,7 @@ function StudentCard({ name, isSelected, onClick }: { name: string; isSelected: 
       <div className={`w-12 h-12 ${c.bg} ${c.text} border ${c.border} rounded-xl flex items-center justify-center text-lg font-bold mb-3`}>
         {getStudentAvatar(name)}
       </div>
-      <p className={`font-semibold text-sm ${isSelected ? c.text : ''}`}>{name}</p>
+      <p className={`font-semibold text-sm truncate w-full ${isSelected ? c.text : ''}`} title={name}>{name}</p>
       <p className="text-xs text-muted-foreground mt-1">
         {avg !== null ? `Điểm TB: ${avg}/100` : 'Chưa làm bài'}
       </p>
@@ -88,7 +130,7 @@ export default function StudentDashboard() {
   const [srActiveSubTab, setSrActiveSubTab] = useState<'assignments' | 'words'>('assignments');
 
   const calculateStats = useCallback((student: string) => {
-    const subs = getSubmissions().filter(s => s.studentName === student).sort(
+    const subs = getSubmissions().filter(s => s.studentName === student && s.assignmentType !== 'repetition').sort(
       (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
     );
     const trks = getDailyTrackings().filter(t => t.studentName === student).sort(
@@ -98,7 +140,14 @@ export default function StudentDashboard() {
     setTrackings(trks);
     setProfile(getGamificationProfiles().find(p => p.studentName === student) || null);
 
-    const allCards = getVocabularyCards();
+    // Get all unique vocabulary cards (base + assignments)
+    const baseCards = getVocabularyCards();
+    const assignCards = getAssignments().filter(a => a.type === 'vocabulary').flatMap(a => a.vocabCards || []);
+    const totalCardsMap = new Map<string, any>();
+    baseCards.forEach(c => totalCardsMap.set(c.id, c));
+    assignCards.forEach(c => totalCardsMap.set(c.id, c));
+    const allCards = Array.from(totalCardsMap.values());
+
     const studentProgress = getStudentVocabProgress(student);
     const progressMap = new Map<string, any>();
     studentProgress.forEach(p => progressMap.set(p.wordId, p));
@@ -142,11 +191,13 @@ export default function StudentDashboard() {
     });
     setDueAssignments(dueAssigns);
 
-    // 1. Total learned cards
-    setTotalLearnedCount(studentProgress.length);
+    const activeProgress = studentProgress.filter(p => cardMap.has(p.wordId));
 
-    // 2. Mastered count (Stage >= 5)
-    const mastered = studentProgress.filter(p => p.stage >= 5).length;
+    // 1. Total learned cards
+    setTotalLearnedCount(activeProgress.length);
+
+    // 2. Mastered count (Stage 6)
+    const mastered = activeProgress.filter(p => p.stage === 6).length;
     setMasteredCount(mastered);
 
     // 3. Current retention & Due Vocab List
@@ -176,13 +227,13 @@ export default function StudentDashboard() {
       }
     });
 
-    const avgRet = studentProgress.length ? Math.round(totalRetention / studentProgress.length) : 100;
+    const avgRet = activeProgress.length ? Math.round(totalRetention / activeProgress.length) : 100;
     setAverageRetention(avgRet);
     setDueVocabList(dueList.sort((a, b) => b.overdueDays - a.overdueDays));
 
     // 4. Forgetting Curve Prediction (Next 10 Days)
     const curvePoints = Array.from({ length: 11 }, (_, i) => {
-      if (studentProgress.length === 0) {
+      if (activeProgress.length === 0) {
         // Demo curve values: decay from 100% to 30%
         const demoValues = [100, 80, 70, 60, 52, 46, 41, 37, 34, 32, 30];
         return {
@@ -238,7 +289,6 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     seedIfEmpty();
-    autoSyncAllSpacedRepetition();
     setAssignments(getAssignments());
     const session = JSON.parse(localStorage.getItem('et_session') || 'null');
     setUser(session);
@@ -352,6 +402,7 @@ export default function StudentDashboard() {
   const avg = totalScores.length ? Math.round(totalScores.reduce((a, b) => a + b, 0) / totalScores.length) : null;
   const nowVal = new Date();
   const visibleAssignments = assignments.filter(a => {
+    if (a.type === 'repetition') return false; // Không tính bài ôn tập vào số bài tập chính thức
     if (!a.createdAt) return true;
     return new Date(a.createdAt) <= nowVal;
   });
@@ -369,7 +420,7 @@ export default function StudentDashboard() {
   };
 
   // ── Comparison Calculation ────────────────────────────────────────────────
-  const allSubmissions = getSubmissions();
+  const allSubmissions = getSubmissions().filter(s => s.assignmentType !== 'repetition');
   const allTrackings = getDailyTrackings();
   const allScoresList = [...allSubmissions.map(s => s.score)];
   const classAvg = allScoresList.length ? Math.round(allScoresList.reduce((a, b) => a + b, 0) / allScoresList.length) : null;
@@ -520,7 +571,7 @@ export default function StudentDashboard() {
         <h2 className="text-xl font-bold flex items-center gap-2 text-[hsl(var(--pollen))]">
           <FTrophy /> Biểu Đồ Thi Đua Học Tập
         </h2>
-        <StudentPerformanceChart submissions={getSubmissions()} />
+        <StudentPerformanceChart submissions={getSubmissions().filter(s => s.assignmentType !== 'repetition')} />
       </div>
 
       {/* Stats for selected student */}
@@ -545,22 +596,25 @@ export default function StudentDashboard() {
                 </div>
 
                 {profile && (
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500/10 dark:bg-orange-500/10 border border-orange-500/20">
+                  <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                    <div className="flex items-center gap-2 px-3.5 py-1.5 md:px-4 md:py-2 rounded-xl bg-orange-500/10 dark:bg-orange-500/10 border border-orange-500/20 shrink-0">
                       <FFlame className="h-5 w-5 text-orange-600 dark:text-orange-600 dark:text-orange-400 icon-sway" />
                       <div>
-                        <p className="text-xs text-orange-600/80 dark:text-orange-500/80 uppercase font-semibold">Streak</p>
-                        <p className="text-sm font-bold text-orange-600 dark:text-orange-600 dark:text-orange-400">{profile.streakCount} ngày</p>
+                        <p className="text-[10px] text-orange-600/80 dark:text-orange-500/80 uppercase font-semibold leading-none">Streak</p>
+                        <p className="text-xs sm:text-sm font-bold text-orange-600 dark:text-orange-600 dark:text-orange-400 mt-0.5 whitespace-nowrap">{profile.streakCount} ngày</p>
                       </div>
                     </div>
                     {profile.badges.slice(0, 2).map(b => {
                       const def = getBadges().find(badge => badge.id === b);
                       return def ? (
-                        <div key={b} className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${def.color}`} title={def.description}>
+                        <div key={b} className={`flex items-center gap-2 px-3.5 py-1.5 md:px-4 md:py-2 rounded-xl border shrink-0 ${def.color}`} title={def.description}>
                           <span className="text-lg">{def.icon}</span>
                           <div>
-                            <p className="text-xs opacity-80 uppercase font-semibold">Huy Hiệu</p>
-                            <p className="text-sm font-bold">{def.title}</p>
+                            <p className="text-[10px] opacity-80 uppercase font-semibold leading-none">Huy Hiệu</p>
+                            <p className="text-xs sm:text-sm font-bold truncate max-w-[100px] sm:max-w-none whitespace-nowrap mt-0.5" title={def.title}>
+                              <span className="hidden sm:inline">{def.title}</span>
+                              <span className="sm:hidden">{getShortTitle(def.title)}</span>
+                            </p>
                           </div>
                         </div>
                       ) : null;
@@ -571,19 +625,63 @@ export default function StudentDashboard() {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { label: 'Điểm Trung Bình', value: avg !== null ? `${avg}đ` : '—', icon: FTrophy, color: 'text-amber-600 dark:text-amber-600 dark:text-amber-400' },
-                  { label: 'Đã Hoàn Thành', value: `${submissions.length}/${visibleAssignments.length}`, icon: FCheck, color: 'text-emerald-600 dark:text-emerald-600 dark:text-emerald-400' },
-                  { label: 'Cần Làm', value: todo.length, icon: FBook, color: 'text-[#0071e3] dark:text-[#4da3f5]' },
-                  { label: 'Thời Gian Học', value: formatTotalTime(totalDurationMs), icon: FClock, color: 'text-violet-600 dark:text-violet-600 dark:text-violet-400' },
-                ].map(({ label, value, icon: Icon, color }) => (
+                  { label: 'Điểm Trung Bình', shortLabel: 'Điểm TB', value: avg !== null ? `${avg}đ` : '—', icon: FTrophy, color: 'text-amber-600 dark:text-amber-600 dark:text-amber-400' },
+                  { label: 'Đã Hoàn Thành', shortLabel: 'Hoàn Thành', value: `${submissions.length}/${visibleAssignments.length}`, icon: FCheck, color: 'text-emerald-600 dark:text-emerald-600 dark:text-emerald-400' },
+                  { label: 'Cần Làm', shortLabel: 'Cần Làm', value: todo.length, icon: FBook, color: 'text-[#0071e3] dark:text-[#4da3f5]' },
+                  { label: 'Thời Gian Học', shortLabel: 'Thời Gian', value: formatTotalTime(totalDurationMs), icon: FClock, color: 'text-violet-600 dark:text-violet-600 dark:text-violet-400' },
+                ].map(({ label, shortLabel, value, icon: Icon, color }) => (
                   <div key={label} className="bloom-press text-center p-4 min-h-[80px] rounded-xl bg-card border border-border flex flex-col items-center justify-center gap-1 active:bg-muted/60 transition-colors">
                     <Icon className={`h-5 w-5 ${color} icon-bloom-hover`} />
                     <p className={`text-xl md:text-2xl font-bold font-heading ${color}`}>{value}</p>
-                    <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">{label}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">
+                      <span className="hidden sm:inline">{label}</span>
+                      <span className="sm:hidden">{shortLabel}</span>
+                    </p>
                   </div>
                 ))}
               </div>
             </div>
+
+            {/* Spaced Repetition Daily Review Alert Widget */}
+            {(() => {
+              const todayStr = toLocalDateString(new Date());
+              const todayReviewId = `daily-review-${todayStr}`;
+              const todayReviewAssign = assignments.find(a => a.id === todayReviewId);
+              const isTodayReviewDone = submissions.some(s => s.assignmentId === todayReviewId);
+
+              if (todayReviewAssign && !isTodayReviewDone) {
+                return (
+                  <div className="relative overflow-hidden rounded-3xl border border-rose-500/30 bg-gradient-to-r from-rose-500/10 via-amber-500/5 to-rose-500/5 p-6 shadow-lg">
+                    <div className="absolute -right-6 -top-6 w-24 h-24 bg-rose-500/10 rounded-full blur-xl pointer-events-none"></div>
+                    <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <div className="p-3 rounded-2xl bg-rose-500/20 text-rose-500 flex-shrink-0">
+                          <FBrain className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-500/20 text-rose-500 uppercase tracking-wide">
+                            Spaced Repetition
+                          </span>
+                          <h3 className="text-lg font-bold mt-1 text-rose-700 dark:text-rose-400">
+                            Đã đến giờ ôn tập từ vựng ngày hôm nay!
+                          </h3>
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            Bạn có <span className="font-bold text-rose-600 dark:text-rose-400">{todayReviewAssign.vocabCards?.length || 0} từ vựng</span> cần nhắc lại để đưa vào bộ nhớ dài hạn.
+                          </p>
+                        </div>
+                      </div>
+                      <Link 
+                        href={`/student/vocabulary?assignId=${todayReviewAssign.id}&srs=true`}
+                        className="self-end sm:self-center px-5 py-3 rounded-2xl text-sm font-bold bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white shadow-md shadow-rose-500/20 transition-all hover:scale-[1.03] active:scale-[0.98] text-center"
+                      >
+                        Bắt đầu ôn ngay
+                      </Link>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             {/* TABS */}
             <div className="flex border-b border-border gap-6 fade-in stagger-4">
@@ -851,271 +949,6 @@ export default function StudentDashboard() {
               </>
             )}
 
-            {/* Spaced Repetition — Due Assignments Calendar & Forgetting Curve */}
-            <div className="glass-strong rounded-3xl border border-white/5 p-6 relative overflow-hidden fade-in stagger-4 space-y-6">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#0071e3]/5 via-transparent to-transparent opacity-60"></div>
-              
-              <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4">
-                <div>
-                  <h2 className="text-xl font-bold font-heading text-[#0071e3] flex items-center gap-2">
-                    <FBrain className="h-5 w-5 text-[#0071e3]" strokeWidth={1.5} />
-                    Hệ Thống Ôn Tập Lặp Lại Ngắt Quãng (Spaced Repetition)
-                  </h2>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Tối ưu hóa khả năng ghi nhớ dài hạn dựa trên thuật toán Ebbinghaus.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#0071e3]/10 border border-[#0071e3]/20 text-xs font-semibold text-sky-700 dark:text-sky-600 dark:text-sky-400">
-                    <FCalendar className="h-3.5 w-3.5" strokeWidth={1.5} /> Ngày học thứ {studyDay}
-                  </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                    <FBook className="h-3.5 w-3.5" strokeWidth={1.5} /> +{todayVocabCount} từ mới hôm nay
-                  </div>
-                </div>
-              </div>
-
-              {/* SR Statistics Grid */}
-              <div className="relative grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-4 rounded-2xl bg-card border border-border flex flex-col justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Tổng từ đang học</span>
-                  <div className="flex items-baseline gap-1.5 mt-2">
-                    <span className="text-2xl font-bold font-heading text-foreground">{totalLearnedCount}</span>
-                    <span className="text-xs text-muted-foreground">từ</span>
-                  </div>
-                </div>
-                <div className="p-4 rounded-2xl bg-[#0071e3]/5 border border-[#0071e3]/10 flex flex-col justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Từ cần ôn hôm nay</span>
-                  <div className="flex items-baseline gap-1.5 mt-2">
-                    <span className="text-2xl font-bold font-heading text-[#0071e3]">{dueVocabCount}</span>
-                    <span className="text-xs text-muted-foreground">từ</span>
-                  </div>
-                </div>
-                <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 flex flex-col justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Đã thuộc (Stage 5+)</span>
-                  <div className="flex items-baseline gap-1.5 mt-2">
-                    <span className="text-2xl font-bold font-heading text-emerald-600 dark:text-emerald-600 dark:text-emerald-400">{masteredCount}</span>
-                    <span className="text-xs text-muted-foreground">từ</span>
-                  </div>
-                </div>
-                <div className="p-4 rounded-2xl bg-violet-500/5 border border-violet-500/10 flex flex-col justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Trí nhớ hiện tại</span>
-                  <div className="flex items-baseline gap-1.5 mt-2">
-                    <span className={`text-2xl font-bold font-heading ${
-                      averageRetention >= 90 ? 'text-emerald-600 dark:text-emerald-600 dark:text-emerald-400' :
-                      averageRetention >= 75 ? 'text-amber-600 dark:text-amber-600 dark:text-amber-400' :
-                      'text-red-600 dark:text-red-400'
-                    }`}>{averageRetention}%</span>
-                    <span className="text-xs text-muted-foreground">trung bình</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Details and Forgetting Curve Chart */}
-              <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-6">
-                
-                {/* Left Side: Repetition list */}
-                <div className="lg:col-span-7 space-y-4">
-                  <div className="flex items-center gap-2 border-b border-border pb-2">
-                    <button
-                      onClick={() => setSrActiveSubTab('assignments')}
-                      className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-all ${
-                        srActiveSubTab === 'assignments'
-                          ? 'border-[#0071e3] text-[#0071e3]'
-                          : 'border-transparent text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      Bài tập cần ôn ({dueAssignments.length})
-                    </button>
-                    <button
-                      onClick={() => setSrActiveSubTab('words')}
-                      className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-all ${
-                        srActiveSubTab === 'words'
-                          ? 'border-[#0071e3] text-[#0071e3]'
-                          : 'border-transparent text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      Từ vựng cần ôn ({dueVocabList.length})
-                    </button>
-                  </div>
-
-                  {srActiveSubTab === 'assignments' ? (
-                    dueAssignments.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 bg-card rounded-2xl border border-border">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 flex items-center justify-center">
-                          <FCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-600 dark:text-emerald-400" />
-                        </div>
-                        <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-600 dark:text-emerald-400">Không có bài tập nào cần ôn!</p>
-                        <p className="text-xs text-muted-foreground">Mọi bài tập từ vựng đều được ghi nhớ tốt.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-                        {dueAssignments.map(assignment => {
-                          const totalWords = assignment.vocabCards?.length || 0;
-                          const studentProg = getStudentVocabProgress(selectedStudent || '');
-                          const dueWordsInAssign = (assignment.vocabCards || []).filter(card => {
-                            const prog = studentProg.find(p => p.wordId === card.id);
-                            if (!prog) return true;
-                            return new Date(prog.nextReviewDate) <= new Date();
-                          });
-                          
-                          let minStage = 6;
-                          dueWordsInAssign.forEach(card => {
-                             const prog = studentProg.find(p => p.wordId === card.id);
-                             const stage = prog ? prog.stage : 0;
-                             if (stage < minStage) minStage = stage;
-                          });
-                          
-                          const stageConfig = STAGE_CONFIG[minStage] || STAGE_CONFIG[0];
-                          const bgClass = stageConfig.badge.split(' ')[0] || 'bg-[#0071e3]/15';
-                          const textClass = stageConfig.badge.split(' ')[1] || 'text-[#0071e3]';
-
-                          const pendingRep = assignments.find(a => a.type === 'repetition' && !a.isHidden && a.id.endsWith(`-${assignment.id}`) && !getSubmissions().some(s => s.assignmentId === a.id));
-                          const targetUrl = pendingRep ? `/student/vocabulary?assignId=${pendingRep.id}&srs=true` : `/student/assignments/${assignment.id}`;
-
-                          return (
-                            <button
-                              key={assignment.id}
-                              onClick={() => router.push(targetUrl)}
-                              className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-card border border-border hover:border-foreground/20 hover:bg-muted/50 transition-all text-left group"
-                            >
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className={`w-9 h-9 rounded-xl ${bgClass} flex items-center justify-center flex-shrink-0`}>
-                                  <FBook className={`h-4.5 w-4.5 ${textClass}`} strokeWidth={1.5} />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="font-semibold text-xs text-foreground truncate">{assignment.title}</p>
-                                  <p className="text-[11px] text-muted-foreground">{totalWords} từ • <span className="text-amber-600 dark:text-amber-600 dark:text-amber-400 font-semibold">{dueWordsInAssign.length} từ đến hạn</span></p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1.5 flex-shrink-0">
-                                <span className={`px-2 py-0.5 rounded ${bgClass} ${textClass} text-[10px] font-bold border border-current/20`}>
-                                  Phase {minStage}
-                                </span>
-                                <FChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )
-                  ) : (
-                    dueVocabList.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 bg-card rounded-2xl border border-border">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 flex items-center justify-center">
-                          <FCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-600 dark:text-emerald-400" />
-                        </div>
-                        <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-600 dark:text-emerald-400">Không có từ vựng riêng lẻ nào trễ hạn!</p>
-                        <p className="text-xs text-muted-foreground">Tất cả từ vựng đều được ghi nhớ an toàn.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-                        {dueVocabList.map(item => (
-                          <div
-                            key={item.id}
-                            className="flex items-center justify-between gap-3 p-3 rounded-xl bg-card border border-border hover:bg-muted/50 transition-all text-left"
-                          >
-                            <div className="min-w-0">
-                              <p className="font-semibold text-sm text-foreground">{item.word}</p>
-                              <p className="text-xs text-muted-foreground truncate">{item.meaning}</p>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                                item.stage >= 5 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-600 dark:text-emerald-400' :
-                                item.stage >= 3 ? 'bg-[#0071e3]/15 text-sky-700 dark:text-sky-600 dark:text-sky-400' :
-                                'bg-amber-500/15 text-amber-700 dark:text-amber-600 dark:text-amber-400'
-                              }`}>
-                                Stage {item.stage}
-                              </span>
-                              {item.overdueDays > 0 ? (
-                                <span className="text-[10px] text-red-600 dark:text-red-600 dark:text-red-400 bg-red-500/10 dark:bg-red-500/10 px-2 py-0.5 rounded-full font-medium">
-                                  Trễ {item.overdueDays} ngày
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-emerald-600 dark:text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full font-medium">
-                                  Đến hạn
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  )}
-                </div>
-
-                {/* Right Side: Forgetting Curve Chart */}
-                <div className="lg:col-span-5 flex flex-col justify-between p-4 rounded-2xl bg-card border border-border space-y-4">
-                  <div>
-                    <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                      <FTrend className="h-4 w-4 text-[#0071e3]" />
-                      Đường Cong Quên Lãng (Ebbinghaus)
-                    </h3>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Dự báo độ nhớ từ vựng giảm theo thời gian nếu không ôn tập.
-                    </p>
-                  </div>
-                  
-                  <div className="h-[180px] w-full relative">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={forgettingCurveData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
-                        <XAxis 
-                          dataKey="day" 
-                          stroke="#666" 
-                          fontSize={10} 
-                          tickLine={false} 
-                          axisLine={false} 
-                        />
-                        <YAxis 
-                          domain={[0, 100]} 
-                          stroke="#666" 
-                          fontSize={10} 
-                          tickLine={false} 
-                          axisLine={false}
-                          tickFormatter={(v) => `${v}%`}
-                        />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'rgba(17, 17, 17, 0.95)', 
-                            borderColor: 'rgba(255, 255, 255, 0.1)', 
-                            borderRadius: '12px',
-                            fontSize: '11px'
-                          }} 
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="Độ nhớ" 
-                          stroke="#0071e3" 
-                          strokeWidth={2.5} 
-                          dot={{ r: 3, stroke: '#0071e3', strokeWidth: 1.5, fill: '#0a0a0a' }}
-                          activeDot={{ r: 5 }}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="Ngưỡng ôn tập" 
-                          stroke="#ef4444" 
-                          strokeDasharray="4 4" 
-                          strokeWidth={1.2} 
-                          dot={false}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground bg-muted/40 p-2 rounded-lg">
-                    <div className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#0071e3]"></span>
-                      <span>Độ nhớ (% retention)</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-none border-b border-dashed border-[#ef4444] inline-block"></span>
-                      <span>Ngưỡng cần ôn (90%)</span>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
 
             {/* Recent submissions */}
             {submissions.length > 0 && (

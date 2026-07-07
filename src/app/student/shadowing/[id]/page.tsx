@@ -196,7 +196,12 @@ export default function ShadowingExercisePage() {
       if (prevSub) {
         setSavedBestScore(prevSub.score);
         // Map ShadowingResult[] sang SentenceShadowingResult[]
-        const prevResults: SentenceShadowingResult[] = (prevSub.shadowingResults || []).map(
+        const rawResults = prevSub.shadowingResults;
+        const resultsArray = Array.isArray(rawResults)
+          ? rawResults
+          : (rawResults && typeof rawResults === 'object' ? Object.values(rawResults) : []);
+
+        const prevResults: SentenceShadowingResult[] = (resultsArray || []).map(
           (r: ShadowingResult) => ({
             sentenceId: r.word || (r as any).sentenceId, // word lưu sentenceId hoặc dùng trực tiếp nếu dữ liệu cũ
             recognized: r.recognized,

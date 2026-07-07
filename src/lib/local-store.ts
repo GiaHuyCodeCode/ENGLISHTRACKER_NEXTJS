@@ -416,7 +416,15 @@ function write<T>(key: string, value: T): void {
 }
 
 export function getAssignments(): Assignment[] {
-  return read<Assignment[]>(KEYS.assignments, []);
+  const list = read<Assignment[]>(KEYS.assignments, []);
+  return list.filter(a => {
+    // Bỏ qua các bài tập bị ẩn
+    if (a.isHidden === true) return false;
+
+    const isOldSrsId = a.id && (a.id.startsWith('rep-stage') || a.id.startsWith('stage'));
+    const isOldSrsTitle = a.title && (a.title.toLowerCase().startsWith('stage ') || a.title.toLowerCase().startsWith('stage-'));
+    return !(isOldSrsId || isOldSrsTitle);
+  });
 }
 
 
@@ -558,7 +566,29 @@ export function syncAllFromCloud(cloudData: any): boolean {
   if (Array.isArray(cloudData.assignments)) {
     const local = getAssignments();
     const localMap = new Map(local.map(a => [a.id, a]));
-    const merged = cloudData.assignments.map((cloudA: any) => {
+    
+    // Đọc danh sách ID đã xóa
+    const deletedIds = read<string[]>('et_deleted_assignment_ids', []);
+    const deletedIdsSet = new Set(deletedIds);
+
+    // Lọc bỏ các bài tập đã bị xóa khỏi dữ liệu Cloud, và các bài repetition kiểu cũ (Stage)
+    const activeCloudAssignments = cloudData.assignments.filter((cloudA: any) => {
+      if (deletedIdsSet.has(cloudA.id)) return false;
+      const isOldSrsId = cloudA.id && (cloudA.id.startsWith('rep-stage') || cloudA.id.startsWith('stage'));
+      const isOldSrsTitle = cloudA.title && (cloudA.title.toLowerCase().startsWith('stage ') || cloudA.title.toLowerCase().startsWith('stage-'));
+      if (isOldSrsId || isOldSrsTitle) return false;
+      return true;
+    });
+
+    // Dọn dẹp Tombstone list: Nếu ID đã xóa không còn xuất hiện trong response của Cloud nữa,
+    // nghĩa là Cloud đã thực sự xóa xong bài đó. Ta loại bỏ ID đó khỏi deletedIds để giải phóng bộ nhớ.
+    const cloudIdsInResponse = new Set(cloudData.assignments.map((c: any) => c.id));
+    const stillPendingDeletion = deletedIds.filter(id => cloudIdsInResponse.has(id));
+    if (stillPendingDeletion.length !== deletedIds.length) {
+      write('et_deleted_assignment_ids', stillPendingDeletion);
+    }
+
+    const merged = activeCloudAssignments.map((cloudA: any) => {
       const localA = localMap.get(cloudA.id);
       if (!localA) return cloudA; // New from cloud
       // Prefer local for shadowing when cloud lacks sentences (GAS schema gap)
@@ -575,11 +605,57 @@ export function syncAllFromCloud(cloudData: any): boolean {
       }
       return cloudA; // Cloud is authoritative otherwise
     });
-    // Local-only assignments (not yet known to cloud, or dropped from its
-    // response) must actually be kept — mapping over cloudData.assignments
-    // alone silently drops them despite the comment above claiming otherwise.
-    const cloudIds = new Set(cloudData.assignments.map((c: any) => c.id));
-    const localOnly = local.filter(a => !cloudIds.has(a.id));
+
+    // Xử lý bài tập local-only (có ở local nhưng không có trên cloud)
+    const cloudIds = new Set(activeCloudAssignments.map((c: any) => c.id));
+    const nowTime = new Date().getTime();
+
+    // Phát hiện các bài daily review bị xóa trên Cloud
+    const deletedDailyReviews = read<string[]>('et_deleted_daily_reviews', []);
+    const deletedDailyReviewsSet = new Set(deletedDailyReviews);
+    let deletedDailyReviewsChanged = false;
+
+    local.forEach(a => {
+      if (a.type === 'repetition' && a.id.startsWith('daily-review-')) {
+        if (!cloudIds.has(a.id)) {
+          // Nếu bài tập không tồn tại trên cloud và đã được tạo hơn 5 phút (tránh trường hợp mới tạo chưa kịp sync)
+          const createdTime = new Date(a.createdAt || 0).getTime();
+          if (nowTime - createdTime > 5 * 60 * 1000) {
+            if (!deletedDailyReviewsSet.has(a.id)) {
+              deletedDailyReviewsSet.add(a.id);
+              deletedDailyReviewsChanged = true;
+            }
+          }
+        }
+      }
+    });
+
+    if (deletedDailyReviewsChanged) {
+      write('et_deleted_daily_reviews', Array.from(deletedDailyReviewsSet));
+    }
+
+    const localOnly = local.filter(a => {
+      // Bỏ qua nếu bài tập này đã có trên cloud hoặc nằm trong danh sách đã xóa
+      if (cloudIds.has(a.id) || deletedIdsSet.has(a.id)) return false;
+
+      // Các bài Spaced Repetition (daily-review-*) được tính toán client-side từ vocab assignments.
+      // Luôn giữ lại chúng trong local vì chúng có createdAt trong quá khứ (ngày ôn tập)
+      // và sẽ bị loại sai bởi logic 5 phút bên dưới.
+      // Tuy nhiên, nếu bài ôn tập đó đã bị xóa trên cloud (nằm trong danh sách deletedDailyReviewsSet),
+      // thì ta KHÔNG giữ lại nữa để bài tập biến mất hoàn toàn.
+      if (a.type === 'repetition' && a.id.startsWith('daily-review-')) {
+        if (deletedDailyReviewsSet.has(a.id)) return false;
+        return true;
+      }
+
+      // Nếu bài tập mới được tạo ở local trong vòng 5 phút qua, giữ lại vì có thể đang đợi sync lên cloud
+      const createdTime = new Date(a.createdAt || 0).getTime();
+      if (nowTime - createdTime < 5 * 60 * 1000) return true;
+
+      // Nếu bài tập cũ nhưng không có trên cloud -> đã bị xóa trên cloud, loại bỏ khỏi local
+      return false;
+    });
+
     write(KEYS.assignments, [...merged, ...localOnly]);
     hasChanges = true;
   }
@@ -657,9 +733,31 @@ export function updateAssignment(id: string, partial: Partial<Assignment>) {
 }
 
 export function deleteAssignment(id: string): void {
+  // Lấy title trước khi xóa khỏi local store (để truyền lên GAS làm fallback xóa theo cột B)
+  const assignmentToDelete = getAssignments().find(a => a.id === id);
+  const assignmentTitle = assignmentToDelete?.title || '';
+
+  // Ghi nhận ID bài tập đã bị xóa vào Tombstone list
+  if (typeof window !== 'undefined') {
+    const deletedIds = read<string[]>('et_deleted_assignment_ids', []);
+    if (!deletedIds.includes(id)) {
+      write('et_deleted_assignment_ids', [...deletedIds, id]);
+    }
+
+    // Nếu là bài ôn tập daily review, ghi nhận vào danh sách et_deleted_daily_reviews để tránh tự động sinh lại
+    if (id.startsWith('daily-review-')) {
+      const deletedReviews = read<string[]>('et_deleted_daily_reviews', []);
+      if (!deletedReviews.includes(id)) {
+        write('et_deleted_daily_reviews', [...deletedReviews, id]);
+      }
+    }
+  }
+
   write(KEYS.assignments, getAssignments().filter(a => a.id !== id));
   write(KEYS.submissions, getSubmissions().filter(s => s.assignmentId !== id));
-  syncActionToSheet({ action: 'delete_assignment', id });
+  // Truyền thêm title để GAS xóa theo cột B (Title) như fallback
+  // — đặc biệt cần thiết với bài SR (daily-review-*) có thể tồn tại trên sheet với ID khác
+  syncActionToSheet({ action: 'delete_assignment', id, title: assignmentTitle });
 }
 
 /**
@@ -674,7 +772,25 @@ export function deleteVirtualShadowingSubmissions(shadowingAssignmentId: string)
 // ─── CRUD – Submissions ───────────────────────────────────────────────────────
 
 export function getSubmissions(): Submission[] {
-  return read<Submission[]>(KEYS.submissions, []);
+  const raw = read<Submission[]>(KEYS.submissions, []);
+  return raw.map(s => {
+    if (s.details) {
+      let parsedDetails = s.details;
+      if (typeof parsedDetails === 'string') {
+        try { parsedDetails = JSON.parse(parsedDetails); } catch {}
+      }
+      if (s.assignmentType === 'shadowing' && !s.shadowingResults) {
+        return { ...s, shadowingResults: parsedDetails as any };
+      } else if (s.assignmentType === 'multiple_choice' && !s.quizAnswers) {
+        return { ...s, quizAnswers: parsedDetails as any };
+      } else if ((s.assignmentType === 'vocab_context' || s.assignmentType === 'vocabulary') && !s.vocabAnswers) {
+        return { ...s, vocabAnswers: parsedDetails as any };
+      } else if (s.assignmentType === 'rewrite_vocab' && !s.rewriteAnswers) {
+        return { ...s, rewriteAnswers: parsedDetails as any };
+      }
+    }
+    return s;
+  });
 }
 
 export function getSubmissionsByStudent(name: string): Submission[] {
@@ -743,8 +859,8 @@ export function deleteSubmission(id: string): void {
   write(KEYS.submissions, all.filter(s => s.id !== id));
   syncActionToSheet({ action: 'delete_submission', id });
 
-  // If this was a vocabulary submission, recalculate spaced repetition progress
-  if (subToDelete.assignmentType === 'vocabulary') {
+  // If this was a vocabulary or repetition submission, recalculate spaced repetition progress
+  if (subToDelete.assignmentType === 'vocabulary' || subToDelete.assignmentType === 'repetition') {
     recalculateVocabProgress(subToDelete.studentName);
   }
 }
@@ -859,7 +975,7 @@ export function submitVocabularyAssignment(payload: {
   studentName: string;
   score: number;
   dictationScore?: number;
-  answers: { word: string; studentAnswer: string; isCorrect: boolean }[];
+  answers: { word: string; studentAnswer: string; isCorrect: boolean; attempts?: number }[];
   durationMs?: number;
 }): Submission {
   const assignment = getAssignment(payload.assignmentId);
@@ -885,7 +1001,8 @@ export function submitVocabularyAssignment(payload: {
       word: ans.word,
       studentAnswer: ans.studentAnswer,
       isCorrect: ans.isCorrect,
-      correctAnswer: ans.word
+      correctAnswer: ans.word,
+      attempts: ans.attempts
     })),
     durationMs: payload.durationMs,
     submittedAt,
@@ -1373,14 +1490,16 @@ export function updateVocabProgress(
     progress.repetitions += 1;
     progress.lastReviewed = now.toISOString();
 
+    const isDue = new Date(progress.nextReviewDate) <= now;
+
     if (rating === 'again') {
       progress.stage = 1;
     } else if (rating === 'hard') {
       progress.stage = Math.max(1, progress.stage - 1);
     } else if (rating === 'good') {
-      progress.stage = Math.min(6, progress.stage + 1);
+      if (isDue) progress.stage = Math.min(6, progress.stage + 1);
     } else if (rating === 'easy') {
-      progress.stage = Math.min(6, progress.stage + 2);
+      if (isDue) progress.stage = Math.min(6, progress.stage + 2);
     }
 
     const days = REVIEW_INTERVALS[progress.stage - 1];
@@ -1401,7 +1520,9 @@ export function recalculateVocabProgress(studentName: string): void {
 
   // Get all remaining vocabulary submissions for this student, sorted oldest to newest
   const allSubmissions = getSubmissions()
-    .filter(s => s.studentName === studentName && s.assignmentType === 'vocabulary')
+    .filter(s => s.studentName === studentName && 
+                 (s.assignmentType === 'vocabulary' || 
+                 (s.assignmentType === 'repetition' && s.durationMs !== 0)))
     .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
 
   const freshCards = getVocabularyCards();
@@ -1487,55 +1608,328 @@ export function importExternalVocabWithProgress(
   write(KEYS.vocabProgress, allProgress);
 }
 
-export function autoSyncAllSpacedRepetition() {
-  // Đã comment out: tạm ngừng tự động backfill bài tập Spaced Repetition.
-  return;
-  // Chạy một lần để đồng bộ (backfill) các bài tập Spaced Repetition (Stages 1-5)
-  // cho những bài tập Từ vựng cũ chưa được tạo.
-  // const assignments = getAssignments();
-  // let hasChanges = false;
-  // const newReps: Assignment[] = [];
-  //
-  // assignments.forEach(a => {
-  //   if (a.type === 'vocabulary' && a.vocabCards) {
-  //     const intervals = [1, 3, 7, 14, 30]; // Stage 1, 2, 3, 4, 5
-  //     let cumulativeDays = 0;
-  //
-  //     const createdDateRaw = new Date(a.createdAt || new Date());
-  //     createdDateRaw.setHours(0, 0, 0, 0);
-  //     const createdMidnight = createdDateRaw.getTime();
-  //
-  //     for (let i = 0; i < intervals.length; i++) {
-  //       cumulativeDays += intervals[i];
-  //       const stage = i + 1;
-  //       const repId = `rep-stage${stage}-${a.id}`;
-  //
-  //       // Nếu bài repetition này chưa tồn tại trong mảng gốc và mảng mới
-  //       if (!assignments.find(x => x.id === repId) && !newReps.find(x => x.id === repId)) {
-  //         const targetDate = new Date(createdMidnight);
-  //         targetDate.setDate(targetDate.getDate() + cumulativeDays);
-  //         targetDate.setHours(8, 0, 0, 0); // Đúng 8:00 AM của ngày cần ôn tập
-  //
-  //         newReps.push({
-  //           id: repId,
-  //           title: `Stage ${stage} - ${a.title}`,
-  //           type: 'repetition',
-  //           skill: 'Repetition',
-  //           vocabCards: a.vocabCards,
-  //           createdAt: targetDate.toISOString(),
-  //           isHidden: true
-  //         });
-  //         hasChanges = true;
-  //       }
-  //     }
-  //   }
-  // });
-  //
-  // if (hasChanges && newReps.length > 0) {
-  //   write(KEYS.assignments, [...assignments, ...newReps]);
-  //   // Sync lên Google Sheets
-  //   newReps.forEach(rep => syncAssignmentToSheet(rep));
-  // }
+function getDaysDifference(date1: Date | string, date2: Date | string): number {
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  d1.setHours(0, 0, 0, 0);
+  d2.setHours(0, 0, 0, 0);
+  const diffMs = d2.getTime() - d1.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+}
+
+// ─── SR Preview Types ────────────────────────────────────────────────────────
+
+export interface SRPreviewItem {
+  date: string;           // YYYY-MM-DD
+  dateLabel: string;      // Hiển thị: "07/07/2026"
+  id: string;             // daily-review-YYYY-MM-DD
+  cardCount: number;
+  sources: { id: string; title: string; round: number }[];
+  status: 'new' | 'update' | 'unchanged' | 'delete';
+  // Nếu là bài vocab tạo hôm nay thì lên lịch ngày mai 5h sáng
+  scheduledFor?: string;  // ISO string thực tế sẽ dùng làm createdAt
+}
+
+export interface SRPreviewResult {
+  items: SRPreviewItem[];
+  newCount: number;
+  updateCount: number;
+  deleteCount: number;
+  unchangedCount: number;
+}
+
+/** Chạy logic SR giống generateDailyReviewAssignment nhưng KHÔNG LƯU — chỉ trả về preview */
+export function previewSRGeneration(clearDeletedTombstone = false): SRPreviewResult {
+  const assignments = getAssignments();
+  const vocabAssignments = assignments.filter(a => a.type === 'vocabulary' && a.vocabCards && a.vocabCards.length > 0);
+
+  if (vocabAssignments.length === 0) {
+    return { items: [], newCount: 0, updateCount: 0, deleteCount: 0, unchangedCount: 0 };
+  }
+
+  const sortedVocab = [...vocabAssignments].sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+  const firstDate = new Date(sortedVocab[0].createdAt || new Date());
+  firstDate.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = toLocalDateString(today);
+
+  // Tính ngày mai 5h sáng cho bài vocab tạo hôm nay
+  const tomorrowAt5 = new Date(today);
+  tomorrowAt5.setDate(tomorrowAt5.getDate() + 1);
+  tomorrowAt5.setHours(5, 0, 0, 0);
+
+  const intervals = [1, 4, 11, 25, 55, 115];
+
+  // Khi user chủ động nhấn "Tạo bài Ôn tập SR", xóa tombstone để cho phép tạo lại.
+  // Tombstone chỉ cần ngăn cloud-sync tự động tạo lại, không nên chặn user chủ động.
+  if (clearDeletedTombstone && typeof window !== 'undefined') {
+    write('et_deleted_daily_reviews', []);
+  }
+  const deletedDailyReviews = typeof window !== 'undefined' ? read<string[]>('et_deleted_daily_reviews', []) : [];
+
+  const items: SRPreviewItem[] = [];
+  let newCount = 0, updateCount = 0, deleteCount = 0, unchangedCount = 0;
+
+  const currentDate = new Date(firstDate);
+  while (currentDate <= today) {
+    const dateStr = toLocalDateString(currentDate);
+    const dailyReviewId = `daily-review-${dateStr}`;
+
+    if (deletedDailyReviews.includes(dailyReviewId)) {
+      currentDate.setDate(currentDate.getDate() + 1);
+      continue;
+    }
+
+    const cardsToReview: VocabCard[] = [];
+    const sources: { id: string; title: string; round: number }[] = [];
+
+    vocabAssignments.forEach(a => {
+      const diff = getDaysDifference(a.createdAt || new Date(), currentDate);
+      const idx = intervals.indexOf(diff);
+      if (idx !== -1) {
+        const round = idx + 2;
+        (a.vocabCards || []).forEach(card => {
+          if (!cardsToReview.some(c => c.word.toLowerCase() === card.word.toLowerCase())) {
+            cardsToReview.push(card);
+          }
+        });
+        sources.push({ id: a.id, title: a.title, round });
+      }
+    });
+
+    const existingAssign = assignments.find(a => a.id === dailyReviewId);
+    const passageStr = JSON.stringify({ sources });
+
+    // Xác định scheduledFor: ngày hôm nay thì dời sang 5h sáng ngày mai
+    const isToday = dateStr === todayStr;
+    const targetDate = new Date(currentDate);
+    targetDate.setHours(isToday ? 0 : 8, 0, 0, 0);
+    const scheduledFor = isToday ? tomorrowAt5.toISOString() : targetDate.toISOString();
+
+    let status: SRPreviewItem['status'];
+
+    if (existingAssign) {
+      const isSameCards =
+        existingAssign.vocabCards &&
+        existingAssign.vocabCards.length === cardsToReview.length &&
+        existingAssign.vocabCards.every((c, i) => c.id === cardsToReview[i]?.id);
+      const isSamePassage = existingAssign.passage === passageStr;
+
+      if (cardsToReview.length === 0) {
+        status = 'delete';
+        deleteCount++;
+      } else if (!isSameCards || !isSamePassage) {
+        status = 'update';
+        updateCount++;
+      } else {
+        status = 'unchanged';
+        unchangedCount++;
+      }
+    } else {
+      if (cardsToReview.length > 0) {
+        status = 'new';
+        newCount++;
+      } else {
+        currentDate.setDate(currentDate.getDate() + 1);
+        continue;
+      }
+    }
+
+    items.push({
+      date: dateStr,
+      dateLabel: new Date(dateStr + 'T12:00:00').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      id: dailyReviewId,
+      cardCount: cardsToReview.length,
+      sources,
+      status,
+      scheduledFor: isToday ? tomorrowAt5.toISOString() : undefined,
+    });
+
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  return { items, newCount, updateCount, deleteCount, unchangedCount };
+}
+
+export function generateDailyReviewAssignment(clearDeletedTombstone = false) {
+  const assignments = getAssignments();
+  const vocabAssignments = assignments.filter(a => a.type === 'vocabulary' && a.vocabCards && a.vocabCards.length > 0);
+  if (vocabAssignments.length === 0) return;
+
+  // Sắp xếp các bài vocabulary theo ngày tạo tăng dần để tìm ngày bắt đầu
+  const sortedVocab = [...vocabAssignments].sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+  const firstDate = new Date(sortedVocab[0].createdAt || new Date());
+  firstDate.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = toLocalDateString(today);
+
+  // Bài vocab tạo hôm nay → SR lên lịch 5h sáng ngày mai
+  const tomorrowAt5 = new Date(today);
+  tomorrowAt5.setDate(tomorrowAt5.getDate() + 1);
+  tomorrowAt5.setHours(5, 0, 0, 0);
+
+  // Lần 1: 0, Lần 2: 1, Lần 3: 4, Lần 4: 11, Lần 5: 25, Lần 6: 55, Lần 7: 115
+  const intervals = [1, 4, 11, 25, 55, 115]; // Tương ứng Lần 2, 3, 4, 5, 6, 7
+  let hasChanges = false;
+  const newAssignments = [...assignments];
+
+  // Khi user chủ động nhấn "Tạo bài Ôn tập SR", xóa tombstone để cho phép tạo lại.
+  // Tombstone chỉ cần ngăn cloud-sync tự động tạo lại, không nên chặn user chủ động.
+  if (clearDeletedTombstone && typeof window !== 'undefined') {
+    write('et_deleted_daily_reviews', []);
+  }
+
+  // Đọc danh sách bài ôn tập daily review đã bị xóa để tránh tự động tạo lại
+  const deletedDailyReviews = typeof window !== 'undefined' ? read<string[]>('et_deleted_daily_reviews', []) : [];
+
+  // Duyệt qua từng ngày từ firstDate đến today
+  const currentDate = new Date(firstDate);
+  while (currentDate <= today) {
+    const dateStr = toLocalDateString(currentDate);
+    const dailyReviewId = `daily-review-${dateStr}`;
+
+    const isDeleted = deletedDailyReviews.includes(dailyReviewId);
+    if (isDeleted) {
+      currentDate.setDate(currentDate.getDate() + 1);
+      continue;
+    }
+
+    // Tìm tất cả từ vựng cần ôn vào ngày currentDate (Lần lặp > 1)
+    const cardsToReview: VocabCard[] = [];
+    const sources: { id: string; title: string; round: number }[] = [];
+
+    vocabAssignments.forEach(a => {
+      const diff = getDaysDifference(a.createdAt || new Date(), currentDate);
+      const idx = intervals.indexOf(diff);
+      if (idx !== -1) {
+        const round = idx + 2; // idx = 0 -> Lần 2
+        (a.vocabCards || []).forEach(card => {
+          if (!cardsToReview.some(c => c.word.toLowerCase() === card.word.toLowerCase())) {
+            cardsToReview.push(card);
+          }
+        });
+        sources.push({ id: a.id, title: a.title, round });
+      }
+    });
+
+    // Xác định thời điểm thực tế cho bài ôn tập:
+    // - Ngày hôm nay (vocab vừa tạo hôm nay) → dời sang 5h sáng ngày mai
+    // - Các ngày trong quá khứ → 8h sáng ngày đó
+    const isToday = dateStr === todayStr;
+    const targetDate = isToday ? tomorrowAt5 : (() => {
+      const d = new Date(currentDate);
+      d.setHours(8, 0, 0, 0);
+      return d;
+    })();
+
+    const passageStr = JSON.stringify({ sources });
+
+    // Kiểm tra xem bài ôn tập cho ngày này đã có trong danh sách chưa
+    const existingIndex = newAssignments.findIndex(a => a.id === dailyReviewId);
+
+    if (existingIndex !== -1) {
+      // Đã tồn tại bài ôn tập, cần kiểm tra xem có cần cập nhật không
+      const existing = newAssignments[existingIndex];
+      
+      const isSameCards =
+        existing.vocabCards &&
+        existing.vocabCards.length === cardsToReview.length &&
+        existing.vocabCards.every((c, i) => c.id === cardsToReview[i].id);
+
+      const isSamePassage = existing.passage === passageStr;
+
+      if (!isSameCards || !isSamePassage) {
+        if (cardsToReview.length === 0) {
+          // Nếu không còn từ nào cần ôn ở ngày này, xóa bài ôn tập đó đi
+          newAssignments.splice(existingIndex, 1);
+          syncActionToSheet({ action: 'delete_assignment', id: dailyReviewId });
+        } else {
+          // Cập nhật lại bài ôn tập
+          const updatedAssign = {
+            ...existing,
+            vocabCards: cardsToReview,
+            passage: passageStr
+          };
+          newAssignments[existingIndex] = updatedAssign;
+          syncAssignmentToSheet(updatedAssign, 'update_assignment');
+        }
+        hasChanges = true;
+      }
+    } else {
+      // Chưa tồn tại, tiến hành tạo mới nếu có từ cần ôn
+      if (cardsToReview.length > 0) {
+        const reviewAssign: Assignment = {
+          id: dailyReviewId,
+          title: `📝 Ôn tập từ vựng — ${targetDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}`,
+          type: 'repetition',
+          skill: 'Repetition',
+          vocabCards: cardsToReview,
+          createdAt: targetDate.toISOString(),
+          isHidden: false,
+          passage: passageStr
+        };
+
+        newAssignments.push(reviewAssign);
+        hasChanges = true;
+        syncAssignmentToSheet(reviewAssign);
+      }
+    }
+
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  if (hasChanges) {
+    write(KEYS.assignments, newAssignments);
+  }
+}
+
+export function syncPastReviewAssignments(): { count: number } {
+  const assignments = getAssignments();
+  const todayStr = toLocalDateString(new Date());
+  
+  // Lọc các bài daily review trong quá khứ (ngày tạo trước ngày hôm nay)
+  const pastReviews = assignments.filter(a => 
+    a.type === 'repetition' && 
+    a.id.startsWith('daily-review-') && 
+    a.id.replace('daily-review-', '') < todayStr
+  );
+
+  const students = getStudentNames();
+  const allSubmissions = getSubmissions();
+  let syncCount = 0;
+  const freshCards = getVocabularyCards();
+
+  pastReviews.forEach(a => {
+    const reviewDateStr = a.id.replace('daily-review-', ''); // YYYY-MM-DD
+    const submittedAt = new Date(reviewDateStr + 'T23:59:59').toISOString();
+
+    // Không tạo fake submission nữa để tránh lỗi tự động bump stage từ vựng (từ vựng chưa học đã lên Master).
+    // Các từ vựng quá hạn (overdue) sẽ được học viên tự ôn thông qua tính năng "Ôn tập ngay" (On-Demand).
+  });
+
+  // Khôi phục (unhide) các bài daily-review cũ để hiển thị trên danh sách bài tập (trước đây bị ẩn)
+  const allAssignments = read<Assignment[]>(KEYS.assignments, []);
+  let hasChanges = false;
+  const updatedAssignments = allAssignments.map(a => {
+    if (a.type === 'repetition' && a.id.startsWith('daily-review-') && a.isHidden) {
+      hasChanges = true;
+      return { ...a, isHidden: false };
+    }
+    return a;
+  });
+  if (hasChanges) {
+    write(KEYS.assignments, updatedAssignments);
+  }
+
+  return { count: pastReviews.length };
+}
+
+export function autoSyncAllSpacedRepetition(clearDeletedTombstone = false) {
+  generateDailyReviewAssignment(clearDeletedTombstone);
 }
 
 export function autoSubmitPreviousStagesLocal(

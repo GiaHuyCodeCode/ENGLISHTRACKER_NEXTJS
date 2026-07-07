@@ -104,10 +104,23 @@ export function DictationBlock({
   }, [isSubmitted, allSubmissions, vocabCards, answers, attemptsRecord]);
 
   const classErrorStats = dictationRepeatStats; // keep backward compat alias
+  const prevVocabCardsRef = useRef<VocabCard[]>([]);
 
   // Đồng bộ và RANDOM danh sách từ khi mount/change
   useEffect(() => {
     if (vocabCards.length === 0) return;
+
+    // So sánh shallow/ID để tránh reset tiến trình khi component cha re-render và tạo mới reference mảng vocabCards
+    const isSameCards =
+      prevVocabCardsRef.current.length === vocabCards.length &&
+      prevVocabCardsRef.current.every((c, i) => c.id === vocabCards[i].id);
+
+    if (isSameCards) {
+      return;
+    }
+
+    prevVocabCardsRef.current = vocabCards;
+
     // Xáo trộn ngẫu nhiên danh sách từ vựng (không xáo trộn nếu là xem lại bài đã nộp)
     const shuffled = isSubmitted ? [...vocabCards] : [...vocabCards].sort(() => Math.random() - 0.5);
     setRoundWords(shuffled);
@@ -147,14 +160,14 @@ export function DictationBlock({
 
   // Báo cáo tiến trình lên cha (VocabularyExercise) để vẽ sidebar tracking
   useEffect(() => {
-    if (!onProgressUpdate || vocabCards.length === 0) return;
+    if (!onProgressUpdate || roundWords.length === 0) return;
 
     let completed = 0;
     let incorrect = 0;
     let pending = 0;
     const statusMap: Record<string, 'correct' | 'incorrect' | 'pending' | 'active'> = {};
 
-    vocabCards.forEach((card) => {
+    roundWords.forEach((card) => {
       const word = card.word;
       let isCorrect = false;
       let isWrong = false;
@@ -191,14 +204,12 @@ export function DictationBlock({
       incorrect,
       pending,
       statusMap,
-      currentIdx: vocabCards.findIndex(c => c.id === currentCard?.id),
-      roundWords: vocabCards,
+      currentIdx,
+      roundWords,
       onJumpToQuestion: (idx: number) => {
         if (isSubmitted || (!wrongTimerActive && !isFinished)) {
-          const targetCard = vocabCards[idx];
-          const roundIdx = roundWords.findIndex(c => c.id === targetCard?.id);
-          if (roundIdx !== -1) {
-            setCurrentIdx(roundIdx);
+          if (idx >= 0 && idx < roundWords.length) {
+            setCurrentIdx(idx);
           }
         }
       }
@@ -214,7 +225,8 @@ export function DictationBlock({
     isFinished,
     isSubmitted,
     answers,
-    onProgressUpdate
+    onProgressUpdate,
+    currentIdx
   ]);
 
   const isInitialMount = useRef(true);
@@ -419,46 +431,75 @@ export function DictationBlock({
   // === REVIEW MODE: Hiển thị toàn bộ đoạn Script + Phát âm ===
   if (isSubmitted) {
     return (
-      <div className="space-y-4 max-w-5xl mx-auto w-full slide-up">
-        <h3 className="text-lg font-bold font-heading mb-4 text-foreground flex items-center gap-2">
-          <Headphones className="w-5 h-5 text-sky-600 dark:text-sky-400" /> Script Nghe Chép & Phát Âm
+      <div className="space-y-4 w-full slide-up">
+        <h3 className="text-base font-bold font-heading mb-3 text-foreground flex items-center gap-2">
+          <Headphones className="w-4 h-4 text-sky-600 dark:text-sky-400" /> Luyện Tập Nghe Chép
         </h3>
-        <div className="grid gap-3">
+        <div className="grid gap-4">
           {vocabCards.map((card, idx) => {
             const studentAns = (answers[card.word] || '').trim();
             const isCorrect = studentAns.toLowerCase() === card.word.toLowerCase();
             return (
-              <div key={card.id} className="glass-strong rounded-2xl p-4 md:p-5 border border-white/5 flex flex-col md:flex-row gap-4 items-start md:items-center">
+              <div key={card.id} className={`rounded-2xl p-4 md:p-5 border flex flex-col md:flex-row gap-4 items-start md:items-center transition-all
+                bg-white dark:bg-secondary/30
+                ${isCorrect
+                  ? 'border-emerald-200 dark:border-emerald-500/20'
+                  : 'border-slate-200 dark:border-white/10'
+                }
+              `}>
                 {/* Play Button */}
-                <button 
+                <button
                   onClick={() => handleSpeak(card.word, 1.0, card.audioUrl)}
                   className="shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full bg-[#0071e3]/10 border border-[#0071e3]/20 hover:bg-[#0071e3] hover:text-white text-[#0071e3] flex items-center justify-center transition-all shadow-sm hover-lift"
                 >
                   <Volume2 className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
-                
+
                 {/* Content */}
                 <div className="flex-1 min-w-0 space-y-1.5 w-full">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                     <span className="font-extrabold text-lg md:text-xl text-foreground">{card.word}</span>
-                    <span className="text-sm md:text-base text-muted-foreground italic truncate">- {card.meaning}</span>
+                    {card.meaning && (
+                      <span className="text-sm md:text-base text-muted-foreground italic truncate">— {card.meaning}</span>
+                    )}
                   </div>
-                  
-                  {/* Answers */}
-                  {!hideStudentAnswer && (
-                    <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm mt-2 bg-black/20 p-2 rounded-xl w-fit">
-                      <span className="text-muted-foreground uppercase font-bold text-[10px] md:text-xs tracking-widest">Lựa chọn:</span>
-                      <span className={`font-semibold ${isCorrect ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400 line-through'}`}>
-                        {studentAns || 'Chưa điền'}
+
+                  {/* Correct / Incorrect badge */}
+                  <div className="flex items-center gap-2">
+                    {isCorrect ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold border border-emerald-200 dark:border-emerald-500/20">
+                        <CheckCircle2 className="w-3 h-3" /> Đúng
                       </span>
-                      {!isCorrect && (
-                        <>
-                          <span className="text-muted-foreground mx-1">→</span>
-                          <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">{card.word}</span>
-                        </>
-                      )}
-                    </div>
-                  )}
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 text-xs font-bold border border-red-200 dark:border-red-500/20">
+                        <XCircle className="w-3 h-3" /> Sai
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Số lần sai + Đáp án đúng (nếu sai) */}
+                  {!hideStudentAnswer && (() => {
+                    const totalAttempts = attemptsRecord?.[card.word] || 1;
+                    const wrongCount = Math.max(0, totalAttempts - 1);
+                    return (
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        {wrongCount === 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-200 dark:border-emerald-500/20">
+                            ✨ Chính xác ngay lần đầu
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 font-bold border border-red-200 dark:border-red-500/20">
+                            🔥 Sai {wrongCount} lần
+                          </span>
+                        )}
+                        {!isCorrect && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 font-bold border border-sky-200 dark:border-sky-500/20">
+                            → <span className="font-extrabold">{card.word}</span>
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             );
@@ -498,23 +539,13 @@ export function DictationBlock({
           </div>
         </div>
 
-        {isRequirementWorkflow ? (
-          <button 
-            onClick={handleFinishAndProceed}
-            className="w-full py-4 bg-[#0071e3] hover:bg-[#0071e3]/90 text-white font-bold rounded-2xl transition-all flex flex-col items-center justify-center gap-1 hover-lift"
-          >
-            <span className="flex items-center gap-2">Tiếp tục sang phần Trắc Nghiệm <ArrowRight className="w-5 h-5" strokeWidth={1.5} /></span>
-            <span className="text-xs text-white/70 font-normal">Nhấn Enter hoặc tự động chuyển tiếp sau {countdown} giây...</span>
-          </button>
-        ) : (
-          <button 
-            onClick={handleFinishAndProceed}
-            className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-2xl transition-all flex flex-col items-center justify-center gap-1 hover-lift"
-          >
-            <span className="flex items-center gap-2">Hoàn Thành Nghe Chép <CheckCircle2 className="w-5 h-5" strokeWidth={1.5} /></span>
-            <span className="text-xs text-white/70 font-normal">Nhấn Enter hoặc tự động hoàn thành sau {countdown} giây...</span>
-          </button>
-        )}
+        <button 
+          onClick={handleFinishAndProceed}
+          className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-2xl transition-all flex flex-col items-center justify-center gap-1 hover-lift"
+        >
+          <span className="flex items-center gap-2">Hoàn Thành Nghe Chép <CheckCircle2 className="w-5 h-5" strokeWidth={1.5} /></span>
+          <span className="text-xs text-white/70 font-normal">Nhấn Enter hoặc tự động hoàn thành sau {countdown} giây...</span>
+        </button>
       </div>
     );
   }
@@ -578,13 +609,13 @@ export function DictationBlock({
     <div className={`space-y-6 max-w-3xl mx-auto w-full slide-up ${shake ? 'animate-shake' : ''} px-1 md:px-0`}>
       {/* Class Statistics Board */}
       {isSubmitted && classErrorStats.length > 0 && (
-        <div className="glass-strong rounded-3xl p-6 border border-red-500/20 bg-red-500/5 mb-8 slide-up">
-          <h3 className="text-lg font-bold font-heading text-red-600 dark:text-red-400 mb-4 flex items-center gap-2">
+        <div className="rounded-3xl p-6 border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/5 mb-8 slide-up shadow-sm dark:shadow-none">
+          <h3 className="text-lg font-bold font-heading text-red-700 dark:text-red-400 mb-4 flex items-center gap-2">
             <XCircle className="w-5 h-5" strokeWidth={1.5} /> Bảng thống kê các từ sai nhiều nhất (Cả lớp)
           </h3>
           <div className="flex flex-wrap gap-3">
             {classErrorStats.map((stat) => (
-              <div key={stat.word} className="px-4 py-2 rounded-xl bg-background/50 border border-red-500/10 flex items-center gap-3 hover:border-red-500/30 transition-colors group cursor-default">
+              <div key={stat.word} className="px-4 py-2 rounded-xl bg-white dark:bg-background/50 border border-red-200 dark:border-red-500/10 flex items-center gap-3 hover:border-red-400 dark:hover:border-red-500/30 transition-colors group cursor-default shadow-xs dark:shadow-none">
                 <span className="text-sm font-bold text-foreground group-hover:text-red-600 dark:text-red-400 transition-colors">{stat.word}</span>
                 <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 font-bold tracking-widest">{stat.classErrors} lỗi</span>
               </div>
@@ -594,7 +625,15 @@ export function DictationBlock({
       )}
 
       {/* Exercise Workspace Card */}
-      <div className={`glass-strong rounded-3xl border p-6 md:p-10 flex flex-col items-center justify-center text-center space-y-8 transition-all duration-300 relative ${shake ? 'animate-shake border-red-500/50' : currentFeedback?.isCorrect ? 'border-emerald-500/30' : 'border-white/5'}`}>
+      <div className={`rounded-3xl border p-6 md:p-10 flex flex-col items-center justify-center text-center space-y-8 transition-all duration-300 relative
+        bg-white dark:bg-secondary/30
+        shadow-md dark:shadow-none
+        ${shake 
+          ? 'animate-shake border-red-300 dark:border-red-500/50' 
+          : currentFeedback?.isCorrect 
+            ? 'border-emerald-300 dark:border-emerald-500/30 shadow-emerald-50 dark:shadow-none' 
+            : 'border-slate-200 dark:border-white/5'
+        }`}>
 
         {/* Play Audio Button (Larger for better tap targets on phone) */}
         <div className="relative">
@@ -609,9 +648,11 @@ export function DictationBlock({
         </div>
 
         {/* Meaning Hint */}
-        <div className="space-y-1">
-          <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Nghĩa tiếng Việt</p>
-          <p className="text-lg md:text-xl font-bold text-foreground leading-relaxed">{currentCard.meaning}</p>
+        <div className="space-y-1.5 w-full max-w-md">
+          <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-muted-foreground tracking-widest">Nghĩa tiếng Việt</p>
+          <div className="bg-slate-50 dark:bg-white/5 rounded-2xl px-6 py-4 border border-slate-200 dark:border-white/5">
+            <p className="text-lg md:text-xl font-bold text-slate-800 dark:text-foreground leading-relaxed">{currentCard.meaning}</p>
+          </div>
         </div>
 
         {/* Input Area (Larger font/height for virtual keyboard safety) */}
@@ -645,21 +686,21 @@ export function DictationBlock({
               disabled={isSubmitted || wrongTimerActive}
               enterKeyHint="done"
               placeholder="Nghe và gõ lại từ vựng..."
-              className={`input-field flex-1 text-center font-bold tracking-wider text-lg md:text-xl h-14 md:h-16 transition-all ${
+              className={`input-field flex-1 text-center font-bold tracking-wider text-lg md:text-xl h-14 md:h-16 transition-all rounded-2xl ${
                 isSubmitted
                   ? (answers[currentCard.word] || '').trim().toLowerCase() === currentCard.word.toLowerCase()
-                    ? 'border-emerald-500 ring-1 ring-emerald-500/50 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5'
-                    : 'border-red-500 ring-1 ring-red-500/50 text-red-600 dark:text-red-400 bg-red-500/5'
-                  : currentFeedback?.isCorrect ? 'border-emerald-500 ring-1 ring-emerald-500/50 text-emerald-600 dark:text-emerald-400' 
-                  : (isWordWrongFirstTime[currentCard.word] && !currentFeedback?.isCorrect) ? 'border-red-500 ring-1 ring-red-500/50 text-red-600 dark:text-red-400' 
-                  : ''}`}
+                    ? 'border-emerald-500 ring-2 ring-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/5'
+                    : 'border-red-400 dark:border-red-500 ring-2 ring-red-500/30 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/5'
+                  : currentFeedback?.isCorrect ? 'border-emerald-500 ring-2 ring-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/5' 
+                  : (isWordWrongFirstTime[currentCard.word] && !currentFeedback?.isCorrect) ? 'border-red-400 dark:border-red-500 ring-2 ring-red-500/30 text-red-600 dark:text-red-400' 
+                  : 'border-slate-200 dark:border-white/10 focus:border-[#0071e3]/60 dark:focus:border-[#0071e3]/50'}`}
               autoFocus
             />
             
             {!isSubmitted && !isRequirementWorkflow && (
               <button 
                 type="submit"
-                className="px-4 md:px-6 h-14 md:h-16 bg-black/5 dark:bg-white/5 text-foreground hover:bg-black/10 dark:bg-white/10 font-semibold rounded-xl text-sm transition-all hover-lift"
+                className="px-4 md:px-6 h-14 md:h-16 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-foreground hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 font-semibold rounded-2xl text-sm transition-all hover-lift active:scale-[0.97]"
               >
                 Kiểm tra
               </button>
@@ -667,7 +708,7 @@ export function DictationBlock({
             {!isSubmitted && isRequirementWorkflow && !wrongTimerActive && !currentFeedback?.isCorrect && (
               <button 
                 type="submit"
-                className="px-4 md:px-6 h-14 md:h-16 bg-[#0071e3] text-white font-bold rounded-xl text-sm transition-all hover-lift"
+                className="px-4 md:px-6 h-14 md:h-16 bg-[#0071e3] text-white font-bold rounded-2xl text-sm transition-all hover-lift active:scale-[0.97] shadow-md shadow-[#0071e3]/20"
               >
                 Kiểm tra
               </button>
@@ -707,11 +748,16 @@ export function DictationBlock({
           {isSubmitted && (
             <div className="w-full space-y-4 pt-4 border-t border-white/5">
               <div className="flex flex-wrap gap-4 text-sm justify-center">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
-                  <span className="text-muted-foreground">Lựa chọn của bạn:</span> 
-                  <span className={`font-bold ${(answers[currentCard.word] || '').trim().toLowerCase() === currentCard.word.toLowerCase() ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400 line-through'}`}>
-                    {answers[currentCard.word] || 'Chưa điền'}
-                  </span>
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border ${
+                  Math.max(0, (attemptsRecord[currentCard.word] || 1) - 1) === 0
+                    ? 'bg-emerald-500/10 dark:bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-red-500/10 dark:bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
+                }`}>
+                  {Math.max(0, (attemptsRecord[currentCard.word] || 1) - 1) === 0 ? (
+                    <><span className="font-bold">✨ Chính xác ngay lần đầu</span></>
+                  ) : (
+                    <><span className="font-bold">🔥 Sai {Math.max(0, (attemptsRecord[currentCard.word] || 1) - 1)} lần</span></>
+                  )}
                 </div>
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20">
                   <span className="text-emerald-600 dark:text-emerald-400 font-medium">Đáp án đúng:</span> 
@@ -745,7 +791,7 @@ export function DictationBlock({
               <div className="flex items-center gap-2">
                 <XCircle className="h-5 w-5" strokeWidth={1.5} /> Sai rồi! Hãy ghi nhớ từ đúng dưới đây:
               </div>
-              <div className="text-2xl font-extrabold tracking-widest uppercase text-white mt-1">
+              <div className="text-2xl font-extrabold tracking-widest uppercase text-red-700 dark:text-red-400 mt-1">
                 {currentCard.word}
               </div>
               <div className="w-full bg-black/10 dark:bg-white/10 h-1 rounded-full mt-2 overflow-hidden">
@@ -760,7 +806,7 @@ export function DictationBlock({
               <div className="flex items-center gap-2">
                 <XCircle className="h-5 w-5" strokeWidth={1.5} /> Vẫn chưa chính xác! Hãy gõ đúng từ:
               </div>
-              <div className="text-lg font-extrabold tracking-widest uppercase text-white mt-1">
+              <div className="text-lg font-extrabold tracking-widest uppercase text-red-700 dark:text-red-400 mt-1">
                 {currentCard.word}
               </div>
             </div>
@@ -781,9 +827,9 @@ export function DictationBlock({
           <button 
             onClick={() => { setCurrentIdx(prev => Math.max(0, prev - 1)); setFeedback({}); }} 
             disabled={currentIdx === 0} 
-            className="px-5 py-3 rounded-xl border border-white/5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:bg-white/10 disabled:opacity-30 transition-all flex items-center gap-2 text-sm font-semibold hover-lift"
+            className="px-5 py-3 rounded-2xl border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-all flex items-center gap-2 text-sm font-semibold hover-lift text-slate-700 dark:text-foreground"
           >
-            <ChevronLeft className="h-4 w-4" strokeWidth={1.5} /> Từ trước
+            <ChevronLeft className="h-4 w-4" strokeWidth={2} /> Từ trước
           </button>
           <button 
             onClick={() => {

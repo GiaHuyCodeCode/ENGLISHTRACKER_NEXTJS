@@ -22,6 +22,7 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
 };
 
 // No-flash theme script — runs before paint to avoid white flash

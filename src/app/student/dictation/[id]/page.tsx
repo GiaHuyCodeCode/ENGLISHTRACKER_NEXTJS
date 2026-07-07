@@ -369,18 +369,30 @@ export default function DictationExercisePage() {
       ) : sentences.length > 0 ? (
         <>
           {/* Sticky Mobile Status Bar */}
-          <div className="sticky top-16 z-40 lg:hidden -mx-4 px-4 py-3 bg-black/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between gap-4 shadow-md">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-muted-foreground">Tiến độ:</span>
-              <span className="text-xs font-extrabold text-sky-600 dark:text-sky-400">{progress}%</span>
-              <span className="text-[10px] text-muted-foreground">({completedIdx.size}/{sentences.length} câu)</span>
+          <div className="sticky top-16 z-40 lg:hidden mb-4 bg-background/85 dark:bg-black/65 border border-black/10 dark:border-white/5 backdrop-blur-md rounded-2xl p-3 flex items-center justify-between gap-3 shadow-lg">
+            <button
+              onClick={() => router.push('/student/assignments')}
+              className="p-2 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 rounded-xl text-muted-foreground hover:text-foreground transition-all shrink-0"
+              title="Quay lại"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tiến độ</span>
+                <span className="text-xs font-extrabold text-sky-600 dark:text-sky-400">{progress}%</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground/80 font-medium">({completedIdx.size}/{sentences.length} câu)</span>
             </div>
-            <div className="flex-1 max-w-[40%] bg-secondary h-1.5 rounded-full overflow-hidden">
+
+            <div className="flex-1 bg-black/10 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
               <div className="bg-sky-400 h-full transition-all duration-500" style={{ width: `${progress}%` }} />
             </div>
+
             <button
               onClick={() => setIsMobileMapOpen(true)}
-              className="px-3 py-1.5 bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20 rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400 active:scale-95 transition-all"
+              className="px-3 py-2 bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20 rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400 active:scale-95 transition-all shrink-0"
             >
               Sơ đồ câu
             </button>
@@ -558,7 +570,7 @@ export default function DictationExercisePage() {
 
           {/* Sidebar Tracking (Desktop Only) */}
           <div className="hidden lg:block lg:col-span-1 mt-6 lg:mt-0 space-y-6 lg:sticky lg:top-6">
-            <div className="glass-strong rounded-3xl border border-white/5 p-6 space-y-6">
+            <div className="glass-strong rounded-3xl border border-black/10 dark:border-white/5 p-6 space-y-6">
               <div>
                 <h3 className="font-bold font-heading text-lg flex items-center gap-2">
                   <Star className="h-5 w-5 text-amber-600 dark:text-amber-400" /> Tiến Độ Bài Tập
@@ -603,7 +615,7 @@ export default function DictationExercisePage() {
                       className={`aspect-square rounded-xl flex items-center justify-center text-xs font-bold transition-all hover-lift ${
                       completedIdx.has(i) ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' :
                       i === currentIdx ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/50 scale-105' :
-                      'bg-secondary/40 text-muted-foreground hover:bg-black/10 dark:bg-white/10 hover:text-foreground border border-white/5'
+                      'bg-secondary/40 text-muted-foreground hover:bg-black/10 dark:bg-white/10 hover:text-foreground border border-black/10 dark:border-white/5'
                     }`}>
                       {i + 1}
                     </button>
@@ -651,7 +663,7 @@ export default function DictationExercisePage() {
                 </button>
               </div>
 
-              <div className="flex items-center gap-4 bg-black/5 dark:bg-white/5 p-4 rounded-2xl border border-white/5">
+              <div className="flex items-center gap-4 bg-black/5 dark:bg-white/5 p-4 rounded-2xl border border-black/10 dark:border-white/5">
                 <div className="relative w-14 h-14 flex-shrink-0">
                   <svg className="w-full h-full transform -rotate-90">
                     <circle cx="28" cy="28" r="24" fill="none" stroke="currentColor" strokeWidth="5" className="text-secondary" />
@@ -661,7 +673,7 @@ export default function DictationExercisePage() {
                       className="text-sky-600 dark:text-sky-400 transition-all duration-1000 ease-out" />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xs font-bold text-white">{progress}%</span>
+                    <span className="text-xs font-bold text-foreground">{progress}%</span>
                   </div>
                 </div>
                 <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
@@ -686,7 +698,7 @@ export default function DictationExercisePage() {
                       className={`w-10 h-10 mx-auto rounded-xl flex items-center justify-center text-xs font-bold transition-all hover-lift ${
                         completedIdx.has(i) ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30' :
                         i === currentIdx ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400 border-sky-500/50 scale-105' :
-                        'bg-secondary/40 text-muted-foreground hover:bg-black/10 dark:bg-white/10 hover:text-foreground border border-white/5'
+                        'bg-secondary/40 text-muted-foreground hover:bg-black/10 dark:bg-white/10 hover:text-foreground border border-black/10 dark:border-white/5'
                       }`}
                     >
                       {i + 1}

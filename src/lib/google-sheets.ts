@@ -50,6 +50,18 @@ export async function syncAssignmentToSheet(assignment: any, action: 'add_assign
       safeAssignment.passage = JSON.stringify(safeAssignment.sentences);
     }
 
+    // Bài Spaced Repetition: đặt passage vào cột Keywords (cột 5, đã ẩn) để cột Passage luôn sạch.
+    // syncAllFromCloud bỏ qua giá trị passage từ cloud cho repetition nên hoàn toàn an toàn.
+    if (safeAssignment.type === 'repetition') {
+      safeAssignment = {
+        ...safeAssignment,
+        keywords: safeAssignment.passage
+          ? [{ __srSources: safeAssignment.passage }]
+          : [],
+        passage: '', // Để cột Passage trống — đúng ý nghĩa cột
+      };
+    }
+
     const payload = { ...safeAssignment, action };
     const response = await fetch(url, {
       method: 'POST',

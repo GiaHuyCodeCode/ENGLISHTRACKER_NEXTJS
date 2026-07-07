@@ -79,7 +79,7 @@ export function VocabForm({ onSave, isSaving, initialData }: {
         <div className="flex items-center gap-2 font-semibold text-violet-600 dark:text-violet-400 mb-2">
           <FileJson className="h-4 w-4" /> Định dạng JSON mẫu (Copy & Sửa):
         </div>
-        <pre className="text-xs text-muted-foreground bg-black/30 p-3 rounded-lg overflow-x-auto font-mono">
+        <pre className="text-xs text-muted-foreground bg-black/5 dark:bg-black/30 p-3 rounded-lg overflow-x-auto font-mono">
           {jsonTemplate}
         </pre>
       </div>
@@ -129,7 +129,7 @@ export function VocabForm({ onSave, isSaving, initialData }: {
             <label className="text-xs text-muted-foreground">Từ khóa (Có thể sửa trực tiếp)</label>
             <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
               {parsedData.keywords.map((k, i) => (
-                <div key={i} className="flex flex-col gap-1 p-2 rounded-lg bg-black/20 border border-white/5 relative group">
+                <div key={i} className="flex flex-col gap-1 p-2 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/5 relative group">
                   <button
                     onClick={() => setParsedData(p => p ? { ...p, keywords: p.keywords.filter((_, idx) => idx !== i) } : null)}
                     className="absolute top-1 right-1 p-1 text-muted-foreground hover:text-red-600 dark:text-red-400 rounded opacity-0 group-hover:opacity-100 transition-all z-10"
@@ -255,7 +255,7 @@ export function QuizForm({ onSave, isSaving, initialData }: {
         <div className="flex items-center gap-2 font-semibold text-teal-600 dark:text-teal-400 mb-2">
           <FileJson className="h-4 w-4" /> Định dạng JSON mẫu (Copy & Sửa):
         </div>
-        <pre className="text-xs text-muted-foreground bg-black/30 p-3 rounded-lg overflow-x-auto font-mono">
+        <pre className="text-xs text-muted-foreground bg-black/5 dark:bg-black/30 p-3 rounded-lg overflow-x-auto font-mono">
           {jsonTemplate}
         </pre>
       </div>
@@ -612,7 +612,7 @@ export function DictationForm({ onSave, isSaving, initialData }: {
       {/* JSON sample */}
       <div className="p-4 rounded-xl bg-secondary/30 border border-white/5">
         <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Định dạng JSON mẫu</p>
-        <pre className="text-xs text-emerald-600 dark:text-emerald-400 font-mono bg-black/30 p-3 rounded-lg overflow-x-auto">{jsonSample}</pre>
+        <pre className="text-xs text-emerald-600 dark:text-emerald-400 font-mono bg-black/5 dark:bg-black/30 p-3 rounded-lg overflow-x-auto">{jsonSample}</pre>
       </div>
 
       {/* Title */}
@@ -837,7 +837,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
         <div className="flex items-center gap-2 font-semibold text-violet-600 dark:text-violet-400">
           <FileJson className="h-4 w-4" /> Định dạng JSON mẫu (Kèm tự động nhận diện Tiêu đề):
         </div>
-        <pre className="text-xs text-muted-foreground bg-black/30 p-3 rounded-lg overflow-x-auto font-mono">
+        <pre className="text-xs text-muted-foreground bg-black/5 dark:bg-black/30 p-3 rounded-lg overflow-x-auto font-mono">
           {jsonTemplate}
         </pre>
         <button
@@ -1099,7 +1099,7 @@ export function ShadowingForm({ onSave, isSaving, initialData }: {
       {/* JSON sample */}
       <div className="p-4 rounded-xl bg-secondary/30 border border-white/5">
         <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Định dạng JSON mẫu</p>
-        <pre className="text-xs text-emerald-600 dark:text-emerald-400 font-mono bg-black/30 p-3 rounded-lg overflow-x-auto">{jsonSample}</pre>
+        <pre className="text-xs text-emerald-600 dark:text-emerald-400 font-mono bg-black/5 dark:bg-black/30 p-3 rounded-lg overflow-x-auto">{jsonSample}</pre>
       </div>
 
       {/* Title */}

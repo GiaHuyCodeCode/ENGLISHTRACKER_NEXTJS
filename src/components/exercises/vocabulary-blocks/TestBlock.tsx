@@ -202,9 +202,14 @@ export function TestBlock({
 
   return (
     <div className="space-y-6 slide-up w-full max-w-3xl mx-auto">
-      <div className="flex items-center gap-3 text-sm text-amber-600 dark:text-amber-400 p-4 bg-amber-500/10 dark:bg-amber-500/10 rounded-2xl border border-amber-500/20 shadow-inner">
-        <FileText className="h-5 w-5 flex-shrink-0" strokeWidth={1.5} />
-        <span className="font-medium">Đọc thông tin gợi ý và chọn từ tiếng Anh tương ứng trong 4 đáp án.</span>
+      <div className="flex items-center gap-3 text-sm text-amber-700 dark:text-amber-400 p-4 bg-amber-50 dark:bg-amber-500/10 rounded-2xl border border-amber-200 dark:border-amber-500/20 shadow-sm dark:shadow-none">
+        <div className="p-2 bg-amber-100 dark:bg-amber-500/20 rounded-xl flex-shrink-0">
+          <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={2} />
+        </div>
+        <div>
+          <span className="font-bold block text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 mb-0.5">Trắc Nghiệm</span>
+          <span className="font-medium">Đọc thông tin gợi ý và chọn từ tiếng Anh tương ứng trong 4 đáp án.</span>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -219,21 +224,30 @@ export function TestBlock({
               key={c.id} 
               id={`test-question-${idx}`}
               onClick={() => setCurrentActiveIdx(idx)}
-              className={`glass rounded-3xl border p-6 md:p-8 space-y-6 transition-all duration-300 ${
-                idx === currentActiveIdx ? 'ring-1 ring-[#0071e3]/30' : ''
-              } ${
+              className={`rounded-3xl border p-6 md:p-8 space-y-6 transition-all duration-300 cursor-pointer
+                bg-white dark:bg-secondary/20
+                ${idx === currentActiveIdx 
+                  ? 'ring-2 ring-[#0071e3]/40 shadow-lg shadow-[#0071e3]/10 border-[#0071e3]/30 dark:border-[#0071e3]/30' 
+                  : 'border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/15 shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-none'
+                } ${
                 revealed 
-                  ? (chosen === c.word ? 'border-emerald-500/50 bg-emerald-500/5 shadow-[0_0_30px_rgba(16,185,129,0.1)]' : 'border-red-500/50 bg-red-500/5') 
-                  : 'border-white/5 hover:border-primary/40 hover:shadow-[0_8px_30px_rgba(0,0,0,0.4)]'
+                  ? (chosen === c.word 
+                    ? 'border-emerald-400 dark:border-emerald-500/50 bg-emerald-50 dark:bg-emerald-500/5 shadow-emerald-100 dark:shadow-[0_0_30px_rgba(16,185,129,0.1)]' 
+                    : 'border-red-300 dark:border-red-500/50 bg-red-50/80 dark:bg-red-500/5') 
+                  : ''
               }`}
             >
               <div className="flex items-start gap-4">
-                <span className={`flex-shrink-0 w-8 h-8 rounded-full text-xs font-bold border flex items-center justify-center mt-1 transition-all ${
-                  idx === currentActiveIdx 
-                    ? 'bg-[#0071e3] text-white border-[#0071e3]' 
-                    : 'bg-black/5 dark:bg-white/5 text-muted-foreground border-white/5'
+                <span className={`flex-shrink-0 w-9 h-9 rounded-full text-sm font-extrabold border-2 flex items-center justify-center mt-0.5 transition-all ${
+                  revealed
+                    ? (chosen === c.word 
+                      ? 'bg-emerald-500 text-white border-emerald-500'
+                      : 'bg-red-500 text-white border-red-500')
+                    : idx === currentActiveIdx 
+                      ? 'bg-[#0071e3] text-white border-[#0071e3] shadow-md shadow-[#0071e3]/30' 
+                      : 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-muted-foreground border-slate-200 dark:border-white/10'
                 }`}>
-                  {idx + 1}
+                  {revealed ? (chosen === c.word ? <CheckCircle2 className="w-4 h-4" strokeWidth={2.5} /> : <XCircle className="w-4 h-4" strokeWidth={2.5} />) : idx + 1}
                 </span>
                 <div className="flex-1 space-y-4 pt-1">
                   {blankedExample ? (
@@ -251,20 +265,20 @@ export function TestBlock({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {opts.map((opt, oi) => {
-                  let cls = 'border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:border-primary/50 hover:bg-primary/10 text-foreground';
-                  
-                  if (revealed) {
-                    if (opt === c.word) {
-                      cls = 'border-emerald-500 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 glow-success ring-1 ring-emerald-500/50';
-                    } else if (opt === chosen && opt !== c.word) {
-                      cls = 'border-red-500 bg-red-500/20 text-red-600 dark:text-red-400 glow-error ring-1 ring-red-500/50';
-                    } else {
-                      cls = 'border-white/5 bg-secondary/10 text-muted-foreground/50 opacity-60';
+                  {opts.map((opt, oi) => {
+                    let cls = 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:border-[#0071e3]/50 hover:bg-[#0071e3]/5 text-slate-800 dark:text-foreground hover:text-[#0071e3]';
+                    
+                    if (revealed) {
+                      if (opt === c.word) {
+                        cls = 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-500/50 shadow-sm shadow-emerald-200/50 dark:shadow-none';
+                      } else if (opt === chosen && opt !== c.word) {
+                        cls = 'border-red-400 dark:border-red-500 bg-red-50 dark:bg-red-500/20 text-red-700 dark:text-red-400 ring-1 ring-red-500/50';
+                      } else {
+                        cls = 'border-slate-100 dark:border-white/5 bg-transparent dark:bg-secondary/10 text-slate-400 dark:text-muted-foreground/50 opacity-50';
+                      }
+                    } else if (chosen === opt) {
+                      cls = 'border-[#0071e3] bg-[#0071e3]/10 text-[#0071e3] ring-1 ring-[#0071e3]/50';
                     }
-                  } else if (chosen === opt) {
-                    cls = 'border-primary bg-primary/20 text-primary ring-1 ring-primary/50';
-                  }
 
                   return (
                     <button 
@@ -292,20 +306,20 @@ export function TestBlock({
               </div>
 
               {revealed && (
-                <div className="slide-up space-y-3 pt-4 border-t border-white/5">
-                  <div className="flex flex-wrap gap-4 text-sm">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
-                      <span className="text-muted-foreground">Lựa chọn của bạn:</span> 
+                <div className="slide-up space-y-3 pt-4 border-t border-slate-100 dark:border-white/5">
+                  <div className="flex flex-wrap gap-3 text-sm">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                      <span className="text-slate-500 dark:text-muted-foreground">Lựa chọn của bạn:</span> 
                       <span className={`font-bold ${chosen === c.word ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400 line-through'}`}>
                         {chosen || 'Chưa chọn'}
                       </span>
                     </div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20">
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">Đáp án đúng:</span> 
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20">
+                      <span className="text-emerald-700 dark:text-emerald-400 font-medium">Đáp án đúng:</span> 
                       <span className="font-bold text-emerald-700 dark:text-emerald-300">{c.word}</span>
                     </div>
                   </div>
-                  <div className="bg-black/5 dark:bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2 text-xs text-muted-foreground">
+                  <div className="bg-slate-50 dark:bg-white/5 rounded-2xl p-4 border border-slate-200 dark:border-white/5 space-y-2 text-xs text-slate-500 dark:text-muted-foreground">
                     <div>
                       <span className="font-semibold text-foreground">💡 Nghĩa của từ: </span>
                       {c.meaning}

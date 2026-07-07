@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  getAssignments, getSubmissions, seedIfEmpty, syncAllFromCloud,
+  getAssignments, getSubmissions, seedIfEmpty, syncAllFromCloud, autoSyncAllSpacedRepetition,
   Assignment, Submission, getStudentNames, getStudentColors, getStudentAvatar,
   getVocabularyCards, getVocabProgressList, getAssignmentNextReviewDate,
 } from '@/lib/local-store';
@@ -26,7 +26,7 @@ function ScorePill({ score }: { score: number }) {
 
 function StudentPicker({ onSelect }: { onSelect: (name: string) => void }) {
   return (
-    <div className="min-h-screen flex items-center justify-center p-8">
+    <div className="min-h-[100dvh] flex items-center justify-center p-8">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-violet-500 to-teal-500 flex items-center justify-center shadow-xl glow-primary">
@@ -99,7 +99,8 @@ export default function StudentAssignmentsPage() {
   const [isSyncing, setIsSyncing] = useState(false);
 
   const refreshData = async () => {
-    // 1. Lấy dữ liệu local
+    // 1. Lấy dữ liệu local và generate SR assignments
+    autoSyncAllSpacedRepetition();
     setAssignments(getAssignments());
     setMounted(true);
 
@@ -110,6 +111,8 @@ export default function StudentAssignmentsPage() {
       if (res.ok) {
         const cloudData = await res.json();
         const hasChanges = syncAllFromCloud(cloudData);
+        // Re-generate SR sau khi sync để đảm bảo bài mới từ teacher được tính
+        autoSyncAllSpacedRepetition();
         if (hasChanges) {
           setAssignments(getAssignments());
           if (studentName) {
@@ -141,8 +144,8 @@ export default function StudentAssignmentsPage() {
 
   const colors = getStudentColors(studentName);
   const initials = getStudentAvatar(studentName);
-  const myAvgScore = submissions.length
-    ? Math.round(submissions.reduce((s, x) => s + x.score, 0) / submissions.length)
+  const myAvgScore = submissions.filter(s => s.assignmentType !== 'repetition').length
+    ? Math.round(submissions.filter(s => s.assignmentType !== 'repetition').reduce((s, x) => s + x.score, 0) / submissions.filter(s => s.assignmentType !== 'repetition').length)
     : null;
 
   const getSubmission = (id: string) => submissions.find(s => s.assignmentId === id);
@@ -171,7 +174,15 @@ export default function StudentAssignmentsPage() {
   };
   const todayLocalStr = getLocalDateString(new Date());
 
-  const done = visibleAssignments.filter(a => getSubmission(a.id)).sort((a, b) => {
+  const done = visibleAssignments.filter(a => {
+    const sub = getSubmission(a.id);
+    if (!sub) return false;
+    // Ẩn các bài tập Spaced Repetition do hệ thống tự đồng bộ (không có thời gian làm bài)
+    if (a.type === 'repetition' && (!sub.durationMs || sub.durationMs === 0)) {
+      return false;
+    }
+    return true;
+  }).sort((a, b) => {
     const subA = getSubmission(a.id);
     const subB = getSubmission(b.id);
     if (!subA || !subB) return 0;
@@ -371,14 +382,21 @@ export default function StudentAssignmentsPage() {
               {done.map(a => {
                 const sub = getSubmission(a.id)!;
                 if (a.type === 'repetition') {
+                  const href = sub ? `/student/review/${sub.id}` : `/student/assignments/${a.id}`;
                   return (
-                    <div key={a.id} className="flex items-center gap-4 px-6 py-4 bg-emerald-500/10 border-l-4 border-emerald-500 group">
+                    <Link key={a.id} href={href} className="flex items-center gap-4 px-6 py-4 bg-emerald-500/10 hover:bg-emerald-500/20 border-l-4 border-emerald-500 transition-colors cursor-pointer group">
                       <div className="p-2 rounded-lg bg-emerald-500/20">
                         <BookOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate text-emerald-700 dark:text-emerald-400">{a.title} <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">Spaced Repetition</span></p>
-                        <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-0.5 flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium truncate text-emerald-700 dark:text-emerald-400 group-hover:text-emerald-600 max-w-[65%] sm:max-w-none">{a.title}</p>
+                          <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 leading-none">
+                            <span className="hidden sm:inline">Spaced Repetition</span>
+                            <span className="sm:hidden">SRS</span>
+                          </span>
+                        </div>
+                        <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-1 flex items-center gap-2">
                           <span>{new Date(sub.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                           {sub.durationMs ? (
                             <span className="text-[10px] font-medium flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
@@ -388,9 +406,10 @@ export default function StudentAssignmentsPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><CheckCircle2 className="h-4 w-4" /> Đã ôn tập</span>
+                        <ScorePill score={sub.score} />
+                        <ChevronRight className="h-4 w-4 text-emerald-600/50 group-hover:translate-x-0.5 transition-all group-hover:text-emerald-600 dark:text-emerald-400" />
                       </div>
-                    </div>
+                    </Link>
                   );
                 }
                 const isShadowing = a.type === 'shadowing';

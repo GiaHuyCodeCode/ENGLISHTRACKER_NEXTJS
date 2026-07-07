@@ -56,11 +56,14 @@ export default function StudentReviewPage() {
         parsedSub.vocabAnswers = parsedDetails;
       } else if (parsedSub.assignmentType === 'rewrite_vocab') {
         parsedSub.rewriteAnswers = parsedDetails;
+      } else if (parsedSub.assignmentType === 'shadowing') {
+        parsedSub.shadowingResults = parsedDetails;
       }
     } else {
       if (parsedSub.rewriteAnswers) parsedSub.rewriteAnswers = parseJsonSafely(parsedSub.rewriteAnswers);
       if (parsedSub.quizAnswers) parsedSub.quizAnswers = parseJsonSafely(parsedSub.quizAnswers);
       if (parsedSub.vocabAnswers) parsedSub.vocabAnswers = parseJsonSafely(parsedSub.vocabAnswers);
+      if (parsedSub.shadowingResults) parsedSub.shadowingResults = parseJsonSafely(parsedSub.shadowingResults);
     }
 
     setSubmission(parsedSub);
@@ -271,18 +274,28 @@ export default function StudentReviewPage() {
     <>
       {/* Mobile Sticky Question Map Bar */}
       {questionMap.length > 0 && assignment.type !== 'vocabulary' && assignment.type !== 'repetition' && (
-        <div className="sticky top-16 z-40 lg:hidden -mx-4 px-4 py-3 bg-black/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between shadow-md">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-muted-foreground">Đối chiếu đáp án:</span>
-            <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">{correctCount} đúng</span>
-            <span className="text-xs text-muted-foreground">/</span>
-            <span className="text-xs font-extrabold text-red-600 dark:text-red-400">{totalCount - correctCount} sai</span>
+        <div className="sticky top-16 z-40 lg:hidden mb-4 bg-background/85 dark:bg-black/65 border border-black/10 dark:border-white/5 backdrop-blur-md rounded-2xl p-3 flex items-center justify-between gap-3 shadow-lg">
+          <button
+            onClick={() => router.push('/student/assignments')}
+            className="p-2 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 rounded-xl text-muted-foreground hover:text-foreground transition-all shrink-0"
+            title="Quay lại"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Đối chiếu</span>
+              <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">{correctCount} đúng</span>
+            </div>
+            <span className="text-[10px] text-red-600 dark:text-red-400 font-semibold">{totalCount - correctCount} sai</span>
           </div>
+
           <button
             onClick={() => setIsMobileMapOpen(true)}
-            className="px-3 py-1.5 bg-[#0071e3]/10 border border-[#0071e3]/20 rounded-xl text-xs font-bold text-[#0071e3] active:scale-95 transition-all"
+            className="px-3 py-2 bg-[#0071e3]/10 border border-[#0071e3]/20 rounded-xl text-xs font-bold text-[#0071e3] active:scale-95 transition-all shrink-0"
           >
-            Xem sơ đồ câu
+            Sơ đồ câu
           </button>
         </div>
       )}
@@ -482,7 +495,11 @@ export default function StudentReviewPage() {
               </h3>
               <div className="grid gap-3">
                 {dictationSentences.map((s: any, i: number) => {
-                  const r = (submission.shadowingResults || []).find((res: any) => String(res.word || res.sentenceId) === String(s.id));
+                  const rawResults = submission.shadowingResults;
+                  const resultsArray = Array.isArray(rawResults)
+                    ? rawResults
+                    : (rawResults && typeof rawResults === 'object' ? Object.values(rawResults) : []);
+                  const r = (resultsArray || []).find((res: any) => String(res.word || res.sentenceId) === String(s.id));
                   const acc = r?.accuracy ?? 0;
                   const isCorrect = acc >= 80;
                   const isClose = acc >= 50 && acc < 80;
@@ -505,7 +522,7 @@ export default function StudentReviewPage() {
                           <p className="font-extrabold text-foreground/90 text-sm leading-relaxed">{s.text}</p>
                         </div>
                         {r?.recognized && (
-                          <div className="bg-black/20 p-2 rounded-lg w-fit mt-2">
+                          <div className="bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 p-2 rounded-lg w-fit mt-2">
                             <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mr-2">Bạn đọc:</span>
                             <span className="italic font-medium text-sm text-foreground/80">&ldquo;{r.recognized}&rdquo;</span>
                           </div>

@@ -62,7 +62,7 @@ export default function LessonDetailPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleVocabularySubmit = (answers: { word: string; studentAnswer: string; isCorrect: boolean }[], customScore?: number) => {
+  const handleVocabularySubmit = (answers: { word: string; studentAnswer: string; isCorrect: boolean; attempts?: number }[], customScore?: number) => {
     setIsSubmitting(true);
     try {
       const studentName = localStorage.getItem('et_current_student') || getStudentNames()[0] || 'Unknown';

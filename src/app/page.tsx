@@ -7,7 +7,8 @@ import {
   Assignment, Submission, DailyTracking, getStudentNames, getStudentColors, getStudentAvatar,
   seedIfEmpty, getGamificationProfiles, getBadges, GamificationProfile, importAssignment, updateAssignment, syncAllFromCloud, createStudent,
   getVocabularyCards, getVocabProgressList, saveVocabProgressList, saveVocabularyCards, VocabCard,
-  importExternalVocabWithProgress, STAGE_CONFIG, autoSyncAllSpacedRepetition, autoSubmitPreviousStagesLocal
+  importExternalVocabWithProgress, STAGE_CONFIG, autoSyncAllSpacedRepetition, autoSubmitPreviousStagesLocal, syncPastReviewAssignments,
+  previewSRGeneration, SRPreviewResult,
 } from '@/lib/local-store';
 import { syncVocabListToSheet, syncActionToSheet } from '@/lib/google-sheets';
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
@@ -15,7 +16,7 @@ import { StudentTimeChart } from '@/components/ui/StudentTimeChart';
 import { toLocalDateString } from '@/lib/utils';
 import {
   Users, BookOpen, Clock, Target, Edit2, Save, X, XCircle,
-  Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2, Lightbulb, Settings, Loader2, RefreshCw, FileJson, Volume2, Headphones, Calendar, Mic, Lock, Unlock, Eye, EyeOff
+  Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2, Lightbulb, Settings, Loader2, RefreshCw, FileJson, Volume2, Headphones, Calendar, Mic, Lock, Unlock, Eye, EyeOff, Sparkles, AlertTriangle, Info
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -70,84 +71,144 @@ export default function TeacherDashboard() {
   // SRS Manual Override States
   const [syncPhaseDialog, setSyncPhaseDialog] = useState<{ assignment: Assignment, studentName: string, phase: number } | null>(null);
 
-  const handleAutoSyncPhase = (assignment: Assignment) => {
-    if (!confirm('Đồng bộ Phase cho TẤT CẢ học viên trong bài tập này dựa trên ngày tạo?')) return;
-    const createdDate = new Date(assignment.createdAt || new Date());
-    const created = createdDate.getTime();
-    const daysDiff = Math.floor((new Date().getTime() - created) / (1000 * 3600 * 24));
-    
-    let calculatedStage = 1;
-    let cumulativeDays = 0;
-    const intervals = [1, 3, 7, 14, 30, 60];
-    
-    if (daysDiff === 0) {
-      calculatedStage = 0;
-    } else {
-      for (let i = 0; i < intervals.length; i++) {
-        if (daysDiff > cumulativeDays + intervals[i]) {
-          cumulativeDays += intervals[i];
-          calculatedStage = i + 2;
-        } else {
-          break;
-        }
+  // SR Preview Dialog
+  const [srPreviewDialog, setSrPreviewDialog] = useState<SRPreviewResult | null>(null);
+  const [srPreviewLoading, setSrPreviewLoading] = useState(false);
+
+  /** Mở dialog preview SR — đọc dữ liệu và tính toán trước khi hiện */
+  const handleOpenSRPreview = () => {
+    setSrPreviewLoading(true);
+    // Chạy trong setTimeout để UI kịp render spinner
+    setTimeout(() => {
+      try {
+        // clearDeletedTombstone=true: xóa tombstone để những ngày đã xóa xuất hiện lại trong preview.
+        // Tombstone chỉ ngăn cloud-sync tự động, không nên chặn khi user chủ động nhấn button.
+        const preview = previewSRGeneration(true);
+        setSrPreviewDialog(preview);
+      } catch (e) {
+        console.error('Lỗi khi preview SR:', e);
+        alert('Đã có lỗi xảy ra khi đọc dữ liệu.');
+      } finally {
+        setSrPreviewLoading(false);
       }
-      calculatedStage = Math.min(calculatedStage, 6);
-    }
-    
-    const calculatedNextReviewDate = new Date(createdDate);
-    if (calculatedStage === 0) {
-      calculatedNextReviewDate.setDate(calculatedNextReviewDate.getDate()); // Due today
-    } else {
-      calculatedNextReviewDate.setDate(calculatedNextReviewDate.getDate() + cumulativeDays + (intervals[calculatedStage - 1] || 1));
-    }
+    }, 50);
+  };
 
-    const progressList = getVocabProgressList();
-    const students = getStudentNames();
-    
-    students.forEach(studentName => {
-      // Mặc định coi như học sinh đã làm bài và tính phase theo ngày tạo
-      const targetStage = calculatedStage;
-      const nextReviewDate = calculatedNextReviewDate.toISOString();
-      const interval = intervals[Math.max(0, targetStage - 1)] || 1;
+  /** Xác nhận → thực sự generate SR assignments */
+  const handleConfirmSRGeneration = () => {
+    setIsSyncing(true);
+    try {
+      // clearDeletedTombstone=true: xóa tombstone để tạo lại các bài đã xóa (tombstone đã bị xóa trong preview,
+      // nhưng truyền lại để an toàn trong trường hợp confirm mà không qua preview)
+      autoSyncAllSpacedRepetition(true);
+      setSrPreviewDialog(null);
+      refreshData();
+    } catch (e) {
+      console.error('Lỗi khi tạo bài ôn tập:', e);
+      alert('Đã có lỗi xảy ra khi tạo bài ôn tập.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
-      (assignment.vocabCards || []).forEach(card => {
-        const pIndex = progressList.findIndex(p => p.studentName === studentName && p.wordId === card.id);
-        if (pIndex !== -1) {
-          progressList[pIndex].stage = targetStage;
-          progressList[pIndex].nextReviewDate = nextReviewDate;
-          progressList[pIndex].interval = interval;
-        } else {
-          progressList.push({
-            studentName,
-            wordId: card.id,
-            stage: targetStage,
-            repetitions: targetStage > 1 ? targetStage : 0,
-            interval: interval,
-            lastReviewed: new Date().toISOString(),
-            nextReviewDate: nextReviewDate
-          });
+  /** Đồng bộ hóa các bài ôn tập quá khứ — tự động hoàn thành với 100đ */
+  const handleSyncSpacedRepetition = () => {
+    if (!confirm('Tự động hoàn thành tất cả bài ôn tập SR trong quá khứ cho tất cả học viên với 100 điểm?\n\n(Chỉ áp dụng cho các bài đã quá hạn, không ảnh hưởng bài hôm nay.)')) return;
+    setIsSyncing(true);
+    try {
+      const res = syncPastReviewAssignments();
+      alert(`Hoàn thành! Đã tự động xử lý ${res.count} bài ôn tập quá hạn.`);
+      refreshData();
+    } catch (e) {
+      console.error('Lỗi khi đồng bộ ôn tập:', e);
+      alert('Đã có lỗi xảy ra.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleAutoSyncPhase = async (assignment: Assignment) => {
+    if (!confirm('Đồng bộ Phase cho TẤT CẢ học viên trong bài tập này dựa trên ngày tạo?')) return;
+
+    try {
+      const createdDate = new Date(assignment.createdAt || new Date());
+      const created = createdDate.getTime();
+      const daysDiff = Math.floor((new Date().getTime() - created) / (1000 * 3600 * 24));
+
+      let calculatedStage = 1;
+      let cumulativeDays = 0;
+      const intervals = [1, 3, 7, 14, 30, 60];
+
+      if (daysDiff === 0) {
+        calculatedStage = 0;
+      } else {
+        for (let i = 0; i < intervals.length; i++) {
+          if (daysDiff > cumulativeDays + intervals[i]) {
+            cumulativeDays += intervals[i];
+            calculatedStage = i + 2;
+          } else {
+            break;
+          }
         }
-      });
-    });
-    
-    saveVocabProgressList(progressList);
-    // Note: We don't sync progressList to Sheet using syncVocabListToSheet because that is for Cards.
-    // Progress is managed locally or needs a separate sync endpoint.
+        calculatedStage = Math.min(calculatedStage, 6);
+      }
 
-    if (calculatedStage > 1) {
-      autoSubmitPreviousStagesLocal(assignment.id, assignment.title, calculatedStage, 'ALL_STUDENTS');
-      syncActionToSheet({
-        action: 'auto_submit_previous_stage',
-        assignmentId: assignment.id,
-        assignmentTitle: assignment.title,
-        targetStage: calculatedStage,
-        studentName: 'ALL_STUDENTS',
-        baseCreatedAt: assignment.createdAt
+      const calculatedNextReviewDate = new Date(createdDate);
+      if (calculatedStage === 0) {
+        calculatedNextReviewDate.setDate(calculatedNextReviewDate.getDate()); // Due today
+      } else {
+        calculatedNextReviewDate.setDate(calculatedNextReviewDate.getDate() + cumulativeDays + (intervals[calculatedStage - 1] || 1));
+      }
+
+      const progressList = getVocabProgressList();
+      const students = getStudentNames();
+
+      students.forEach(studentName => {
+        // Mặc định coi như học sinh đã làm bài và tính phase theo ngày tạo
+        const targetStage = calculatedStage;
+        const nextReviewDate = calculatedNextReviewDate.toISOString();
+        const interval = intervals[Math.max(0, targetStage - 1)] || 1;
+
+        (assignment.vocabCards || []).forEach(card => {
+          const pIndex = progressList.findIndex(p => p.studentName === studentName && p.wordId === card.id);
+          if (pIndex !== -1) {
+            progressList[pIndex].stage = targetStage;
+            progressList[pIndex].nextReviewDate = nextReviewDate;
+            progressList[pIndex].interval = interval;
+          } else {
+            progressList.push({
+              studentName,
+              wordId: card.id,
+              stage: targetStage,
+              repetitions: targetStage > 1 ? targetStage : 0,
+              interval: interval,
+              lastReviewed: new Date().toISOString(),
+              nextReviewDate: nextReviewDate
+            });
+          }
+        });
       });
+
+      saveVocabProgressList(progressList);
+
+      if (calculatedStage > 1) {
+        autoSubmitPreviousStagesLocal(assignment.id, assignment.title, calculatedStage, 'ALL_STUDENTS');
+        await syncActionToSheet({
+          action: 'auto_submit_previous_stage',
+          assignmentId: assignment.id,
+          assignmentTitle: assignment.title,
+          targetStage: calculatedStage,
+          studentName: 'ALL_STUDENTS',
+          baseCreatedAt: assignment.createdAt
+        });
+      }
+
+      alert('Đồng bộ Phase thành công!');
+      refreshData();
+    } catch (e) {
+      console.error('Lỗi khi đồng bộ phase:', e);
+      alert('Đã có lỗi xảy ra khi đồng bộ phase. Vui lòng thử lại.');
     }
-
-    alert('Đồng bộ Phase thành công!');
-    refreshData();
   };
 
   const submitManualPhaseEdit = () => {
@@ -228,6 +289,8 @@ export default function TeacherDashboard() {
       if (res.ok) {
         const cloudData = await res.json();
         const hasChanges = syncAllFromCloud(cloudData);
+        // Re-generate SR sau khi sync để đảm bảo bài vocab mới từ teacher được tính
+        autoSyncAllSpacedRepetition();
         if (hasChanges) {
           setAssignments(getAssignments());
           setSubmissions(getSubmissions());
@@ -459,14 +522,16 @@ export default function TeacherDashboard() {
 
   // ── Recent activities (mix submissions and trackings) ──────────────────────
   const recentActivities = [
-    ...filteredSubmissions.map(s => ({ ...s, isTracking: false })),
+    ...filteredSubmissions
+      .filter(s => !(s.assignmentType === 'repetition' && (!s.durationMs || s.durationMs === 0)))
+      .map(s => ({ ...s, isTracking: false })),
     ...filteredTrackings.map(t => ({ ...t, isTracking: true }))
   ].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
     .slice(0, 8);
 
   // ── Analytics Data ─────────────────────────────────────────────────────────
   const todayActivities = [
-    ...filteredSubmissions.filter(s => toLocalDateString(s.submittedAt) === selectedDate),
+    ...filteredSubmissions.filter(s => toLocalDateString(s.submittedAt) === selectedDate && !(s.assignmentType === 'repetition' && (!s.durationMs || s.durationMs === 0))),
     ...filteredTrackings.filter(t => toLocalDateString(t.submittedAt) === selectedDate)
   ];
 
@@ -638,6 +703,126 @@ export default function TeacherDashboard() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto relative">
+      {/* SR Generation Preview Dialog */}
+      {srPreviewDialog && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass rounded-2xl border border-border w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center">
+                  <Sparkles className="h-5 w-5 text-violet-400" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base">Xem trước bài Ôn tập Spaced Repetition</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Kiểm tra danh sách bài sẽ được tạo / cập nhật trước khi xác nhận</p>
+                </div>
+              </div>
+              <button onClick={() => setSrPreviewDialog(null)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+                <X className="h-5 w-5 text-muted-foreground" />
+              </button>
+            </div>
+
+            {/* Stats Summary */}
+            <div className="grid grid-cols-4 gap-3 p-4 border-b border-white/10">
+              {[
+                { label: 'Tạo mới', value: srPreviewDialog.newCount, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
+                { label: 'Cập nhật', value: srPreviewDialog.updateCount, color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
+                { label: 'Xóa', value: srPreviewDialog.deleteCount, color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20' },
+                { label: 'Không đổi', value: srPreviewDialog.unchangedCount, color: 'text-slate-400', bg: 'bg-slate-500/10 border-slate-500/20' },
+              ].map(({ label, value, color, bg }) => (
+                <div key={label} className={`rounded-xl border p-3 text-center ${bg}`}>
+                  <p className={`text-xl font-bold font-heading ${color}`}>{value}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Today's vocab info */}
+            {srPreviewDialog.items.some(i => i.scheduledFor) && (
+              <div className="mx-4 mt-3 flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs">
+                <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <span>
+                  Bài vocab tạo <strong>hôm nay</strong> sẽ có bài ôn tập đầu tiên vào <strong>5:00 sáng ngày mai</strong> (không xuất hiện ngay hôm nay).
+                </span>
+              </div>
+            )}
+
+            {/* Items list */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {srPreviewDialog.items.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground">
+                  <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-emerald-400/50" />
+                  <p className="font-semibold">Không có thay đổi nào</p>
+                  <p className="text-xs mt-1">Tất cả bài ôn tập đã đồng bộ.</p>
+                </div>
+              ) : (
+                srPreviewDialog.items
+                  .sort((a, b) => a.date.localeCompare(b.date))
+                  .map(item => {
+                    const statusConfig = {
+                      new:       { label: 'Tạo mới',   color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25' },
+                      update:    { label: 'Cập nhật',  color: 'text-amber-400 bg-amber-500/10 border-amber-500/25' },
+                      delete:    { label: 'Xóa',         color: 'text-red-400 bg-red-500/10 border-red-500/25' },
+                      unchanged: { label: 'Không đổi',  color: 'text-slate-400 bg-slate-500/10 border-slate-500/25' },
+                    }[item.status];
+                    return (
+                      <div key={item.id} className={`flex items-center gap-3 rounded-xl p-3 border ${
+                        item.status === 'unchanged' ? 'border-white/5 opacity-60' : 'border-white/10 bg-white/[0.02]'
+                      }`}>
+                        <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm">
+                              {item.scheduledFor
+                                ? `📅 ${new Date(item.scheduledFor).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })} lúc 5:00 sáng`
+                                : item.dateLabel
+                              }
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusConfig.color}`}>
+                              {statusConfig.label}
+                            </span>
+                            {item.scheduledFor && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border text-sky-400 bg-sky-500/10 border-sky-500/20">
+                                Hôm nay → Mai 5h
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {item.cardCount} từ vựng • {item.sources.map(s => `${s.title} (lần ${s.round})`).join(', ')}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between p-4 border-t border-white/10">
+              <p className="text-xs text-muted-foreground">
+                {srPreviewDialog.items.filter(i => i.status !== 'unchanged').length} thay đổi sẽ được áp dụng
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSrPreviewDialog(null)}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold hover:bg-white/10 transition-colors border border-white/10"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleConfirmSRGeneration}
+                  disabled={isSyncing || srPreviewDialog.items.filter(i => i.status !== 'unchanged').length === 0}
+                  className="px-5 py-2 rounded-xl text-sm font-semibold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50 transition-colors flex items-center gap-2 shadow-lg shadow-violet-500/20"
+                >
+                  {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  Xác nhận tạo bài
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {confirmDialog?.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-background p-6 rounded-2xl border border-white/10 max-w-sm w-full mx-4 shadow-xl">
@@ -1116,6 +1301,26 @@ export default function TeacherDashboard() {
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleOpenSRPreview}
+                disabled={srPreviewLoading || isSyncing}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 disabled:opacity-50 transition-colors text-sm font-semibold border border-violet-500/20 shadow-lg shadow-violet-500/5"
+              >
+                {srPreviewLoading
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <Sparkles className="h-4 w-4" />
+                }
+                Tạo bài Ôn tập SR
+              </button>
+              <button
+                onClick={handleSyncSpacedRepetition}
+                disabled={isSyncing}
+                title="Tự động hoàn thành các bài SR quá hạn trong quá khứ (100 điểm)"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 disabled:opacity-50 transition-colors text-sm font-semibold border border-amber-500/20 shadow-lg shadow-amber-500/5"
+              >
+                <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                Đồng bộ Ôn tập cũ
+              </button>
               <Link href="/teacher/scores"
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-secondary/50 border border-white/5 text-foreground hover:bg-secondary transition-colors text-sm font-semibold">
                 <Settings className="h-4 w-4" /> Quản lý điểm
@@ -1128,7 +1333,7 @@ export default function TeacherDashboard() {
           </div>
 
           {/* Filters Bar */}
-          <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="p-5 rounded-2xl glass flex flex-col md:flex-row md:items-center justify-between gap-4">
             {/* Skill filter buttons */}
             <div className="space-y-1.5 flex-1">
               <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider block">Lọc Theo Kỹ Năng</label>
@@ -1182,18 +1387,25 @@ export default function TeacherDashboard() {
           {/* Assignments list */}
           {(() => {
             const filteredMgmtAssignments = allAssignments.filter(a => {
-              if (mgmtSkillFilter === 'all' && a.type === 'repetition') {
-                return false; // Mặc định ẩn bài repetition ở tab "Tất cả"
-              }
-              if (mgmtSkillFilter !== 'all') {
+              const isRepetition = a.type === 'repetition';
+
+              if (mgmtSkillFilter === 'all') {
+                // Mặc định ẩn bài SR ở tab "Tất cả" khi không lọc ngày.
+                // Khi có date filter → hiện SR (để giáo viên thấy bài SR tạo ngày đó).
+                if (isRepetition && !mgmtDateFilter) return false;
+              } else {
+                // Đang filter theo skill cụ thể — áp dụng bất kể có date filter hay không.
                 if (mgmtSkillFilter === 'Repetition') {
-                  if (a.type !== 'repetition') return false;
+                  // Chỉ hiện bài SR
+                  if (!isRepetition) return false;
                 } else {
-                  if (a.type === 'repetition') return false;
+                  // Hiện bài theo skill cụ thể — LUÔN loại SR dù date filter có hay không
+                  if (isRepetition) return false;
                   const skill = a.skill || 'Vocab';
                   if (skill.toLowerCase() !== mgmtSkillFilter.toLowerCase()) return false;
                 }
               }
+
               if (mgmtDateFilter) {
                 if (!a.createdAt) return false;
                 // So sánh theo ngày dương lịch ở múi giờ local (nhất quán với <input type="date">).
@@ -1203,12 +1415,16 @@ export default function TeacherDashboard() {
                 const aDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                 if (aDate !== mgmtDateFilter) return false;
               }
+
               return true;
             });
 
+            // Sắp xếp các bài tập theo ngày tạo (mới nhất lên đầu)
+            filteredMgmtAssignments.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
             if (filteredMgmtAssignments.length === 0) {
               return (
-                <div className="flex flex-col items-center justify-center py-16 text-center space-y-3 bg-white/5 rounded-3xl border border-white/5">
+                <div className="flex flex-col items-center justify-center py-16 text-center space-y-3 glass rounded-3xl">
                   <BookOpen className="h-12 w-12 text-muted-foreground opacity-30" />
                   <p className="text-sm font-semibold text-muted-foreground">Không tìm thấy bài tập nào!</p>
                   <p className="text-xs text-muted-foreground/60 max-w-md">Thử thay đổi điều kiện lọc theo ngày hoặc kỹ năng để tìm thấy bài tập bạn cần.</p>
@@ -1222,64 +1438,76 @@ export default function TeacherDashboard() {
                   const subs = submissions.filter(s => s.assignmentId === a.id);
                   const avg = subs.length ? Math.round(subs.reduce((s, x) => s + x.score, 0) / subs.length) : null;
                   const skill = a.skill || 'Vocab';
-                  return (
-                    <div key={a.id} className="flex h-full items-start justify-between gap-4 p-5 rounded-2xl bg-white/5 border border-white/5 hover:border-primary/30 transition-all group">
-                      <Link href={`/teacher/assignments/${a.id}/edit`} className="flex-1 flex items-start gap-3.5 min-w-0 cursor-pointer">
-                        <div className={`p-3 rounded-xl flex-shrink-0 ${skill === 'Vocab' ? 'bg-violet-500/10 text-violet-400' :
-                          skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-400' :
-                            skill === 'Reading' ? 'bg-amber-500/10 text-amber-400' :
-                              skill === 'Listening' ? 'bg-sky-500/10 text-sky-400' :
-                                skill === 'Speaking' ? 'bg-teal-500/10 text-teal-400' :
-                                  'bg-red-500/10 text-red-400'
-                          }`}>
-                          {a.type === 'vocab_context' ? <BookOpen className="h-5 w-5" /> :
-                            a.type === 'multiple_choice' ? <ListChecks className="h-5 w-5" /> :
-                              a.type === 'dictation' ? <Headphones className="h-5 w-5" /> :
-                                (a.type === 'vocabulary' || a.type === 'repetition') ? <FileJson className="h-5 w-5" /> :
-                                  a.type === 'shadowing' ? <Mic className="h-5 w-5" /> :
-                                    <PenTool className="h-5 w-5" />}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">{a.title}</p>
-                          <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${skill === 'Vocab' ? 'bg-violet-500/10 text-violet-300 border-violet-500/20' :
-                              skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' :
-                                skill === 'Reading' ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' :
-                                  skill === 'Listening' ? 'bg-sky-500/10 text-sky-300 border-sky-500/20' :
-                                    skill === 'Speaking' ? 'bg-teal-500/10 text-teal-300 border-teal-500/20' :
-                                      'bg-red-500/10 text-red-300 border-red-500/20'
-                              }`}>
-                              {skill}
-                            </span>
-                            <span className="text-muted-foreground/60">•</span>
-                            <span className="text-muted-foreground">
-                              {a.type === 'vocab_context' ? `${a.keywords?.length || 0} từ khóa` :
-                                a.type === 'multiple_choice' ? `${a.questions?.length || 0} câu hỏi` :
-                                  a.type === 'dictation' ? `${getDictationCount(a)} câu` :
-                                    (a.type === 'vocabulary' || a.type === 'repetition') ? `${a.vocabCards?.length || 0} từ vựng` :
-                                      a.type === 'shadowing' ? `${getDictationCount(a)} câu` :
-                                        `${a.keywords?.length || 0} từ khóa`}
-                            </span>
-                            {a.createdAt && (
-                              <>
-                                <span className="text-muted-foreground/60">•</span>
-                                <span className="text-muted-foreground flex items-center gap-1">
-                                  <Calendar className="h-3 w-3 text-sky-400" />
-                                  {new Date(a.createdAt).toLocaleDateString('vi-VN')}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                          {avg !== null && (
-                            <div className="mt-3 flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">Điểm TB lớp:</span>
-                              <ScoreBadge score={avg} />
-                              <span className="text-xs text-muted-foreground">({subs.length} lượt làm)</span>
-                            </div>
+                  const renderCardContent = () => (
+                    <>
+                      <div className={`p-3 rounded-xl flex-shrink-0 ${skill === 'Vocab' ? 'bg-violet-500/10 text-violet-400' :
+                        skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-400' :
+                          skill === 'Reading' ? 'bg-amber-500/10 text-amber-400' :
+                            skill === 'Listening' ? 'bg-sky-500/10 text-sky-400' :
+                              skill === 'Speaking' ? 'bg-teal-500/10 text-teal-400' :
+                                'bg-red-500/10 text-red-400'
+                        }`}>
+                        {a.type === 'vocab_context' ? <BookOpen className="h-5 w-5" /> :
+                          a.type === 'multiple_choice' ? <ListChecks className="h-5 w-5" /> :
+                            a.type === 'dictation' ? <Headphones className="h-5 w-5" /> :
+                              (a.type === 'vocabulary' || a.type === 'repetition') ? <FileJson className="h-5 w-5" /> :
+                                a.type === 'shadowing' ? <Mic className="h-5 w-5" /> :
+                                  <PenTool className="h-5 w-5" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">{a.title}</p>
+                        <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${skill === 'Vocab' ? 'bg-violet-500/10 text-violet-300 border-violet-500/20' :
+                            skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' :
+                              skill === 'Reading' ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' :
+                                skill === 'Listening' ? 'bg-sky-500/10 text-sky-300 border-sky-500/20' :
+                                  skill === 'Speaking' ? 'bg-teal-500/10 text-teal-300 border-teal-500/20' :
+                                    'bg-red-500/10 text-red-300 border-red-500/20'
+                            }`}>
+                            {skill}
+                          </span>
+                          <span className="text-muted-foreground/60">•</span>
+                          <span className="text-muted-foreground">
+                            {a.type === 'vocab_context' ? `${a.keywords?.length || 0} từ khóa` :
+                              a.type === 'multiple_choice' ? `${a.questions?.length || 0} câu hỏi` :
+                                a.type === 'dictation' ? `${getDictationCount(a)} câu` :
+                                  (a.type === 'vocabulary' || a.type === 'repetition') ? `${a.vocabCards?.length || 0} từ vựng` :
+                                    a.type === 'shadowing' ? `${getDictationCount(a)} câu` :
+                                      `${a.keywords?.length || 0} từ khóa`}
+                          </span>
+                          {a.createdAt && (
+                            <>
+                              <span className="text-muted-foreground/60">•</span>
+                              <span className="text-muted-foreground flex items-center gap-1">
+                                <Calendar className="h-3 w-3 text-sky-400" />
+                                {new Date(a.createdAt).toLocaleDateString('vi-VN')}
+                              </span>
+                            </>
                           )}
                         </div>
-                      </Link>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {avg !== null && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Điểm TB lớp:</span>
+                            <ScoreBadge score={avg} />
+                            <span className="text-xs text-muted-foreground">({subs.length} lượt làm)</span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  );
+
+                  return (
+                    <div key={a.id} className="flex flex-col sm:flex-row h-full items-stretch sm:items-start justify-between gap-4 p-5 rounded-2xl glass hover:border-primary/30 transition-all group">
+                      {a.type === 'repetition' ? (
+                        <div className="flex-1 flex items-start gap-3.5 min-w-0 w-full select-none">
+                          {renderCardContent()}
+                        </div>
+                      ) : (
+                        <Link href={`/teacher/assignments/${a.id}/edit`} className="flex-1 flex items-start gap-3.5 min-w-0 cursor-pointer">
+                          {renderCardContent()}
+                        </Link>
+                      )}
+                      <div className="flex items-center gap-1.5 justify-end mt-3 sm:mt-0 pt-3 sm:pt-0 border-t border-white/5 sm:border-t-0 flex-shrink-0">
                         {a.type === 'multiple_choice' && (
                           <button
                             type="button"
@@ -1450,12 +1678,6 @@ export default function TeacherDashboard() {
                 <p className="text-sm text-muted-foreground mt-1">Theo dõi tiến độ lặp lại ngắt quãng (Spaced Repetition) của học sinh</p>
               </div>
               <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => setImportVocabDialog(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-semibold text-sm rounded-xl transition-colors"
-                >
-                  <PlusCircle className="w-4 h-4" /> Đồng bộ Dữ liệu Cũ
-                </button>
                 <div className="text-xs px-3 py-2 rounded-xl bg-secondary/80 text-muted-foreground font-semibold">
                   Tổng số từ: <span className="text-primary font-bold">
                     {(() => {
@@ -1495,8 +1717,15 @@ export default function TeacherDashboard() {
                     const progressMap = new Map<string, any>();
                     progress.forEach(p => progressMap.set(p.wordId, p));
 
-                    const learnedCount = progress.filter(p => p.stage > 0).length;
-                    const masterCount = progress.filter(p => p.stage === 6).length;
+                    const learnedCount = totalCards.filter(card => {
+                      const prog = progressMap.get(card.id);
+                      return prog && prog.stage > 0;
+                    }).length;
+
+                    const masterCount = totalCards.filter(card => {
+                      const prog = progressMap.get(card.id);
+                      return prog && prog.stage === 6;
+                    }).length;
 
                     const now = new Date();
                     const dueCount = totalCards.filter(card => {
@@ -1590,9 +1819,10 @@ export default function TeacherDashboard() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-2 pt-3 border-t border-white/5">
-                      <button onClick={() => handleAutoSyncPhase(a)} className="flex-1 py-1.5 px-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-sky-500/20">
-                        <RefreshCw className="w-3 h-3" /> Đồng bộ
-                      </button>
+                      <div className="flex-1 py-1.5 px-3 bg-black/5 dark:bg-white/5 rounded-lg text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                        <Calendar className="w-3 h-3" />
+                        <span>{daysDiff} ngày kể từ khi giao</span>
+                      </div>
                       <button onClick={() => setSyncPhaseDialog({ assignment: a, studentName: '', phase: stage })} className="flex-1 py-1.5 px-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-amber-500/20">
                         <Edit2 className="w-3 h-3" /> Chỉnh Phase
                       </button>

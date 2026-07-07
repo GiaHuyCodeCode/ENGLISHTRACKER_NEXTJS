@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { QuizQuestion, QuizAnswerResult, Submission, getStudentAvatar, getStudentColors } from '@/lib/local-store';
-import { CheckCircle2, XCircle, Send, Star, X } from 'lucide-react';
+import { CheckCircle2, XCircle, Send, Star, X, ArrowLeft } from 'lucide-react';
 import { ExerciseTimer } from '@/components/ui/ExerciseTimer';
 
 interface Props {
@@ -21,6 +22,7 @@ interface Props {
 const LABELS = ['A', 'B', 'C', 'D'];
 
 export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, result, score, durationMs, feedback, allSubmissions, allowHints, hideSidebar }: Props) {
+  const router = useRouter();
   const [selected, setSelected] = useState<Record<number, string>>({});
   const [revealedHints, setRevealedHints] = useState<Set<number>>(new Set());
   const [isMobileMapOpen, setIsMobileMapOpen] = useState(false);
@@ -98,22 +100,35 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
     <>
       {/* Sticky Mobile Status Bar */}
       {!hideSidebar && (
-        <div className="sticky top-16 z-40 lg:hidden -mx-4 px-4 py-3 bg-white/80 dark:bg-black/60 backdrop-blur-md border-b border-black/5 dark:border-white/5 flex items-center justify-between gap-3 shadow-md">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-muted-foreground">Tiến độ:</span>
-            <span className="text-xs font-extrabold text-primary">{answered}/{questions.length}</span>
+        <div className="sticky top-16 z-40 lg:hidden mb-4 bg-background/85 dark:bg-black/65 border border-black/10 dark:border-white/5 backdrop-blur-md rounded-2xl p-3 flex items-center justify-between gap-3 shadow-lg">
+          <button
+            onClick={() => router.push('/student/assignments')}
+            className="p-2 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 rounded-xl text-muted-foreground hover:text-foreground transition-all shrink-0"
+            title="Quay lại"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tiến độ</span>
+              <span className="text-xs font-extrabold text-primary">{answered}/{questions.length}</span>
+            </div>
+            {!isSubmitted && (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Thời gian:</span>
+                <ExerciseTimer isRunning={true} className="!p-0 !bg-transparent text-[10px] font-bold text-foreground" />
+              </div>
+            )}
           </div>
-          <div className="flex-1 max-w-[30%] bg-secondary h-1.5 rounded-full overflow-hidden">
+
+          <div className="flex-1 bg-black/10 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
             <div className="bg-primary h-full transition-all duration-500" style={{ width: `${(answered / questions.length) * 100}%` }} />
           </div>
-          {!isSubmitted && (
-            <div className="flex items-center gap-1 px-2.5 py-1 bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-xl">
-              <ExerciseTimer isRunning={true} className="!p-0 !bg-transparent text-xs font-bold text-foreground" />
-            </div>
-          )}
+
           <button
             onClick={() => setIsMobileMapOpen(true)}
-            className="px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-xl text-xs font-bold text-primary active:scale-95 transition-all"
+            className="px-3 py-2 bg-primary/10 border border-primary/20 rounded-xl text-xs font-bold text-primary active:scale-95 transition-all shrink-0"
           >
             Sơ đồ
           </button>
@@ -280,18 +295,18 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                         </div>
                       )}
 
+                      {/* Hint — hiện dưới dạng bài tập và trên câu hỏi khi hiển thị kết quả HOẶC khi được kích hoạt gợi ý trước đó */}
+                      {((showAnswer && q.hint) || (allowHints && q.hint && !showAnswer && revealedHints.has(q.id))) && (
+                        <div className="mb-3 text-xs text-amber-600 dark:text-amber-400/80 bg-amber-500/5 border border-amber-500/15 rounded-lg px-2.5 py-1.5 flex items-start gap-1.5 max-w-xl animate-in fade-in duration-300">
+                          <span className="flex-shrink-0">💡</span>
+                          <span><span className="font-semibold text-foreground">Gợi ý:</span> {q.hint}</span>
+                        </div>
+                      )}
+
                       {/* Câu hỏi */}
                       <p className="font-medium text-sm leading-relaxed select-text">
                         {q.question}
                       </p>
-
-                      {/* Hint — hiện dưới câu hỏi khi bấm 💡 (giữ nguyên vị trí cũ) */}
-                      {allowHints && q.hint && !showAnswer && revealedHints.has(q.id) && (
-                        <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-400/80 bg-amber-500/5 border border-amber-500/15 rounded-lg px-2.5 py-1.5">
-                          <span className="flex-shrink-0">💡</span>
-                          <span>{q.hint}</span>
-                        </div>
-                      )}
 
                       {/* Translate — hiện dưới câu hỏi CHỈ SAU KHI đã trả lời */}
                       {showAnswer && q.translation && (
@@ -359,28 +374,21 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                   })}
                 </div>
 
-                {/* ── Phần dưới: gợi ý (nếu có) + đáp án đúng + giải thích ── */}
+                {/* ── Phần dưới: đáp án đúng + giải thích ── */}
                 {showAnswer && (
-                  <div className="mx-5 mb-5 p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 space-y-2 text-xs">
-                    {/* 1. Gợi ý — hiện khi người dùng đã chọn đáp án */}
-                    {allowHints && q.hint && (
-                      <div className="flex items-start gap-2 pb-2 border-b border-black/10 dark:border-white/10">
-                        <span className="flex-shrink-0">💡</span>
-                        <span className="text-amber-600 dark:text-amber-400 leading-relaxed">{q.hint}</span>
-                      </div>
-                    )}
-                    {/* 2. Đáp án đúng */}
+                  <div className="mx-5 mb-5 p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 space-y-3 text-xs animate-in fade-in duration-300">
+                    {/* 1. Đáp án đúng */}
                     <div className="flex items-start gap-2">
                       <span className="text-muted-foreground whitespace-nowrap flex-shrink-0">Đáp án đúng:</span>
                       <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/10 px-2 py-0.5 rounded leading-relaxed">
                         {q.answer.toUpperCase()}. {cleanOptionText(q.options[LABELS.indexOf(q.answer.toUpperCase())] || '', q.answer.toUpperCase())}
                       </span>
                     </div>
-                    {/* 3. Giải thích — nếu có */}
+                    {/* 2. Giải thích — nếu có */}
                     {q.explanation && (
-                      <div className="pt-2 border-t border-white/5 text-muted-foreground leading-relaxed">
-                        <span className="font-semibold text-foreground">📝 </span>
-                        {q.explanation}
+                      <div className="pt-2 border-t border-black/10 dark:border-white/10 text-muted-foreground leading-relaxed flex items-start gap-1.5">
+                        <span className="flex-shrink-0">📝</span>
+                        <span><span className="font-semibold text-foreground">Giải thích đáp án:</span> {q.explanation}</span>
                       </div>
                     )}
                   </div>
