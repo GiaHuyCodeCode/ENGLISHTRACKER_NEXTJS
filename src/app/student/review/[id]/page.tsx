@@ -496,9 +496,9 @@ export default function StudentReviewPage() {
               <div className="grid gap-3">
                 {dictationSentences.map((s: any, i: number) => {
                   const rawResults = submission.shadowingResults;
-                  const resultsArray = Array.isArray(rawResults)
+                  const resultsArray = (Array.isArray(rawResults)
                     ? rawResults
-                    : (rawResults && typeof rawResults === 'object' ? Object.values(rawResults) : []);
+                    : (rawResults && typeof rawResults === 'object' ? Object.values(rawResults) : [])) as any[];
                   const r = (resultsArray || []).find((res: any) => String(res.word || res.sentenceId) === String(s.id));
                   const acc = r?.accuracy ?? 0;
                   const isCorrect = acc >= 80;

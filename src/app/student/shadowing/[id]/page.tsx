@@ -197,9 +197,9 @@ export default function ShadowingExercisePage() {
         setSavedBestScore(prevSub.score);
         // Map ShadowingResult[] sang SentenceShadowingResult[]
         const rawResults = prevSub.shadowingResults;
-        const resultsArray = Array.isArray(rawResults)
+        const resultsArray = (Array.isArray(rawResults)
           ? rawResults
-          : (rawResults && typeof rawResults === 'object' ? Object.values(rawResults) : []);
+          : (rawResults && typeof rawResults === 'object' ? Object.values(rawResults) : [])) as any[];
 
         const prevResults: SentenceShadowingResult[] = (resultsArray || []).map(
           (r: ShadowingResult) => ({
