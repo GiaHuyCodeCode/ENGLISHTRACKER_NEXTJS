@@ -16,3 +16,17 @@ export function toLocalDateString(dateOrStr: Date | string = new Date()): string
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+export function toLocal2359ISOString(dateOrStr: Date | string = new Date()): string {
+  const date = typeof dateOrStr === 'string' ? new Date(dateOrStr) : dateOrStr;
+  const safeDate = isNaN(date.getTime()) ? new Date() : date;
+  const d = new Date(
+    safeDate.getFullYear(),
+    safeDate.getMonth(),
+    safeDate.getDate(),
+    23,
+    59,
+    59
+  );
+  return d.toISOString();
+}

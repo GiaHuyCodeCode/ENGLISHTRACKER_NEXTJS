@@ -12,12 +12,13 @@ interface Props {
   result?: RewriteAnswerResult;
   score?: number;
   durationMs?: number;
+  hideStudentAnswer?: boolean;
 }
 
-export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting, result, score, durationMs }: Props) {
+export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting, result, score, durationMs, hideStudentAnswer }: Props) {
   const [text, setText] = useState('');
   const [usedKeywords, setUsedKeywords] = useState<Set<string>>(new Set());
-  const isSubmitted = !!result;
+  const isSubmitted = !!result || hideStudentAnswer;
 
   useEffect(() => {
     if (isSubmitted) return;
@@ -38,6 +39,9 @@ export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting
   };
 
   const getResultIcon = (word: string) => {
+    if (hideStudentAnswer) {
+      return <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />;
+    }
     if (!result) return null;
     const isFound = Array.isArray(result.foundKeywords) && result.foundKeywords.includes(word);
     return isFound ? <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> : <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />;
@@ -66,15 +70,15 @@ export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting
       {/* Required Keywords List */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground/80">
-          <PenTool className="h-4 w-4" /> Từ khóa yêu cầu ({isSubmitted ? (result?.foundKeywords || []).length : usedKeywords.size}/{kwList.length})
+          <PenTool className="h-4 w-4" /> Từ khóa yêu cầu ({isSubmitted ? (hideStudentAnswer ? kwList.length : (result?.foundKeywords || []).length) : usedKeywords.size}/{kwList.length})
         </h3>
         <div className="flex flex-wrap gap-2">
           {kwList.map((k, i) => {
-            const isUsed = isSubmitted 
+            const isUsed = hideStudentAnswer ? true : (isSubmitted 
               ? Array.isArray(result?.foundKeywords) && result.foundKeywords.includes(k.word)
-              : usedKeywords.has(k.word);
+              : usedKeywords.has(k.word));
             
-            const isMissing = isSubmitted && Array.isArray(result?.missingKeywords) && result.missingKeywords.includes(k.word);
+            const isMissing = hideStudentAnswer ? false : (isSubmitted && Array.isArray(result?.missingKeywords) && result.missingKeywords.includes(k.word));
 
             return (
               <span key={i} id={`rw-keyword-${k.word.toLowerCase()}`} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
@@ -96,10 +100,16 @@ export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting
       {/* Text Area */}
       <div className="glass-strong rounded-2xl p-4">
         {isSubmitted ? (
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground">Bài làm của bạn:</h3>
-            <p className="text-sm leading-loose whitespace-pre-wrap">{result.studentText}</p>
-          </div>
+          hideStudentAnswer ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground italic">Bài tập này đã được đồng bộ tự động hoàn thành.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground">Bài làm của bạn:</h3>
+              <p className="text-sm leading-loose whitespace-pre-wrap">{result?.studentText}</p>
+            </div>
+          )
         ) : (
           <textarea
             value={text}
@@ -124,7 +134,7 @@ export function RewriteVocabExercise({ passage, keywords, onSubmit, isSubmitting
             <span className="text-2xl text-muted-foreground">/100</span>
           </div>
           <p className="text-sm text-muted-foreground mt-2">
-            ✅ Đã dùng {result?.foundKeywords.length}/{keywords.length} từ khóa
+            ✅ Đã dùng {hideStudentAnswer ? keywords.length : (result?.foundKeywords?.length || 0)}/{keywords.length} từ khóa
             {score >= 80 && ' — Rất sáng tạo! 🎉'}
             {score >= 50 && score < 80 && ' — Khá tốt! 💪'}
             {score < 50 && ' — Cần cố gắng dùng nhiều từ hơn! 📚'}

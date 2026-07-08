@@ -144,11 +144,11 @@ export default function StudentAssignmentsPage() {
 
   const colors = getStudentColors(studentName);
   const initials = getStudentAvatar(studentName);
-  const myAvgScore = submissions.filter(s => s.assignmentType !== 'repetition').length
-    ? Math.round(submissions.filter(s => s.assignmentType !== 'repetition').reduce((s, x) => s + x.score, 0) / submissions.filter(s => s.assignmentType !== 'repetition').length)
+  const myAvgScore = submissions.filter(s => s.id && s.assignmentType !== 'repetition' && Number(s.durationMs) > 0).length
+    ? Math.round(submissions.filter(s => s.id && s.assignmentType !== 'repetition' && Number(s.durationMs) > 0).reduce((s, x) => s + x.score, 0) / submissions.filter(s => s.id && s.assignmentType !== 'repetition' && Number(s.durationMs) > 0).length)
     : null;
 
-  const getSubmission = (id: string) => submissions.find(s => s.assignmentId === id);
+  const getSubmission = (id: string) => submissions.find(s => s.id && s.assignmentId === id);
 
   const formatDuration = (ms?: number) => {
     if (!ms) return '';
@@ -177,8 +177,8 @@ export default function StudentAssignmentsPage() {
   const done = visibleAssignments.filter(a => {
     const sub = getSubmission(a.id);
     if (!sub) return false;
-    // Ẩn các bài tập Spaced Repetition do hệ thống tự đồng bộ (không có thời gian làm bài)
-    if (a.type === 'repetition' && (!sub.durationMs || sub.durationMs === 0)) {
+    // Ẩn các bài tập do hệ thống tự đồng bộ (không có thời gian làm bài)
+    if (!sub.durationMs || Number(sub.durationMs) === 0) {
       return false;
     }
     return true;

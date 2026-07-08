@@ -13,9 +13,10 @@ interface Props {
   score?: number;
   durationMs?: number;
   allSubmissions?: Submission[];
+  hideStudentAnswer?: boolean;
 }
 
-export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting, result, score, durationMs, allSubmissions }: Props) {
+export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting, result, score, durationMs, allSubmissions, hideStudentAnswer }: Props) {
   const [answers, setAnswers] = useState<Record<string, string>>(
     Object.fromEntries(keywords.map(k => [k.word, ''])),
   );
@@ -114,6 +115,11 @@ export function VocabContextExercise({ passage, keywords, onSubmit, isSubmitting
                     className="input-inline w-24"
                     autoComplete="off"
                   />
+                ) : hideStudentAnswer ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                    <CheckCircle2 className="h-3 w-3" />
+                    <strong>{matchKeyword?.answer}</strong>
+                  </span>
                 ) : (
                   <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border ${
                     (isSubmitted ? wordResult?.isCorrect : (overrides.has(word) || isFuzzyMatch(answers[word] || '', matchKeyword?.answer || '')))

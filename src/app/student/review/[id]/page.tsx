@@ -410,6 +410,7 @@ export default function StudentReviewPage() {
                 result={submission.vocabAnswers}
                 score={submission.score}
                 durationMs={submission.durationMs}
+                hideStudentAnswer={!submission.durationMs || Number(submission.durationMs) === 0}
               />
             </div>
           )}
@@ -424,6 +425,7 @@ export default function StudentReviewPage() {
                 score={submission.score}
                 durationMs={submission.durationMs}
                 hideSidebar={true}
+                hideStudentAnswer={!submission.durationMs || Number(submission.durationMs) === 0}
               />
             </div>
           )}
@@ -438,6 +440,7 @@ export default function StudentReviewPage() {
                 result={submission.rewriteAnswers}
                 score={submission.score}
                 durationMs={submission.durationMs}
+                hideStudentAnswer={!submission.durationMs || Number(submission.durationMs) === 0}
               />
             </div>
           )}

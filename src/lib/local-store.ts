@@ -89,6 +89,7 @@ export interface Assignment {
   /** ID của bài Dictation gốc nếu bài Shadowing này được tạo tự động từ Dictation */
   sourceDictationId?: string;
   isHidden?: boolean; // Cho bài tập Spaced Repetition bị ẩn
+  _localLastUpdated?: number; // local edit timestamp to avoid race conditions
 }
 
 export interface VocabAnswerResult {
@@ -415,11 +416,11 @@ function write<T>(key: string, value: T): void {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-export function getAssignments(): Assignment[] {
+export function getAssignments(includeHidden: boolean = false): Assignment[] {
   const list = read<Assignment[]>(KEYS.assignments, []);
   return list.filter(a => {
-    // Bỏ qua các bài tập bị ẩn
-    if (a.isHidden === true) return false;
+    // Bỏ qua các bài tập bị ẩn nếu không yêu cầu
+    if (!includeHidden && a.isHidden === true) return false;
 
     const isOldSrsId = a.id && (a.id.startsWith('rep-stage') || a.id.startsWith('stage'));
     const isOldSrsTitle = a.title && (a.title.toLowerCase().startsWith('stage ') || a.title.toLowerCase().startsWith('stage-'));
@@ -434,7 +435,7 @@ export function getAssignment(id: string): Assignment | undefined {
 }
 
 export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { createdAt?: string }): Assignment {
-  const all = getAssignments();
+  const all = getAssignments(true);
   const a: Assignment = { ...data, id: crypto.randomUUID(), createdAt: data.createdAt || new Date().toISOString() };
   write(KEYS.assignments, [...all, a]);
 
@@ -459,13 +460,9 @@ export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { cr
     if (hasNewCards) {
       saveVocabularyCards(updatedCards);
     }
-
-    // Tự động sinh ra 5 bài tập Spaced Repetition (Stages 1-5) với trạng thái isHidden = true
-    // Đã comment out: tạm ngừng tự động tạo bài tập Spaced Repetition.
-    // const intervals = [1, 3, 7, 14, 30]; // Stage 1, 2, 3, 4, 5
-    // let cumulativeDays = 0;
-    //
-    // const createdDateRaw = new Date(a.createdAt);
+    
+    // Tự động thêm progress cho assignment mới tạo
+    syncVocabProgressFromAssignments();
     // createdDateRaw.setHours(0, 0, 0, 0);
     // const createdMidnight = createdDateRaw.getTime();
     //
@@ -515,7 +512,7 @@ export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { cr
       id: crypto.randomUUID(),
       type: 'rewrite_vocab'
     };
-    const updatedAll = getAssignments();
+    const updatedAll = getAssignments(true);
     write(KEYS.assignments, [...updatedAll, rewriteAssignment]);
     syncAssignmentToSheet(rewriteAssignment);
   }
@@ -533,7 +530,7 @@ export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { cr
       passage: JSON.stringify(a.sentences), // GAS lưu sentences vào cột Passage
       sourceDictationId: a.id,   // Lưu id Dictation gốc để phân biệt khi cần
     };
-    const updatedAll2 = getAssignments();
+    const updatedAll2 = getAssignments(true);
     write(KEYS.assignments, [...updatedAll2, shadowingAssignment]);
     syncAssignmentToSheet(shadowingAssignment);
   }
@@ -542,10 +539,13 @@ export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { cr
 }
 
 export function importAssignment(assignment: Assignment): void {
-  const all = getAssignments();
+  const all = getAssignments(true);
   // Check if it already exists to avoid duplicates
   if (!all.find(a => a.id === assignment.id)) {
     write(KEYS.assignments, [...all, assignment]);
+    if (assignment.type === 'vocabulary') {
+      syncVocabProgressFromAssignments();
+    }
   }
 }
 
@@ -564,7 +564,7 @@ export function syncAllFromCloud(cloudData: any): boolean {
   //      is missing critical data (e.g. GAS doesn't store `sentences` for shadowing).
   //    - Local-only assignments (IDs not in cloud) are always preserved.
   if (Array.isArray(cloudData.assignments)) {
-    const local = getAssignments();
+    const local = getAssignments(true);
     const localMap = new Map(local.map(a => [a.id, a]));
     
     // Đọc danh sách ID đã xóa
@@ -591,6 +591,18 @@ export function syncAllFromCloud(cloudData: any): boolean {
     const merged = activeCloudAssignments.map((cloudA: any) => {
       const localA = localMap.get(cloudA.id);
       if (!localA) return cloudA; // New from cloud
+
+      // Nếu local mới được update trong vòng 10 giây qua, giữ nguyên các trường local vừa sửa
+      if (localA._localLastUpdated && (Date.now() - localA._localLastUpdated < 10 * 1000)) {
+        return {
+          ...cloudA,
+          title: localA.title,
+          isHidden: localA.isHidden,
+          allowHints: localA.allowHints,
+          _localLastUpdated: localA._localLastUpdated
+        };
+      }
+
       // Prefer local for shadowing when cloud lacks sentences (GAS schema gap)
       if ((localA.type === 'shadowing' || localA.type === 'dictation') &&
           Array.isArray(localA.sentences) && !Array.isArray(cloudA.sentences)) {
@@ -664,6 +676,11 @@ export function syncAllFromCloud(cloudData: any): boolean {
   if (Array.isArray(cloudData.submissions)) {
     write(KEYS.submissions, cloudData.submissions);
     hasChanges = true;
+    
+    // Recalculate vocab progress for all active students when submissions change
+    getStudentNames().forEach(name => {
+      recalculateVocabProgress(name);
+    });
   }
 
   // 3. Daily Tracking (Overwrite completely)
@@ -684,15 +701,84 @@ export function syncAllFromCloud(cloudData: any): boolean {
     hasChanges = true;
   }
 
+  // 6. Tự động đồng bộ tiến độ học từ vựng từ ngày giao bài tập
+  syncVocabProgressFromAssignments();
+
   return hasChanges;
 }
 
+export function syncVocabProgressFromAssignments(): void {
+  const students = getStudentNames();
+  const assignments = getAssignments(true).filter(a => a.type === 'vocabulary');
+  const allProgress = getVocabProgressList();
+  const progressMap = new Map<string, VocabProgress>();
+  
+  allProgress.forEach(p => {
+    progressMap.set(`${p.studentName}_${p.wordId}`, p);
+  });
+  
+  let hasChanges = false;
+  const now = new Date();
+  
+  assignments.forEach(assignment => {
+    if (!assignment.vocabCards || !assignment.createdAt) return;
+    
+    const targetStage = getCalculatedStage(assignment.createdAt);
+    if (targetStage === 0) return;
+    
+    // Tính toán nextReviewDate cho stage này
+    const createdDate = new Date(assignment.createdAt);
+    let cumulativeDays = 0;
+    for (let i = 0; i < targetStage - 1; i++) {
+      cumulativeDays += REVIEW_INTERVALS[i];
+    }
+    const interval = REVIEW_INTERVALS[targetStage - 1] || 1;
+    const nextReviewDate = new Date(createdDate.getTime() + (cumulativeDays + interval) * 24 * 60 * 60 * 1000).toISOString();
+    
+    students.forEach(student => {
+      assignment.vocabCards!.forEach(card => {
+        const key = `${student}_${card.id}`;
+        const existing = progressMap.get(key);
+        
+        if (!existing) {
+          const newProgress: VocabProgress = {
+            studentName: student,
+            wordId: card.id,
+            stage: targetStage,
+            interval: interval,
+            nextReviewDate: nextReviewDate,
+            repetitions: targetStage > 1 ? targetStage : 0,
+            lastReviewed: now.toISOString()
+          };
+          progressMap.set(key, newProgress);
+          allProgress.push(newProgress);
+          hasChanges = true;
+        } else if (existing.stage < targetStage) {
+          existing.stage = targetStage;
+          existing.interval = interval;
+          existing.nextReviewDate = nextReviewDate;
+          existing.repetitions = Math.max(existing.repetitions, targetStage > 1 ? targetStage : 0);
+          hasChanges = true;
+        }
+      });
+    });
+  });
+  
+  if (hasChanges) {
+    saveVocabProgressList(allProgress);
+  }
+}
+
 export function updateAssignment(id: string, partial: Partial<Assignment>) {
-  const current = getAssignments();
+  const current = getAssignments(true);
   const index = current.findIndex(a => a.id === id);
   if (index !== -1) {
     const oldTitle = current[index].title;
-    current[index] = { ...current[index], ...partial };
+    current[index] = { 
+      ...current[index], 
+      ...partial,
+      _localLastUpdated: Date.now()
+    };
     write(KEYS.assignments, current);
     syncAssignmentToSheet(current[index], 'update_assignment');
 
@@ -734,7 +820,7 @@ export function updateAssignment(id: string, partial: Partial<Assignment>) {
 
 export function deleteAssignment(id: string): void {
   // Lấy title trước khi xóa khỏi local store (để truyền lên GAS làm fallback xóa theo cột B)
-  const assignmentToDelete = getAssignments().find(a => a.id === id);
+  const assignmentToDelete = getAssignments(true).find(a => a.id === id);
   const assignmentTitle = assignmentToDelete?.title || '';
 
   // Ghi nhận ID bài tập đã bị xóa vào Tombstone list
@@ -753,7 +839,7 @@ export function deleteAssignment(id: string): void {
     }
   }
 
-  write(KEYS.assignments, getAssignments().filter(a => a.id !== id));
+  write(KEYS.assignments, getAssignments(true).filter(a => a.id !== id));
   write(KEYS.submissions, getSubmissions().filter(s => s.assignmentId !== id));
   // Truyền thêm title để GAS xóa theo cột B (Title) như fallback
   // — đặc biệt cần thiết với bài SR (daily-review-*) có thể tồn tại trên sheet với ID khác
@@ -888,6 +974,8 @@ export function clearAllData(): void {
   localStorage.removeItem(KEYS.dailyTracking);
   // Không xóa KEYS.seeded để tránh việc tự động tạo lại dữ liệu mẫu khi reload
   localStorage.removeItem('et_gamification');
+  
+  syncActionToSheet({ action: 'clear_all_data' });
 }
 
 // ─── Scoring & Submit ─────────────────────────────────────────────────────────
@@ -1382,7 +1470,7 @@ export function seedIfEmpty(): void {
   }
 
   // Patch existing assignments that might be missing keywords or vocabCards (e.g. D8 bug)
-  const assignments = getAssignments();
+  const assignments = getAssignments(true);
   let changed = false;
   const updatedAssignments = assignments.map(a => {
     let patched = false;
@@ -1455,11 +1543,27 @@ export function getStudentVocabProgress(studentName: string): VocabProgress[] {
 
 const REVIEW_INTERVALS = [1, 3, 7, 14, 30, 60]; // 2 months stages
 
+export function getCalculatedStage(createdAt?: string): number {
+  if (!createdAt) return 0;
+  const createdDate = new Date(createdAt);
+  const today = new Date();
+  const diffTime = Math.max(0, today.getTime() - createdDate.getTime());
+  const daysPassed = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (daysPassed >= 55) return 6;
+  if (daysPassed >= 25) return 5;
+  if (daysPassed >= 11) return 4;
+  if (daysPassed >= 4) return 3;
+  if (daysPassed >= 1) return 2;
+  return 1;
+}
+
 export function updateVocabProgress(
   studentName: string,
   wordId: string,
   rating: 'easy' | 'good' | 'hard' | 'again',
-  actionDate?: Date
+  actionDate?: Date,
+  isSynced: boolean = false
 ): VocabProgress {
   const allProgress = getVocabProgressList();
   let progressIndex = allProgress.findIndex(p => p.studentName === studentName && p.wordId === wordId);
@@ -1467,46 +1571,90 @@ export function updateVocabProgress(
   let progress: VocabProgress;
   const now = actionDate || new Date();
 
-  if (progressIndex === -1) {
-    progress = {
-      studentName,
-      wordId,
-      stage: rating === 'again' ? 1 : rating === 'hard' ? 1 : rating === 'good' ? 2 : 3,
-      interval: 1,
-      nextReviewDate: now.toISOString(),
-      repetitions: 1,
-      lastReviewed: now.toISOString()
-    };
-
-    // Calculate initial next review date
-    const stageVal = progress.stage;
-    const days = REVIEW_INTERVALS[stageVal - 1] || 1;
-    progress.interval = days;
-    progress.nextReviewDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
-
-    allProgress.push(progress);
-  } else {
-    progress = allProgress[progressIndex];
-    progress.repetitions += 1;
-    progress.lastReviewed = now.toISOString();
-
-    const isDue = new Date(progress.nextReviewDate) <= now;
-
-    if (rating === 'again') {
-      progress.stage = 1;
-    } else if (rating === 'hard') {
-      progress.stage = Math.max(1, progress.stage - 1);
-    } else if (rating === 'good') {
-      if (isDue) progress.stage = Math.min(6, progress.stage + 1);
-    } else if (rating === 'easy') {
-      if (isDue) progress.stage = Math.min(6, progress.stage + 2);
+  if (isSynced) {
+    // Calculate stage based on actionDate (creation date of assignment) and today's date
+    const today = new Date();
+    const diffTime = Math.max(0, today.getTime() - now.getTime());
+    const daysPassed = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    let computedStage = 2; // Default to Stage 2 since they got 100% correct
+    if (daysPassed >= 55) {
+      computedStage = 6;
+    } else if (daysPassed >= 25) {
+      computedStage = 5;
+    } else if (daysPassed >= 11) {
+      computedStage = 4;
+    } else if (daysPassed >= 4) {
+      computedStage = 3;
+    } else if (daysPassed >= 1) {
+      computedStage = 2;
     }
+    
+    const interval = REVIEW_INTERVALS[computedStage - 1] || 1;
+    const nextReviewDate = new Date(today.getTime() + interval * 24 * 60 * 60 * 1000).toISOString();
+    
+    if (progressIndex === -1) {
+      progress = {
+        studentName,
+        wordId,
+        stage: computedStage,
+        interval,
+        nextReviewDate,
+        repetitions: 1,
+        lastReviewed: now.toISOString()
+      };
+      allProgress.push(progress);
+    } else {
+      progress = allProgress[progressIndex];
+      // Keep the higher stage (real progress shouldn't be downgraded by sync)
+      progress.stage = Math.max(progress.stage, computedStage);
+      progress.interval = REVIEW_INTERVALS[progress.stage - 1] || 1;
+      progress.nextReviewDate = nextReviewDate;
+      progress.lastReviewed = now.toISOString();
+      allProgress[progressIndex] = progress;
+    }
+  } else {
+    if (progressIndex === -1) {
+      progress = {
+        studentName,
+        wordId,
+        stage: rating === 'again' ? 1 : rating === 'hard' ? 1 : rating === 'good' ? 2 : 3,
+        interval: 1,
+        nextReviewDate: now.toISOString(),
+        repetitions: 1,
+        lastReviewed: now.toISOString()
+      };
 
-    const days = REVIEW_INTERVALS[progress.stage - 1];
-    progress.interval = days;
-    progress.nextReviewDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+      // Calculate initial next review date
+      const stageVal = progress.stage;
+      const days = REVIEW_INTERVALS[stageVal - 1] || 1;
+      progress.interval = days;
+      progress.nextReviewDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
 
-    allProgress[progressIndex] = progress;
+      allProgress.push(progress);
+    } else {
+      progress = allProgress[progressIndex];
+      progress.repetitions += 1;
+      progress.lastReviewed = now.toISOString();
+
+      const isDue = new Date(progress.nextReviewDate) <= now;
+
+      if (rating === 'again') {
+        progress.stage = 1;
+      } else if (rating === 'hard') {
+        progress.stage = Math.max(1, progress.stage - 1);
+      } else if (rating === 'good') {
+        if (isDue) progress.stage = Math.min(6, progress.stage + 1);
+      } else if (rating === 'easy') {
+        if (isDue) progress.stage = Math.min(6, progress.stage + 2);
+      }
+
+      const days = REVIEW_INTERVALS[progress.stage - 1];
+      progress.interval = days;
+      progress.nextReviewDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+
+      allProgress[progressIndex] = progress;
+    }
   }
 
   write(KEYS.vocabProgress, allProgress);
@@ -1522,7 +1670,7 @@ export function recalculateVocabProgress(studentName: string): void {
   const allSubmissions = getSubmissions()
     .filter(s => s.studentName === studentName && 
                  (s.assignmentType === 'vocabulary' || 
-                 (s.assignmentType === 'repetition' && s.durationMs !== 0)))
+                 (s.assignmentType === 'repetition' && (s.durationMs !== 0 || s.assignmentId.startsWith('daily-review-')))))
     .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
 
   const freshCards = getVocabularyCards();
@@ -1531,12 +1679,13 @@ export function recalculateVocabProgress(studentName: string): void {
   allSubmissions.forEach(sub => {
     if (!sub.vocabAnswers) return;
     const subDate = new Date(sub.submittedAt);
+    const isSynced = !sub.durationMs || Number(sub.durationMs) === 0;
 
     sub.vocabAnswers.forEach(ans => {
       const matchedCard = freshCards.find(fc => fc.word.toLowerCase() === ans.word.toLowerCase());
       if (matchedCard) {
         const rating = ans.isCorrect ? 'good' : 'again';
-        updateVocabProgress(studentName, matchedCard.id, rating, subDate);
+        updateVocabProgress(studentName, matchedCard.id, rating, subDate, isSynced);
       }
     });
   });
@@ -1754,7 +1903,7 @@ export function previewSRGeneration(clearDeletedTombstone = false): SRPreviewRes
 }
 
 export function generateDailyReviewAssignment(clearDeletedTombstone = false) {
-  const assignments = getAssignments();
+  const assignments = getAssignments(true);
   const vocabAssignments = assignments.filter(a => a.type === 'vocabulary' && a.vocabCards && a.vocabCards.length > 0);
   if (vocabAssignments.length === 0) return;
 
@@ -1887,7 +2036,7 @@ export function generateDailyReviewAssignment(clearDeletedTombstone = false) {
   }
 }
 
-export function syncPastReviewAssignments(): { count: number } {
+export async function syncPastReviewAssignments(): Promise<{ count: number }> {
   const assignments = getAssignments();
   const todayStr = toLocalDateString(new Date());
   
@@ -1900,16 +2049,50 @@ export function syncPastReviewAssignments(): { count: number } {
 
   const students = getStudentNames();
   const allSubmissions = getSubmissions();
-  let syncCount = 0;
-  const freshCards = getVocabularyCards();
+  const newSubs: Submission[] = [];
 
   pastReviews.forEach(a => {
     const reviewDateStr = a.id.replace('daily-review-', ''); // YYYY-MM-DD
     const submittedAt = new Date(reviewDateStr + 'T23:59:59').toISOString();
 
-    // Không tạo fake submission nữa để tránh lỗi tự động bump stage từ vựng (từ vựng chưa học đã lên Master).
-    // Các từ vựng quá hạn (overdue) sẽ được học viên tự ôn thông qua tính năng "Ôn tập ngay" (On-Demand).
+    students.forEach(student => {
+      const exists = allSubmissions.some(sub => sub.studentName === student && sub.assignmentId === a.id);
+      if (!exists) {
+        const vocabAnswers = (a.vocabCards || []).map(card => ({
+          word: card.word,
+          studentAnswer: card.word,
+          isCorrect: true,
+          correctAnswer: card.word
+        }));
+
+        newSubs.push({
+          id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(7),
+          assignmentId: a.id,
+          assignmentTitle: a.title,
+          assignmentType: a.type,
+          studentName: student,
+          score: 100,
+          vocabAnswers,
+          details: JSON.stringify({ 
+            auto_submit: true, 
+            note: "Đồng bộ bài tập cũ",
+            vocabAnswers
+          }),
+          submittedAt: submittedAt,
+          durationMs: 0
+        });
+      }
+    });
   });
+
+  if (newSubs.length > 0) {
+    write(KEYS.submissions, [...allSubmissions, ...newSubs]);
+    // Sau khi thêm submissions mới, tính toán lại vocab progress cho tất cả học sinh bị ảnh hưởng
+    const affectedStudents = Array.from(new Set(newSubs.map(s => s.studentName)));
+    affectedStudents.forEach(studentName => {
+      recalculateVocabProgress(studentName);
+    });
+  }
 
   // Khôi phục (unhide) các bài daily-review cũ để hiển thị trên danh sách bài tập (trước đây bị ẩn)
   const allAssignments = read<Assignment[]>(KEYS.assignments, []);
@@ -1923,6 +2106,24 @@ export function syncPastReviewAssignments(): { count: number } {
   });
   if (hasChanges) {
     write(KEYS.assignments, updatedAssignments);
+  }
+
+  // Sync lên Google Sheets qua action sync_all_past_assignments
+  if (pastReviews.length > 0) {
+    try {
+      await syncActionToSheet({
+        action: 'sync_all_past_assignments',
+        assignments: pastReviews.map(a => ({
+          id: a.id,
+          title: a.title,
+          type: a.type,
+          createdAt: a.createdAt,
+          vocabCards: a.vocabCards
+        }))
+      });
+    } catch (e) {
+      console.error('Lỗi khi sync lên Google Sheets:', e);
+    }
   }
 
   return { count: pastReviews.length };

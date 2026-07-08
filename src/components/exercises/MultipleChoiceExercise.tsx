@@ -17,11 +17,12 @@ interface Props {
   feedback?: string;
   allSubmissions?: Submission[];
   hideSidebar?: boolean;
+  hideStudentAnswer?: boolean;
 }
 
 const LABELS = ['A', 'B', 'C', 'D'];
 
-export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, result, score, durationMs, feedback, allSubmissions, allowHints, hideSidebar }: Props) {
+export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, result, score, durationMs, feedback, allSubmissions, allowHints, hideSidebar, hideStudentAnswer }: Props) {
   const router = useRouter();
   const [selected, setSelected] = useState<Record<number, string>>({});
   const [revealedHints, setRevealedHints] = useState<Set<number>>(new Set());
@@ -242,7 +243,7 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
             const qResult = getResult(q.id);
             const hasAnsweredLocal = !!selected[q.id];
             const localIsCorrect = selected[q.id] === q.answer;
-            const isCorrect = isSubmitted ? qResult?.isCorrect : localIsCorrect;
+            const isCorrect = hideStudentAnswer ? true : (isSubmitted ? qResult?.isCorrect : localIsCorrect);
             const showAnswer = isSubmitted || hasAnsweredLocal;
 
             const failedPeersForQuestion = allSubmissions?.filter(sub => {
@@ -347,9 +348,9 @@ export function MultipleChoiceExercise({ questions, onSubmit, isSubmitting, resu
                 <div className="px-5 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {q.options.map((opt, optIdx) => {
                     const label = LABELS[optIdx];
-                    const isChosen = isSubmitted
+                    const isChosen = hideStudentAnswer ? false : (isSubmitted
                       ? String(qResult?.studentAnswer).trim().toUpperCase() === String(label).trim().toUpperCase()
-                      : selected[q.id] === label;
+                      : selected[q.id] === label);
                     const isCorrectOpt = showAnswer && q.answer.toUpperCase() === label;
 
                     let cls = 'border border-border/60 text-foreground/70 hover:border-primary/40 hover:bg-primary/5 hover:text-foreground cursor-pointer';

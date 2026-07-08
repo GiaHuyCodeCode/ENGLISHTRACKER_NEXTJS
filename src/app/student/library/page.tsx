@@ -20,13 +20,13 @@ import { audioManager } from '@/lib/audio';
 
 // Stage config: label, color classes, bar color, interval info
 const STAGE_CONFIG = [
-  { label: 'Chưa học',           bar: 'bg-slate-400',   badge: 'bg-slate-500/10 dark:bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20',   interval: '—'         },
-  { label: 'Stage 1',            bar: 'bg-red-400',     badge: 'bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',         interval: '1 ngày'    },
-  { label: 'Stage 2',            bar: 'bg-amber-400',   badge: 'bg-amber-500/10 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',   interval: '3 ngày'    },
-  { label: 'Stage 3',            bar: 'bg-yellow-400',  badge: 'bg-yellow-500/10 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',interval: '7 ngày'    },
-  { label: 'Stage 4',            bar: 'bg-indigo-400',  badge: 'bg-indigo-500/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',interval: '14 ngày'   },
-  { label: 'Stage 5',            bar: 'bg-sky-400',     badge: 'bg-sky-500/10 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-400/20',         interval: '30 ngày'   },
-  { label: '🏆 Master',          bar: 'bg-emerald-400', badge: 'bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', interval: '60 ngày'},
+  { label: 'Chưa học', bar: 'bg-slate-400', badge: 'bg-slate-500/10 dark:bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20', interval: '—' },
+  { label: 'Stage 1', bar: 'bg-red-400', badge: 'bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20', interval: '1 ngày' },
+  { label: 'Stage 2', bar: 'bg-amber-400', badge: 'bg-amber-500/10 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20', interval: '3 ngày' },
+  { label: 'Stage 3', bar: 'bg-yellow-400', badge: 'bg-yellow-500/10 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20', interval: '7 ngày' },
+  { label: 'Stage 4', bar: 'bg-indigo-400', badge: 'bg-indigo-500/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20', interval: '14 ngày' },
+  { label: 'Stage 5', bar: 'bg-sky-400', badge: 'bg-sky-500/10 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-400/20', interval: '30 ngày' },
+  { label: '🏆 Master', bar: 'bg-emerald-400', badge: 'bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', interval: '60 ngày' },
 ];
 
 export default function VocabularyLibraryPage() {
@@ -57,7 +57,7 @@ export default function VocabularyLibraryPage() {
   const handleSpeak = (text: string) => {
     // Immediate state change for responsive visual feedback
     setSpeakingWord(text);
-    
+
     // Fallback timer in case onend is not triggered by the browser
     const timer = setTimeout(() => {
       setSpeakingWord(prev => prev === text ? null : prev);
@@ -154,7 +154,7 @@ export default function VocabularyLibraryPage() {
           <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-muted-foreground/60" strokeWidth={1.5} />
           <input
             type="text"
-            placeholder="Tìm từ vựng hoặc nghĩa..."
+            placeholder="     Tìm từ vựng hoặc nghĩa..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="input-field pl-10 w-full"
@@ -192,9 +192,8 @@ export default function VocabularyLibraryPage() {
             return (
               <div
                 key={c.id}
-                className={`glass hover-lift rounded-3xl border flex flex-col justify-between space-y-4 overflow-hidden ${
-                  isDue ? 'border-amber-500/30' : 'border-white/5'
-                }`}
+                className={`glass hover-lift rounded-3xl border flex flex-col justify-between space-y-4 overflow-hidden ${isDue ? 'border-amber-500/30' : 'border-white/5'
+                  }`}
               >
                 {/* Stage color bar on top */}
                 <div className={`h-1 w-full ${cfg.bar}`} />
@@ -203,13 +202,12 @@ export default function VocabularyLibraryPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <h3 className="text-xl font-bold text-foreground">{c.word}</h3>
-                      <button 
-                        onClick={() => handleSpeak(c.word)} 
-                        className={`p-1 rounded-full transition-all duration-200 ${
-                          speakingWord === c.word 
-                            ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400' 
-                            : 'bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:bg-white/10 text-muted-foreground hover:text-foreground'
-                        }`}
+                      <button
+                        onClick={() => handleSpeak(c.word)}
+                        className={`p-1 rounded-full transition-all duration-200 ${speakingWord === c.word
+                          ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400'
+                          : 'bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:bg-white/10 text-muted-foreground hover:text-foreground'
+                          }`}
                       >
                         <Volume2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                       </button>

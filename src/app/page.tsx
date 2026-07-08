@@ -8,12 +8,12 @@ import {
   seedIfEmpty, getGamificationProfiles, getBadges, GamificationProfile, importAssignment, updateAssignment, syncAllFromCloud, createStudent,
   getVocabularyCards, getVocabProgressList, saveVocabProgressList, saveVocabularyCards, VocabCard,
   importExternalVocabWithProgress, STAGE_CONFIG, autoSyncAllSpacedRepetition, autoSubmitPreviousStagesLocal, syncPastReviewAssignments,
-  previewSRGeneration, SRPreviewResult,
+  previewSRGeneration, SRPreviewResult, getCalculatedStage, syncVocabProgressFromAssignments,
 } from '@/lib/local-store';
 import { syncVocabListToSheet, syncActionToSheet } from '@/lib/google-sheets';
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
 import { StudentTimeChart } from '@/components/ui/StudentTimeChart';
-import { toLocalDateString } from '@/lib/utils';
+import { toLocalDateString, toLocal2359ISOString } from '@/lib/utils';
 import {
   Users, BookOpen, Clock, Target, Edit2, Save, X, XCircle,
   Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2, Lightbulb, Settings, Loader2, RefreshCw, FileJson, Volume2, Headphones, Calendar, Mic, Lock, Unlock, Eye, EyeOff, Sparkles, AlertTriangle, Info
@@ -112,11 +112,11 @@ export default function TeacherDashboard() {
   };
 
   /** Đồng bộ hóa các bài ôn tập quá khứ — tự động hoàn thành với 100đ */
-  const handleSyncSpacedRepetition = () => {
+  const handleSyncSpacedRepetition = async () => {
     if (!confirm('Tự động hoàn thành tất cả bài ôn tập SR trong quá khứ cho tất cả học viên với 100 điểm?\n\n(Chỉ áp dụng cho các bài đã quá hạn, không ảnh hưởng bài hôm nay.)')) return;
     setIsSyncing(true);
     try {
-      const res = syncPastReviewAssignments();
+      const res = await syncPastReviewAssignments();
       alert(`Hoàn thành! Đã tự động xử lý ${res.count} bài ôn tập quá hạn.`);
       refreshData();
     } catch (e) {
@@ -278,7 +278,7 @@ export default function TeacherDashboard() {
 
   const refreshData = async () => {
     // 1. Lấy dữ liệu local trước để hiển thị nhanh
-    setAssignments(getAssignments());
+    setAssignments(getAssignments(true));
     setSubmissions(getSubmissions());
     setTrackings(getDailyTrackings());
 
@@ -292,7 +292,7 @@ export default function TeacherDashboard() {
         // Re-generate SR sau khi sync để đảm bảo bài vocab mới từ teacher được tính
         autoSyncAllSpacedRepetition();
         if (hasChanges) {
-          setAssignments(getAssignments());
+          setAssignments(getAssignments(true));
           setSubmissions(getSubmissions());
           setTrackings(getDailyTrackings());
         }
@@ -327,7 +327,7 @@ export default function TeacherDashboard() {
   // created assignments are visible before (or if) the cloud sync responds.
   useEffect(() => {
     if (activeTab === 'assignments_mgmt') {
-      setAssignments(getAssignments());
+      setAssignments(getAssignments(true));
     }
   }, [activeTab]);
 
@@ -413,6 +413,142 @@ export default function TeacherDashboard() {
     refreshData();
   };
 
+  const handleSyncPastAssignment = (a: Assignment) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Đồng bộ bài tập cũ',
+      message: 'Hệ thống sẽ tự động tạo bài nộp (100 điểm, 0 giây) cho tất cả các học viên chưa làm bài này. Bạn có chắc chắn không?',
+      action: async () => {
+        setConfirmDialog(null);
+        try {
+          const activeStudents = getStudentNames();
+          const allSubs = getSubmissions();
+          const existingSubs = allSubs.filter(s => s.assignmentId === a.id);
+          const existingStudents = new Set(existingSubs.map(s => s.studentName));
+          const newSubs: Submission[] = [];
+          
+          activeStudents.forEach(student => {
+            if (!existingStudents.has(student)) {
+              const vocabAnswers = a.type === 'vocabulary' && a.vocabCards
+                ? a.vocabCards.map((c: any) => ({
+                    word: c.word,
+                    isCorrect: true,
+                    studentAnswer: c.word,
+                    correctAnswer: c.word
+                  }))
+                : undefined;
+
+              newSubs.push({
+                id: Math.random().toString(36).substring(7),
+                assignmentId: a.id,
+                assignmentTitle: a.title,
+                assignmentType: a.type,
+                studentName: student,
+                score: 100,
+                vocabAnswers,
+                details: JSON.stringify({ 
+                  auto_submit: true, 
+                  note: "Đồng bộ bài tập cũ",
+                  vocabAnswers
+                }),
+                submittedAt: a.createdAt ? toLocal2359ISOString(a.createdAt) : toLocal2359ISOString(),
+                durationMs: 0
+              });
+            }
+          });
+          
+          if (newSubs.length > 0) {
+            localStorage.setItem('english_tracking_submissions', JSON.stringify([...allSubs, ...newSubs]));
+          }
+          
+          await syncActionToSheet({
+            action: 'sync_past_assignment',
+            assignmentId: a.id,
+            assignmentTitle: a.title,
+            assignmentType: a.type,
+            createdAt: a.createdAt,
+            vocabCards: a.vocabCards
+          });
+          
+          alert('Đã đồng bộ bài tập thành công!');
+          refreshData();
+        } catch (error) {
+          console.error(error);
+          alert('Có lỗi xảy ra khi đồng bộ. Vui lòng thử lại.');
+        }
+      }
+    });
+  };
+
+  const handleSyncAllPastAssignments = async () => {
+    if (!confirm('Hệ thống sẽ tự động tạo bài nộp (100 điểm, 0 giây) cho TẤT CẢ các bài tập và TẤT CẢ học viên chưa làm. Bạn có chắc chắn không?')) return;
+    setIsSyncing(true);
+    try {
+      const activeStudents = getStudentNames();
+      const allSubs = getSubmissions();
+      const allAssigns = getAssignments();
+      const newSubs: Submission[] = [];
+
+      allAssigns.forEach(a => {
+        const existingSubs = allSubs.filter(s => s.assignmentId === a.id);
+        const existingStudents = new Set(existingSubs.map(s => s.studentName));
+        
+        activeStudents.forEach(student => {
+          if (!existingStudents.has(student)) {
+            const vocabAnswers = a.type === 'vocabulary' && a.vocabCards
+              ? a.vocabCards.map((c: any) => ({
+                  word: c.word,
+                  isCorrect: true,
+                  studentAnswer: c.word,
+                  correctAnswer: c.word
+                }))
+              : undefined;
+
+            newSubs.push({
+              id: Math.random().toString(36).substring(7),
+              assignmentId: a.id,
+              assignmentTitle: a.title,
+              assignmentType: a.type,
+              studentName: student,
+              score: 100,
+              vocabAnswers,
+              details: JSON.stringify({ 
+                auto_submit: true, 
+                note: "Đồng bộ bài tập cũ",
+                vocabAnswers
+              }),
+              submittedAt: a.createdAt ? toLocal2359ISOString(a.createdAt) : toLocal2359ISOString(),
+              durationMs: 0
+            });
+          }
+        });
+      });
+
+      if (newSubs.length > 0) {
+        localStorage.setItem('english_tracking_submissions', JSON.stringify([...allSubs, ...newSubs]));
+      }
+
+      await syncActionToSheet({
+        action: 'sync_all_past_assignments',
+        assignments: allAssigns.map(a => ({
+          id: a.id,
+          title: a.title,
+          type: a.type,
+          createdAt: a.createdAt,
+          vocabCards: a.vocabCards
+        }))
+      });
+
+      alert('Đã đồng bộ tất cả bài tập thành công!');
+      refreshData();
+    } catch (error) {
+      console.error(error);
+      alert('Có lỗi xảy ra khi đồng bộ. Vui lòng thử lại.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleDelete = (id: string) => {
     setConfirmDialog({
       isOpen: true,
@@ -470,9 +606,9 @@ export default function TeacherDashboard() {
   // ── Time Travel Filter ─────────────────────────────────────────────────────
   const [_edy, _edm, _edd] = selectedDate.split('-').map(Number);
   const endOfDay = new Date(_edy, _edm - 1, _edd, 23, 59, 59, 999).toISOString();
-  const filteredSubmissions = submissions.filter(s => s.submittedAt <= endOfDay);
+  const filteredSubmissions = submissions.filter(s => s.id && s.submittedAt <= endOfDay && Number(s.durationMs) > 0);
   const filteredTrackings = trackings.filter(t => t.submittedAt <= endOfDay);
-  const filteredAssignments = allAssignments.filter(a => a.createdAt ? a.createdAt <= endOfDay : true);
+  const filteredAssignments = allAssignments.filter(a => (a.createdAt ? a.createdAt <= endOfDay : true) && a.isHidden !== true);
 
   const formatDuration = (ms?: number) => {
     if (!ms) return '0 giây';
@@ -523,7 +659,7 @@ export default function TeacherDashboard() {
   // ── Recent activities (mix submissions and trackings) ──────────────────────
   const recentActivities = [
     ...filteredSubmissions
-      .filter(s => !(s.assignmentType === 'repetition' && (!s.durationMs || s.durationMs === 0)))
+      .filter(s => !(s.assignmentType === 'repetition' && (!s.durationMs || Number(s.durationMs) === 0)))
       .map(s => ({ ...s, isTracking: false })),
     ...filteredTrackings.map(t => ({ ...t, isTracking: true }))
   ].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
@@ -531,7 +667,7 @@ export default function TeacherDashboard() {
 
   // ── Analytics Data ─────────────────────────────────────────────────────────
   const todayActivities = [
-    ...filteredSubmissions.filter(s => toLocalDateString(s.submittedAt) === selectedDate && !(s.assignmentType === 'repetition' && (!s.durationMs || s.durationMs === 0))),
+    ...filteredSubmissions.filter(s => toLocalDateString(s.submittedAt) === selectedDate && !(s.assignmentType === 'repetition' && (!s.durationMs || Number(s.durationMs) === 0))),
     ...filteredTrackings.filter(t => toLocalDateString(t.submittedAt) === selectedDate)
   ];
 
@@ -594,7 +730,7 @@ export default function TeacherDashboard() {
   allAssignments.forEach(a => assignmentMap.set(a.id, a));
 
   const classTrendData = last7Days.map(date => {
-    const dSubs = submissions.filter(s => toLocalDateString(s.submittedAt) === date);
+    const dSubs = submissions.filter(s => s.id && toLocalDateString(s.submittedAt) === date && Number(s.durationMs) > 0);
     const dTrks = trackings.filter(t => toLocalDateString(t.submittedAt) === date);
 
     const scores = { Vocab: [] as number[], Grammar: [] as number[], Reading: [] as number[], Listening: [] as number[], Writing: [] as number[] };
@@ -634,7 +770,7 @@ export default function TeacherDashboard() {
   // Calculate overall average for radar
   const getOverallSkillAverage = (skill: string) => {
     const scores: number[] = [];
-    submissions.forEach(s => {
+    submissions.filter(s => s.id && Number(s.durationMs) > 0).forEach(s => {
       const a = assignmentMap.get(s.assignmentId);
       const aSkill = a?.skill || 'Vocab';
       if (aSkill.toLowerCase() === skill.toLowerCase()) scores.push(s.score);
@@ -1119,7 +1255,7 @@ export default function TeacherDashboard() {
                 Biểu Đồ Thi Đua Học Tập
               </h2>
               <div className="glass-strong rounded-3xl p-6 flex flex-col justify-center">
-                <StudentPerformanceChart submissions={submissions} />
+                <StudentPerformanceChart submissions={filteredSubmissions} />
               </div>
             </div>
 
@@ -1130,7 +1266,7 @@ export default function TeacherDashboard() {
                 Bảng Thống Kê Tổng Thời Gian Học
               </h2>
               <div className="glass-strong rounded-3xl p-6 flex flex-col justify-center border border-white/5">
-                <StudentTimeChart submissions={submissions} />
+                <StudentTimeChart submissions={filteredSubmissions} />
               </div>
             </div>
 
@@ -1321,6 +1457,15 @@ export default function TeacherDashboard() {
                 <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
                 Đồng bộ Ôn tập cũ
               </button>
+              <button
+                onClick={handleSyncAllPastAssignments}
+                disabled={isSyncing}
+                title="Tự động hoàn thành TẤT CẢ các bài tập quá hạn cho TẤT CẢ học viên chưa làm (100 điểm)"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 disabled:opacity-50 transition-colors text-sm font-semibold border border-blue-500/20 shadow-lg shadow-blue-500/5"
+              >
+                <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                Đồng bộ Tất cả
+              </button>
               <Link href="/teacher/scores"
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-secondary/50 border border-white/5 text-foreground hover:bg-secondary transition-colors text-sm font-semibold">
                 <Settings className="h-4 w-4" /> Quản lý điểm
@@ -1353,7 +1498,7 @@ export default function TeacherDashboard() {
                     onClick={() => setMgmtSkillFilter(opt.value)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${mgmtSkillFilter === opt.value
                       ? 'bg-primary border-primary text-primary-foreground shadow-md shadow-primary/10'
-                      : 'bg-transparent border-white/10 text-muted-foreground hover:text-white hover:border-white/20'
+                      : 'bg-transparent border-black/10 dark:border-white/10 text-muted-foreground hover:text-foreground hover:border-black/25 dark:hover:border-white/25 hover:bg-black/5 dark:hover:bg-white/5'
                       }`}
                   >
                     {opt.label}
@@ -1436,16 +1581,17 @@ export default function TeacherDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full items-stretch">
                 {filteredMgmtAssignments.map(a => {
                   const subs = submissions.filter(s => s.assignmentId === a.id);
-                  const avg = subs.length ? Math.round(subs.reduce((s, x) => s + x.score, 0) / subs.length) : null;
+                  const realSubs = subs.filter(s => s.id && Number(s.durationMs) > 0);
+                  const avg = realSubs.length ? Math.round(realSubs.reduce((s, x) => s + x.score, 0) / realSubs.length) : null;
                   const skill = a.skill || 'Vocab';
                   const renderCardContent = () => (
                     <>
-                      <div className={`p-3 rounded-xl flex-shrink-0 ${skill === 'Vocab' ? 'bg-violet-500/10 text-violet-400' :
-                        skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-400' :
-                          skill === 'Reading' ? 'bg-amber-500/10 text-amber-400' :
-                            skill === 'Listening' ? 'bg-sky-500/10 text-sky-400' :
-                              skill === 'Speaking' ? 'bg-teal-500/10 text-teal-400' :
-                                'bg-red-500/10 text-red-400'
+                      <div className={`p-3 rounded-xl flex-shrink-0 ${skill === 'Vocab' ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400' :
+                        skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
+                          skill === 'Reading' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' :
+                            skill === 'Listening' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400' :
+                              skill === 'Speaking' ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400' :
+                                'bg-red-500/10 text-red-600 dark:text-red-400'
                         }`}>
                         {a.type === 'vocab_context' ? <BookOpen className="h-5 w-5" /> :
                           a.type === 'multiple_choice' ? <ListChecks className="h-5 w-5" /> :
@@ -1457,12 +1603,12 @@ export default function TeacherDashboard() {
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">{a.title}</p>
                         <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${skill === 'Vocab' ? 'bg-violet-500/10 text-violet-300 border-violet-500/20' :
-                            skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' :
-                              skill === 'Reading' ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' :
-                                skill === 'Listening' ? 'bg-sky-500/10 text-sky-300 border-sky-500/20' :
-                                  skill === 'Speaking' ? 'bg-teal-500/10 text-teal-300 border-teal-500/20' :
-                                    'bg-red-500/10 text-red-300 border-red-500/20'
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${skill === 'Vocab' ? 'bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20' :
+                            skill === 'Grammar' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20' :
+                              skill === 'Reading' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20' :
+                                skill === 'Listening' ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20' :
+                                  skill === 'Speaking' ? 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/20' :
+                                    'bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/20'
                             }`}>
                             {skill}
                           </span>
@@ -1497,7 +1643,7 @@ export default function TeacherDashboard() {
                   );
 
                   return (
-                    <div key={a.id} className="flex flex-col sm:flex-row h-full items-stretch sm:items-start justify-between gap-4 p-5 rounded-2xl glass hover:border-primary/30 transition-all group">
+                    <div key={a.id} className="flex flex-col md:flex-row h-full items-stretch md:items-start justify-between gap-4 p-5 rounded-2xl glass hover:border-primary/30 transition-all group">
                       {a.type === 'repetition' ? (
                         <div className="flex-1 flex items-start gap-3.5 min-w-0 w-full select-none">
                           {renderCardContent()}
@@ -1507,39 +1653,45 @@ export default function TeacherDashboard() {
                           {renderCardContent()}
                         </Link>
                       )}
-                      <div className="flex items-center gap-1.5 justify-end mt-3 sm:mt-0 pt-3 sm:pt-0 border-t border-white/5 sm:border-t-0 flex-shrink-0">
+                      <div className="flex flex-row items-center gap-1.5 justify-end w-auto mt-3 md:mt-0 pt-3 md:pt-0 border-t border-white/5 md:border-t-0 flex-shrink-0 md:grid md:grid-cols-2 md:gap-1.5 md:w-[74px] md:ml-4">
                         {a.type === 'multiple_choice' && (
                           <button
                             type="button"
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleHint(a); }}
-                            className={`p-2 rounded-xl transition-colors relative z-10 flex items-center gap-1.5 px-2.5 py-1.5 text-xs ${a.allowHints
-                              ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
-                              : 'text-muted-foreground/50 hover:text-amber-400 hover:bg-amber-500/10'
+                            className={`p-2 rounded-xl transition-colors relative z-10 flex items-center justify-center ${a.allowHints
+                              ? 'bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 dark:hover:bg-amber-500/30'
+                              : 'text-muted-foreground/50 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/10'
                               }`}
-                            title={a.allowHints ? "" : ""}
+                            title={a.allowHints ? "Tắt gợi ý" : "Bật gợi ý"}
                           >
-                            <Lightbulb className="h-4 w-4 pointer-events-none" />
-                            <span className="font-semibold">{a.allowHints ? '' : ''}</span>
-                          </button>
-                        )}
-                        {a.type === 'repetition' && (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleHidden(a); }}
-                            className={`p-2 rounded-xl transition-colors relative z-10 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold ${a.isHidden === false
-                              ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                              : 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
-                              }`}
-                            title={a.isHidden === false ? "Đang hiện (Học sinh thấy được)" : "Đang ẩn (Học sinh chưa thấy)"}
-                          >
-                            {a.isHidden !== false ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            {a.isHidden !== false ? "Đang Ẩn" : "Đang Mở"}
+                            <Lightbulb className="h-4.5 w-4.5 pointer-events-none" />
                           </button>
                         )}
                         <button
                           type="button"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleHidden(a); }}
+                          className={`p-2 rounded-xl transition-colors relative z-10 flex items-center justify-center ${
+                            a.isHidden === false 
+                              ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10' 
+                              : 'text-red-600 dark:text-red-400 hover:bg-red-500/10'
+                          }`}
+                          title={a.isHidden === false ? "Đang hiện (Học sinh thấy được)" : "Đang ẩn (Học sinh chưa thấy)"}
+                        >
+                          {a.isHidden !== false ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSyncPastAssignment(a); }}
+                          className="p-2 rounded-xl text-muted-foreground/50 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-500/10 transition-colors relative z-10 flex items-center justify-center"
+                          title="Đồng bộ bài tập này (tự động hoàn thành cho học viên chưa làm)"
+                        >
+                          <RefreshCw className="h-4.5 w-4.5 pointer-events-none" />
+                        </button>
+                        {a.type !== 'multiple_choice' && <div className="hidden md:block" />}
+                        <button
+                          type="button"
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(a.id); }}
-                          className="p-2 rounded-xl text-muted-foreground/50 hover:text-red-400 hover:bg-red-500/10 transition-colors relative z-10"
+                          className="p-2 rounded-xl text-muted-foreground/50 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 transition-colors relative z-10 flex items-center justify-center"
                           title="Xóa bài tập"
                         >
                           <Trash2 className="h-4.5 w-4.5 pointer-events-none" />
@@ -1678,6 +1830,17 @@ export default function TeacherDashboard() {
                 <p className="text-sm text-muted-foreground mt-1">Theo dõi tiến độ lặp lại ngắt quãng (Spaced Repetition) của học sinh</p>
               </div>
               <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    syncVocabProgressFromAssignments();
+                    alert('Đã đồng bộ tiến độ từ vựng thành công!');
+                    refreshData();
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-all text-xs font-bold"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Đồng bộ Tiến độ
+                </button>
                 <div className="text-xs px-3 py-2 rounded-xl bg-secondary/80 text-muted-foreground font-semibold">
                   Tổng số từ: <span className="text-primary font-bold">
                     {(() => {
@@ -1730,7 +1893,7 @@ export default function TeacherDashboard() {
                     const now = new Date();
                     const dueCount = totalCards.filter(card => {
                       const prog = progressMap.get(card.id);
-                      if (!prog) return true; // Due to study
+                      if (!prog) return false; // Not started = not due
                       return new Date(prog.nextReviewDate) <= now;
                     }).length;
 

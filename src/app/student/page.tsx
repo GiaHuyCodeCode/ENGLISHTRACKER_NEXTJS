@@ -86,7 +86,7 @@ import {
 
 function StudentCard({ name, isSelected, onClick }: { name: string; isSelected: boolean; onClick: () => void }) {
   const c = getStudentColors(name);
-  const subs = getSubmissions().filter(s => s.studentName === name);
+  const subs = getSubmissions().filter(s => s.id && s.studentName === name && Number(s.durationMs) > 0);
   const avg = subs.length ? Math.round(subs.reduce((s, x) => s + x.score, 0) / subs.length) : null;
   const profile = getGamificationProfiles().find(p => p.studentName === name);
 
@@ -130,7 +130,7 @@ export default function StudentDashboard() {
   const [srActiveSubTab, setSrActiveSubTab] = useState<'assignments' | 'words'>('assignments');
 
   const calculateStats = useCallback((student: string) => {
-    const subs = getSubmissions().filter(s => s.studentName === student && s.assignmentType !== 'repetition').sort(
+    const subs = getSubmissions().filter(s => s.id && s.studentName === student && s.assignmentType !== 'repetition' && Number(s.durationMs) > 0).sort(
       (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
     );
     const trks = getDailyTrackings().filter(t => t.studentName === student).sort(
@@ -344,7 +344,7 @@ export default function StudentDashboard() {
     const assignmentMap = new Map<string, Assignment>();
     assignments.forEach(a => assignmentMap.set(a.id, a));
 
-    submissions.forEach(s => {
+    submissions.filter(s => s.id && Number(s.durationMs) > 0).forEach(s => {
       const a = assignmentMap.get(s.assignmentId);
       const skill = a?.skill || 'Vocab';
       if (skill === 'Vocab') scores.Vocab.push(s.score);
@@ -365,7 +365,7 @@ export default function StudentDashboard() {
     const allSubmissions = getSubmissions();
     const allTrackings = getDailyTrackings();
 
-    allSubmissions.forEach(s => {
+    allSubmissions.filter(s => s.id && Number(s.durationMs) > 0).forEach(s => {
       const a = assignmentMap.get(s.assignmentId);
       const skill = a?.skill || 'Vocab';
       if (skill === 'Vocab') classScores.Vocab.push(s.score);
@@ -398,7 +398,7 @@ export default function StudentDashboard() {
   const sortedSkills = [...skillData].filter(s => s.A > 0).sort((a, b) => a.A - b.A);
   const weakestSkill = sortedSkills.length > 0 ? sortedSkills[0] : null;
 
-  const totalScores = [...submissions.map(s => s.score)];
+  const totalScores = [...submissions.filter(s => s.id && Number(s.durationMs) > 0).map(s => s.score)];
   const avg = totalScores.length ? Math.round(totalScores.reduce((a, b) => a + b, 0) / totalScores.length) : null;
   const nowVal = new Date();
   const visibleAssignments = assignments.filter(a => {
@@ -420,7 +420,7 @@ export default function StudentDashboard() {
   };
 
   // ── Comparison Calculation ────────────────────────────────────────────────
-  const allSubmissions = getSubmissions().filter(s => s.assignmentType !== 'repetition');
+  const allSubmissions = getSubmissions().filter(s => s.id && s.assignmentType !== 'repetition' && Number(s.durationMs) > 0);
   const allTrackings = getDailyTrackings();
   const allScoresList = [...allSubmissions.map(s => s.score)];
   const classAvg = allScoresList.length ? Math.round(allScoresList.reduce((a, b) => a + b, 0) / allScoresList.length) : null;
@@ -434,7 +434,7 @@ export default function StudentDashboard() {
 
   const progressData = last7Days.map(date => {
     // Student daily score
-    const dSubs = submissions.filter(s => toLocalDateString(s.submittedAt) === date);
+    const dSubs = submissions.filter(s => s.id && toLocalDateString(s.submittedAt) === date && Number(s.durationMs) > 0);
     const dTrks = trackings.filter(t => toLocalDateString(t.submittedAt) === date);
     const dScores = [...dSubs.map(s => s.score)];
     const myAvg = dScores.length ? Math.round(dScores.reduce((a, b) => a + b, 0) / dScores.length) : null;
@@ -571,7 +571,7 @@ export default function StudentDashboard() {
         <h2 className="text-xl font-bold flex items-center gap-2 text-[hsl(var(--pollen))]">
           <FTrophy /> Biểu Đồ Thi Đua Học Tập
         </h2>
-        <StudentPerformanceChart submissions={getSubmissions().filter(s => s.assignmentType !== 'repetition')} />
+        <StudentPerformanceChart submissions={getSubmissions().filter(s => s.id && s.assignmentType !== 'repetition' && Number(s.durationMs) > 0)} />
       </div>
 
       {/* Stats for selected student */}
@@ -959,7 +959,7 @@ export default function StudentDashboard() {
                 </h2>
                 <div className="glass-strong rounded-3xl border border-white/5 overflow-hidden">
                   <div className="divide-y divide-border">
-                    {submissions.slice(0, 5).map(s => {
+                    {submissions.filter(s => s.id && Number(s.durationMs) > 0).slice(0, 5).map(s => {
                       const href = `/student/review/${s.id}`;
                       return (
                         <Link key={s.id} href={href} className="flex items-center gap-4 px-6 py-4 hover:bg-muted/40 transition-colors cursor-pointer group w-full">

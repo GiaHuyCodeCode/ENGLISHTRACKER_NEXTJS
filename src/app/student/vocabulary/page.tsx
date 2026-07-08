@@ -14,7 +14,8 @@ import {
   getAssignments,
   Assignment,
   submitVocabularyAssignment,
-  getSubmissionsByStudent
+  getSubmissionsByStudent,
+  getCalculatedStage
 } from '@/lib/local-store';
 import {
   BookOpen,
@@ -500,7 +501,7 @@ export default function StudentVocabularyPage() {
                 placeholder="Tìm từ vựng hoặc nghĩa..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="input-field pl-10 w-full"
+                className="input-field !pl-10 w-full"
               />
             </div>
             <div className="relative">
@@ -531,7 +532,8 @@ export default function StudentVocabularyPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredCards.map(c => {
                 const progress = progressList.find(p => p.wordId === c.id);
-                const stage = progress ? progress.stage : 0;
+                // Calculate stage dynamically based on createdAt
+                const stage = getCalculatedStage(c.createdAt);
                 const badge = getStageBadge(stage);
                 
                 return (

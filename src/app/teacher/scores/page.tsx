@@ -44,7 +44,7 @@ export default function ScoreManagementPage() {
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean, action: () => void, title: string, message: string } | null>(null);
 
   const refreshData = () => {
-    setSubmissions(getSubmissions());
+    setSubmissions(getSubmissions().filter(s => s.id && Number(s.durationMs) > 0));
     setTrackings(getDailyTrackings());
   };
 
