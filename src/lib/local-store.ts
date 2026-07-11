@@ -2053,7 +2053,14 @@ export async function syncPastReviewAssignments(): Promise<{ count: number }> {
 
   pastReviews.forEach(a => {
     const reviewDateStr = a.id.replace('daily-review-', ''); // YYYY-MM-DD
-    const submittedAt = new Date(reviewDateStr + 'T23:59:59').toISOString();
+    // Phòng thủ: id sai định dạng -> Date không hợp lệ -> .toISOString() ném RangeError.
+    // Bỏ qua bài này thay vì làm hỏng toàn bộ quá trình đồng bộ.
+    const parsedDate = new Date(reviewDateStr + 'T23:59:59');
+    if (isNaN(parsedDate.getTime())) {
+      console.warn('Bỏ qua bài ôn tập có id không hợp lệ:', a.id);
+      return;
+    }
+    const submittedAt = parsedDate.toISOString();
 
     students.forEach(student => {
       const exists = allSubmissions.some(sub => sub.studentName === student && sub.assignmentId === a.id);

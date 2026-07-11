@@ -56,6 +56,7 @@ export default function TeacherDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'vocabulary' | 'assignments_mgmt'>('overview');
   const [selectedDate, setSelectedDate] = useState<string>(toLocalDateString());
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [mgmtDateFilter, setMgmtDateFilter] = useState<string>('');
   const [mgmtSkillFilter, setMgmtSkillFilter] = useState<string>('all');
 
@@ -95,13 +96,20 @@ export default function TeacherDashboard() {
   };
 
   /** Xác nhận → thực sự generate SR assignments */
-  const handleConfirmSRGeneration = () => {
+  const handleConfirmSRGeneration = async () => {
     setIsSyncing(true);
     try {
       // clearDeletedTombstone=true: xóa tombstone để tạo lại các bài đã xóa (tombstone đã bị xóa trong preview,
       // nhưng truyền lại để an toàn trong trường hợp confirm mà không qua preview)
       autoSyncAllSpacedRepetition(true);
       setSrPreviewDialog(null);
+      
+      // Cập nhật local state ngay lập tức
+      setAssignments(getAssignments(true));
+      setSubmissions(getSubmissions());
+      setTrackings(getDailyTrackings());
+      
+      // Chạy refresh ngầm
       refreshData();
     } catch (e) {
       console.error('Lỗi khi tạo bài ôn tập:', e);
@@ -112,19 +120,35 @@ export default function TeacherDashboard() {
   };
 
   /** Đồng bộ hóa các bài ôn tập quá khứ — tự động hoàn thành với 100đ */
-  const handleSyncSpacedRepetition = async () => {
-    if (!confirm('Tự động hoàn thành tất cả bài ôn tập SR trong quá khứ cho tất cả học viên với 100 điểm?\n\n(Chỉ áp dụng cho các bài đã quá hạn, không ảnh hưởng bài hôm nay.)')) return;
-    setIsSyncing(true);
-    try {
-      const res = await syncPastReviewAssignments();
-      alert(`Hoàn thành! Đã tự động xử lý ${res.count} bài ôn tập quá hạn.`);
-      refreshData();
-    } catch (e) {
-      console.error('Lỗi khi đồng bộ ôn tập:', e);
-      alert('Đã có lỗi xảy ra.');
-    } finally {
-      setIsSyncing(false);
-    }
+  const handleSyncSpacedRepetition = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Đồng bộ ôn tập cũ',
+      message: 'Tự động hoàn thành tất cả bài ôn tập SR trong quá khứ cho tất cả học viên với 100 điểm? (Chỉ áp dụng cho các bài đã quá hạn, không ảnh hưởng bài hôm nay.)',
+      confirmText: 'Đồng ý',
+      confirmClass: 'bg-primary text-primary-foreground hover:opacity-90',
+      action: async () => {
+        setConfirmDialog(null);
+        setIsSyncing(true);
+        try {
+          const res = await syncPastReviewAssignments();
+          alert(`Hoàn thành! Đã tự động xử lý ${res.count} bài ôn tập quá hạn.`);
+          
+          // Cập nhật local state ngay lập tức
+          setAssignments(getAssignments(true));
+          setSubmissions(getSubmissions());
+          setTrackings(getDailyTrackings());
+          
+          // Chạy refresh ngầm
+          refreshData();
+        } catch (e: any) {
+          console.error('Lỗi khi đồng bộ ôn tập:', e);
+          alert('Đã có lỗi xảy ra khi đồng bộ ôn tập cũ.\n\nChi tiết: ' + (e?.message || String(e)));
+        } finally {
+          setIsSyncing(false);
+        }
+      }
+    });
   };
 
   const handleAutoSyncPhase = async (assignment: Assignment) => {
@@ -283,7 +307,7 @@ export default function TeacherDashboard() {
     setTrackings(getDailyTrackings());
 
     // 2. Fetch từ server ngầm
-    setIsSyncing(true);
+    setIsRefreshing(true);
     try {
       const res = await fetch('/api/assignments');
       if (res.ok) {
@@ -300,7 +324,7 @@ export default function TeacherDashboard() {
     } catch (e) {
       console.error('Lỗi khi đồng bộ dữ liệu:', e);
     } finally {
-      setIsSyncing(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -331,7 +355,14 @@ export default function TeacherDashboard() {
     }
   }, [activeTab]);
 
-  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean, action: () => void, title: string, message: string } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ 
+    isOpen: boolean, 
+    action: () => void, 
+    title: string, 
+    message: string,
+    confirmText?: string,
+    confirmClass?: string
+  } | null>(null);
   const [addStudentDialog, setAddStudentDialog] = useState(false);
   const [newStudent, setNewStudent] = useState({ name: '', color: '#3B82F6' });
 
@@ -458,7 +489,7 @@ export default function TeacherDashboard() {
           });
           
           if (newSubs.length > 0) {
-            localStorage.setItem('english_tracking_submissions', JSON.stringify([...allSubs, ...newSubs]));
+            localStorage.setItem('et_submissions', JSON.stringify([...allSubs, ...newSubs]));
           }
           
           await syncActionToSheet({
@@ -471,6 +502,13 @@ export default function TeacherDashboard() {
           });
           
           alert('Đã đồng bộ bài tập thành công!');
+          
+          // Cập nhật local state ngay lập tức
+          setAssignments(getAssignments(true));
+          setSubmissions(getSubmissions());
+          setTrackings(getDailyTrackings());
+          
+          // Chạy refresh ngầm
           refreshData();
         } catch (error) {
           console.error(error);
@@ -480,73 +518,97 @@ export default function TeacherDashboard() {
     });
   };
 
-  const handleSyncAllPastAssignments = async () => {
-    if (!confirm('Hệ thống sẽ tự động tạo bài nộp (100 điểm, 0 giây) cho TẤT CẢ các bài tập và TẤT CẢ học viên chưa làm. Bạn có chắc chắn không?')) return;
-    setIsSyncing(true);
-    try {
-      const activeStudents = getStudentNames();
-      const allSubs = getSubmissions();
-      const allAssigns = getAssignments();
-      const newSubs: Submission[] = [];
+  const handleSyncAllPastAssignments = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Đồng bộ tất cả bài tập cũ',
+      message: 'Hệ thống sẽ tự động tạo bài nộp (100 điểm, 0 giây) cho TẤT CẢ các bài tập và TẤT CẢ học viên chưa làm. Bạn có chắc chắn không?',
+      confirmText: 'Đồng ý',
+      confirmClass: 'bg-primary text-primary-foreground hover:opacity-90',
+      action: async () => {
+        setConfirmDialog(null);
+        setIsSyncing(true);
+        try {
+          const activeStudents = getStudentNames();
+          const allSubs = getSubmissions();
+          // CHỈ đồng bộ các bài đã tạo trước 00:00 hôm nay.
+          // Bài tạo trong ngày hôm nay và bài lên lịch trong tương lai KHÔNG được đồng bộ.
+          const startOfToday = new Date();
+          startOfToday.setHours(0, 0, 0, 0);
+          const allAssigns = getAssignments().filter(a => {
+            // Bài không có createdAt (legacy) coi như bài cũ -> vẫn đồng bộ
+            if (!a.createdAt) return true;
+            return new Date(a.createdAt).getTime() < startOfToday.getTime();
+          });
+          const newSubs: Submission[] = [];
 
-      allAssigns.forEach(a => {
-        const existingSubs = allSubs.filter(s => s.assignmentId === a.id);
-        const existingStudents = new Set(existingSubs.map(s => s.studentName));
-        
-        activeStudents.forEach(student => {
-          if (!existingStudents.has(student)) {
-            const vocabAnswers = a.type === 'vocabulary' && a.vocabCards
-              ? a.vocabCards.map((c: any) => ({
-                  word: c.word,
-                  isCorrect: true,
-                  studentAnswer: c.word,
-                  correctAnswer: c.word
-                }))
-              : undefined;
+          allAssigns.forEach(a => {
+            const existingSubs = allSubs.filter(s => s.assignmentId === a.id);
+            const existingStudents = new Set(existingSubs.map(s => s.studentName));
+            
+            activeStudents.forEach(student => {
+              if (!existingStudents.has(student)) {
+                const vocabAnswers = a.type === 'vocabulary' && a.vocabCards
+                  ? a.vocabCards.map((c: any) => ({
+                      word: c.word,
+                      isCorrect: true,
+                      studentAnswer: c.word,
+                      correctAnswer: c.word
+                    }))
+                  : undefined;
 
-            newSubs.push({
-              id: Math.random().toString(36).substring(7),
-              assignmentId: a.id,
-              assignmentTitle: a.title,
-              assignmentType: a.type,
-              studentName: student,
-              score: 100,
-              vocabAnswers,
-              details: JSON.stringify({ 
-                auto_submit: true, 
-                note: "Đồng bộ bài tập cũ",
-                vocabAnswers
-              }),
-              submittedAt: a.createdAt ? toLocal2359ISOString(a.createdAt) : toLocal2359ISOString(),
-              durationMs: 0
+                newSubs.push({
+                  id: Math.random().toString(36).substring(7),
+                  assignmentId: a.id,
+                  assignmentTitle: a.title,
+                  assignmentType: a.type,
+                  studentName: student,
+                  score: 100,
+                  vocabAnswers,
+                  details: JSON.stringify({ 
+                    auto_submit: true, 
+                    note: "Đồng bộ bài tập cũ",
+                    vocabAnswers
+                  }),
+                  submittedAt: a.createdAt ? toLocal2359ISOString(a.createdAt) : toLocal2359ISOString(),
+                  durationMs: 0
+                });
+              }
             });
+          });
+
+          if (newSubs.length > 0) {
+            localStorage.setItem('et_submissions', JSON.stringify([...allSubs, ...newSubs]));
           }
-        });
-      });
 
-      if (newSubs.length > 0) {
-        localStorage.setItem('english_tracking_submissions', JSON.stringify([...allSubs, ...newSubs]));
+          await syncActionToSheet({
+            action: 'sync_all_past_assignments',
+            assignments: allAssigns.map(a => ({
+              id: a.id,
+              title: a.title,
+              type: a.type,
+              createdAt: a.createdAt,
+              vocabCards: a.vocabCards
+            }))
+          });
+
+          alert('Đã đồng bộ tất cả bài tập thành công!');
+          
+          // Cập nhật local state ngay lập tức
+          setAssignments(getAssignments(true));
+          setSubmissions(getSubmissions());
+          setTrackings(getDailyTrackings());
+          
+          // Chạy refresh ngầm
+          refreshData();
+        } catch (error) {
+          console.error(error);
+          alert('Có lỗi xảy ra khi đồng bộ. Vui lòng thử lại.');
+        } finally {
+          setIsSyncing(false);
+        }
       }
-
-      await syncActionToSheet({
-        action: 'sync_all_past_assignments',
-        assignments: allAssigns.map(a => ({
-          id: a.id,
-          title: a.title,
-          type: a.type,
-          createdAt: a.createdAt,
-          vocabCards: a.vocabCards
-        }))
-      });
-
-      alert('Đã đồng bộ tất cả bài tập thành công!');
-      refreshData();
-    } catch (error) {
-      console.error(error);
-      alert('Có lỗi xảy ra khi đồng bộ. Vui lòng thử lại.');
-    } finally {
-      setIsSyncing(false);
-    }
+    });
   };
 
   const handleDelete = (id: string) => {
@@ -966,7 +1028,12 @@ export default function TeacherDashboard() {
             <p className="text-sm text-muted-foreground mb-6">{confirmDialog.message}</p>
             <div className="flex justify-end gap-3">
               <button onClick={() => setConfirmDialog(null)} className="px-4 py-2 rounded-lg font-medium hover:bg-secondary transition-colors text-foreground">Hủy</button>
-              <button onClick={confirmDialog.action} className="px-4 py-2 rounded-lg font-medium bg-red-500/20 text-red-500 hover:bg-red-500/30 transition-colors">Xóa</button>
+              <button 
+                onClick={confirmDialog.action} 
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${confirmDialog.confirmClass || 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
+              >
+                {confirmDialog.confirmText || 'Xóa'}
+              </button>
             </div>
           </div>
         </div>
@@ -1139,14 +1206,14 @@ export default function TeacherDashboard() {
         <div className="fade-in stagger-1">
           <h1 className="text-3xl font-bold font-heading gradient-text flex items-center gap-3">
             Dashboard Giáo Viên
-            {isSyncing && <Loader2 className="h-6 w-6 text-primary animate-spin" />}
+            {(isSyncing || isRefreshing) && <Loader2 className="h-6 w-6 text-primary animate-spin" />}
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">Quản lý lớp học và theo dõi tiến độ thi đua</p>
         </div>
         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
           <button
             type="button"
-            onClick={() => { setIsSyncing(true); refreshData(); }}
+            onClick={async () => { setIsSyncing(true); try { await refreshData(); } finally { setIsSyncing(false); } }}
             disabled={isSyncing}
             className="fade-in stagger-1 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-sm font-semibold border border-primary/20 disabled:opacity-50"
           >

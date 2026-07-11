@@ -161,7 +161,13 @@ export default function StudentAssignmentsPage() {
 
   const now = new Date();
   const visibleAssignments = assignments.filter(a => {
-    if (a.type === 'repetition') return a.isHidden === false;
+    // Bài SR (repetition): phải chưa ẩn VÀ đã tới thời điểm lên lịch (createdAt <= now).
+    // Bài SR lên lịch tương lai (vd: ngày mai 5h sáng) KHÔNG hiện ở danh sách chờ hôm nay.
+    if (a.type === 'repetition') {
+      if (a.isHidden !== false) return false;
+      if (!a.createdAt) return true;
+      return new Date(a.createdAt) <= now;
+    }
     if (!a.createdAt) return true;
     return new Date(a.createdAt) <= now;
   });

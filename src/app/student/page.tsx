@@ -130,7 +130,9 @@ export default function StudentDashboard() {
   const [srActiveSubTab, setSrActiveSubTab] = useState<'assignments' | 'words'>('assignments');
 
   const calculateStats = useCallback((student: string) => {
-    const subs = getSubmissions().filter(s => s.id && s.studentName === student && s.assignmentType !== 'repetition' && Number(s.durationMs) > 0).sort(
+    // Lấy TẤT CẢ submissions hợp lệ — kể cả bài sync từ cloud (durationMs=0)
+    // Dùng để xác định "Đã Hoàn Thành" và "Cần Làm"
+    const subs = getSubmissions().filter(s => s.id && s.studentName === student && s.assignmentType !== 'repetition').sort(
       (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
     );
     const trks = getDailyTrackings().filter(t => t.studentName === student).sort(
@@ -647,40 +649,104 @@ export default function StudentDashboard() {
               const todayStr = toLocalDateString(new Date());
               const todayReviewId = `daily-review-${todayStr}`;
               const todayReviewAssign = assignments.find(a => a.id === todayReviewId);
-              const isTodayReviewDone = submissions.some(s => s.assignmentId === todayReviewId);
+              const isTodayReviewDone = getSubmissions().some(
+                s => s.studentName === selectedStudent && s.assignmentId === todayReviewId
+              );
 
-              if (todayReviewAssign && !isTodayReviewDone) {
-                return (
-                  <div className="relative overflow-hidden rounded-3xl border border-rose-500/30 bg-gradient-to-r from-rose-500/10 via-amber-500/5 to-rose-500/5 p-6 shadow-lg">
-                    <div className="absolute -right-6 -top-6 w-24 h-24 bg-rose-500/10 rounded-full blur-xl pointer-events-none"></div>
-                    <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-start gap-4">
-                        <div className="p-3 rounded-2xl bg-rose-500/20 text-rose-500 flex-shrink-0">
-                          <FBrain className="h-6 w-6" />
-                        </div>
-                        <div>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-500/20 text-rose-500 uppercase tracking-wide">
-                            Spaced Repetition
-                          </span>
-                          <h3 className="text-lg font-bold mt-1 text-rose-700 dark:text-rose-400">
-                            Đã đến giờ ôn tập từ vựng ngày hôm nay!
-                          </h3>
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            Bạn có <span className="font-bold text-rose-600 dark:text-rose-400">{todayReviewAssign.vocabCards?.length || 0} từ vựng</span> cần nhắc lại để đưa vào bộ nhớ dài hạn.
-                          </p>
-                        </div>
+              // Kiểm tra xem bài ôn tập hôm nay có thực sự chứa từ vựng đến hạn ôn tập của học sinh hay không
+              const studentProgress = getStudentVocabProgress(selectedStudent || '');
+              const progressMap = new Map<string, any>();
+              studentProgress.forEach(p => progressMap.set(p.wordId, p));
+              const now = new Date();
+
+              const hasSRTask = !!todayReviewAssign;
+              const hasDueWords = todayReviewAssign
+                ? todayReviewAssign.vocabCards?.some(card => {
+                    const prog = progressMap.get(card.id);
+                    if (!prog) return true; // Chưa từng học -> đến hạn ôn
+                    return new Date(prog.nextReviewDate) <= now;
+                  })
+                : false;
+
+              const isCompleted = isTodayReviewDone || (hasSRTask && !hasDueWords);
+              const showActive = hasSRTask && hasDueWords && !isTodayReviewDone;
+
+              let cardBorderClass = "border-rose-500/30 bg-gradient-to-r from-rose-500/10 via-amber-500/5 to-rose-500/5";
+              let glowColor = "bg-rose-500/10";
+              let iconWrapperClass = "p-3 rounded-2xl bg-rose-500/20 text-rose-500 flex-shrink-0";
+              let badgeClass = "bg-rose-500/20 text-rose-500";
+              let title = "Đã đến giờ ôn tập từ vựng ngày hôm nay!";
+              let titleColor = "text-rose-700 dark:text-rose-400";
+              let description = "";
+
+              if (showActive) {
+                // Đếm số từ thực sự đến hạn trong bài tập này
+                const dueCardsCount = todayReviewAssign.vocabCards?.filter(card => {
+                  const prog = progressMap.get(card.id);
+                  if (!prog) return true;
+                  return new Date(prog.nextReviewDate) <= now;
+                }).length || 0;
+                description = `Bạn có ${dueCardsCount} từ vựng cần nhắc lại để đưa vào bộ nhớ dài hạn.`;
+              } else if (isCompleted) {
+                cardBorderClass = "border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-emerald-500/5";
+                glowColor = "bg-emerald-500/10";
+                iconWrapperClass = "p-3 rounded-2xl bg-emerald-500/20 text-emerald-500 flex-shrink-0";
+                badgeClass = "bg-emerald-500/20 text-emerald-500";
+                title = "Đã hoàn thành ôn tập từ vựng ngày hôm nay!";
+                titleColor = "text-emerald-700 dark:text-emerald-400";
+                description = "Tuyệt vời! Bạn đã hoàn thành việc ôn tập từ vựng hôm nay.";
+              } else {
+                cardBorderClass = "border-border bg-gradient-to-r from-card/50 via-muted/5 to-card/50";
+                glowColor = "bg-muted/10";
+                iconWrapperClass = "p-3 rounded-2xl bg-muted/20 text-muted-foreground flex-shrink-0";
+                badgeClass = "bg-muted/20 text-muted-foreground";
+                title = "Không có lịch ôn tập từ vựng hôm nay";
+                titleColor = "text-muted-foreground";
+                description = "Hôm nay bạn không có từ vựng nào đến hạn ôn tập. Hãy học thêm bài mới nhé!";
+              }
+
+              return (
+                <div className={`relative overflow-hidden rounded-3xl border ${cardBorderClass} p-6 shadow-lg`}>
+                  <div className={`absolute -right-6 -top-6 w-24 h-24 ${glowColor} rounded-full blur-xl pointer-events-none`}></div>
+                  <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className={iconWrapperClass}>
+                        <FBrain className="h-6 w-6" />
                       </div>
+                      <div>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide ${badgeClass}`}>
+                          Spaced Repetition
+                        </span>
+                        <h3 className={`text-lg font-bold mt-1 ${titleColor}`}>
+                          {title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          {showActive ? (
+                            <>Bạn có <span className="font-bold text-rose-600 dark:text-rose-400">{todayReviewAssign.vocabCards?.length || 0} từ vựng</span> cần nhắc lại để đưa vào bộ nhớ dài hạn.</>
+                          ) : (
+                            description
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    {showActive ? (
                       <Link 
                         href={`/student/vocabulary?assignId=${todayReviewAssign.id}&srs=true`}
-                        className="self-end sm:self-center px-5 py-3 rounded-2xl text-sm font-bold bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white shadow-md shadow-rose-500/20 transition-all hover:scale-[1.03] active:scale-[0.98] text-center"
+                        className="self-end sm:self-center px-5 py-3 rounded-2xl text-sm font-bold bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white shadow-md shadow-rose-500/20 transition-all hover:scale-[1.03] active:scale-[0.98] text-center shrink-0 min-w-[130px]"
                       >
                         Bắt đầu ôn ngay
                       </Link>
-                    </div>
+                    ) : (
+                      <button
+                        disabled
+                        className="self-end sm:self-center px-5 py-3 rounded-2xl text-sm font-bold bg-neutral-700/30 dark:bg-neutral-800/50 text-neutral-400 border border-neutral-600/20 cursor-not-allowed text-center shrink-0 min-w-[130px]"
+                      >
+                        Hoàn thành
+                      </button>
+                    )}
                   </div>
-                );
-              }
-              return null;
+                </div>
+              );
             })()}
 
             {/* TABS */}
