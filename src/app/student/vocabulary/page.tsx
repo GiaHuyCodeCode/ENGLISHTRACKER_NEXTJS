@@ -184,8 +184,14 @@ export default function StudentVocabularyPage() {
     const baseCards = getVocabularyCards();
     const assignCards = getAssignments().filter(a => a.type === 'vocabulary').flatMap(a => a.vocabCards || []);
     const totalCardsMap = new Map<string, VocabCard>();
-    baseCards.forEach(c => totalCardsMap.set(c.id, c));
-    assignCards.forEach(c => totalCardsMap.set(c.id, c as VocabCard));
+    baseCards.forEach(c => {
+      const normId = c.word.toLowerCase().replace(/[^a-z0-9]/g, '');
+      totalCardsMap.set(normId, { ...c, id: normId });
+    });
+    assignCards.forEach(c => {
+      const normId = c.word.toLowerCase().replace(/[^a-z0-9]/g, '');
+      totalCardsMap.set(normId, { ...c, id: normId as any });
+    });
     const loadedCards = Array.from(totalCardsMap.values());
     
     setCards(loadedCards);

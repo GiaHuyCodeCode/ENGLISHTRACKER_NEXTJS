@@ -90,6 +90,7 @@ export interface Assignment {
   sourceDictationId?: string;
   isHidden?: boolean; // Cho bài tập Spaced Repetition bị ẩn
   _localLastUpdated?: number; // local edit timestamp to avoid race conditions
+  _isLocalOnly?: boolean; // Flag to indicate if assignment is only in local storage
 }
 
 export interface VocabAnswerResult {
@@ -463,6 +464,7 @@ export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { cr
     
     // Tự động thêm progress cho assignment mới tạo
     syncVocabProgressFromAssignments();
+    
     // createdDateRaw.setHours(0, 0, 0, 0);
     // const createdMidnight = createdDateRaw.getTime();
     //
@@ -572,13 +574,18 @@ export function syncAllFromCloud(cloudData: any): boolean {
     const deletedIdsSet = new Set(deletedIds);
 
     // Lọc bỏ các bài tập đã bị xóa khỏi dữ liệu Cloud, và các bài repetition kiểu cũ (Stage)
-    const activeCloudAssignments = cloudData.assignments.filter((cloudA: any) => {
-      if (deletedIdsSet.has(cloudA.id)) return false;
+    const uniqueCloudAssignments = new Map<string, any>();
+    cloudData.assignments.forEach((cloudA: any) => {
+      if (deletedIdsSet.has(cloudA.id)) return;
       const isOldSrsId = cloudA.id && (cloudA.id.startsWith('rep-stage') || cloudA.id.startsWith('stage'));
       const isOldSrsTitle = cloudA.title && (cloudA.title.toLowerCase().startsWith('stage ') || cloudA.title.toLowerCase().startsWith('stage-'));
-      if (isOldSrsId || isOldSrsTitle) return false;
-      return true;
+      if (isOldSrsId || isOldSrsTitle) return;
+      // Keep the first encountered (or could be last, doesn't matter, just deduplicate)
+      if (!uniqueCloudAssignments.has(cloudA.id)) {
+        uniqueCloudAssignments.set(cloudA.id, cloudA);
+      }
     });
+    const activeCloudAssignments = Array.from(uniqueCloudAssignments.values());
 
     // Dọn dẹp Tombstone list: Nếu ID đã xóa không còn xuất hiện trong response của Cloud nữa,
     // nghĩa là Cloud đã thực sự xóa xong bài đó. Ta loại bỏ ID đó khỏi deletedIds để giải phóng bộ nhớ.
@@ -589,8 +596,21 @@ export function syncAllFromCloud(cloudData: any): boolean {
     }
 
     const merged = activeCloudAssignments.map((cloudA: any) => {
+      // Đảm bảo createdAt của bài daily-review LUÔN LUÔN khớp với ID, 
+      // bất kể Google Sheets hay local cache có lưu sai hay không.
+      if (cloudA.id && cloudA.id.startsWith('daily-review-')) {
+        const datePart = cloudA.id.replace('daily-review-', '');
+        const targetDate = new Date(datePart);
+        if (!isNaN(targetDate.getTime())) {
+          targetDate.setHours(8, 0, 0, 0);
+          cloudA.createdAt = targetDate.toISOString();
+        }
+      }
+
       const localA = localMap.get(cloudA.id);
-      if (!localA) return cloudA; // New from cloud
+      if (!localA) {
+        return cloudA; // New from cloud
+      }
 
       // Nếu local mới được update trong vòng 10 giây qua, giữ nguyên các trường local vừa sửa
       if (localA._localLastUpdated && (Date.now() - localA._localLastUpdated < 10 * 1000)) {
@@ -612,8 +632,16 @@ export function syncAllFromCloud(cloudData: any): boolean {
       // sheet-row insert timestamp, not the staggered target date computed
       // client-side, so trusting cloud here collapses every phase onto the
       // same date as the base assignment.
-      if (localA.type === 'repetition') {
-        return { ...cloudA, createdAt: localA.createdAt, isHidden: localA.isHidden };
+      if (localA.type?.toLowerCase() === 'repetition') {
+        return { ...cloudA, type: 'repetition', skill: 'Repetition', createdAt: localA.createdAt, isHidden: localA.isHidden };
+      }
+      // Preserve local createdAt, type, and skill for vocabulary assignments:
+      // GAS stores the sheet-row insert timestamp which may differ from the
+      // actual client-side creation time used for SR scheduling.
+      // Additionally, protect `type` and `skill` from being accidentally 
+      // overwritten by cloud data (e.g. if SR sync incorrectly overwrote a row).
+      if (localA.type === 'vocabulary' && localA.createdAt) {
+        return { ...cloudA, type: localA.type, skill: localA.skill, createdAt: localA.createdAt };
       }
       return cloudA; // Cloud is authoritative otherwise
     });
@@ -630,9 +658,9 @@ export function syncAllFromCloud(cloudData: any): boolean {
     local.forEach(a => {
       if (a.type === 'repetition' && a.id.startsWith('daily-review-')) {
         if (!cloudIds.has(a.id)) {
-          // Nếu bài tập không tồn tại trên cloud và đã được tạo hơn 5 phút (tránh trường hợp mới tạo chưa kịp sync)
+          // Nếu bài tập không tồn tại trên cloud và đã được tạo hơn 30 phút (tránh trường hợp mới tạo chưa kịp sync)
           const createdTime = new Date(a.createdAt || 0).getTime();
-          if (nowTime - createdTime > 5 * 60 * 1000) {
+          if (nowTime - createdTime > 30 * 60 * 1000) {
             if (!deletedDailyReviewsSet.has(a.id)) {
               deletedDailyReviewsSet.add(a.id);
               deletedDailyReviewsChanged = true;
@@ -657,12 +685,16 @@ export function syncAllFromCloud(cloudData: any): boolean {
       // thì ta KHÔNG giữ lại nữa để bài tập biến mất hoàn toàn.
       if (a.type === 'repetition' && a.id.startsWith('daily-review-')) {
         if (deletedDailyReviewsSet.has(a.id)) return false;
+        a._isLocalOnly = true;
         return true;
       }
 
-      // Nếu bài tập mới được tạo ở local trong vòng 5 phút qua, giữ lại vì có thể đang đợi sync lên cloud
+      // Nếu bài tập mới được tạo ở local trong vòng 30 phút qua, giữ lại vì có thể đang đợi sync lên cloud
       const createdTime = new Date(a.createdAt || 0).getTime();
-      if (nowTime - createdTime < 5 * 60 * 1000) return true;
+      if (nowTime - createdTime < 30 * 60 * 1000) {
+        a._isLocalOnly = true;
+        return true;
+      }
 
       // Nếu bài tập cũ nhưng không có trên cloud -> đã bị xóa trên cloud, loại bỏ khỏi local
       return false;
@@ -814,6 +846,9 @@ export function updateAssignment(id: string, partial: Partial<Assignment>) {
       if (hasNewCards) {
         saveVocabularyCards(updatedCards);
       }
+      
+      // Tự động đồng bộ tiến trình từ vựng của học sinh
+      syncVocabProgressFromAssignments();
     }
   }
 }
@@ -860,22 +895,35 @@ export function deleteVirtualShadowingSubmissions(shadowingAssignmentId: string)
 export function getSubmissions(): Submission[] {
   const raw = read<Submission[]>(KEYS.submissions, []);
   return raw.map(s => {
-    if (s.details) {
-      let parsedDetails = s.details;
-      if (typeof parsedDetails === 'string') {
-        try { parsedDetails = JSON.parse(parsedDetails); } catch {}
+    const parseField = (val: any) => {
+      if (typeof val === 'string') {
+        try { return JSON.parse(val); } catch { return val; }
       }
-      if (s.assignmentType === 'shadowing' && !s.shadowingResults) {
-        return { ...s, shadowingResults: parsedDetails as any };
-      } else if (s.assignmentType === 'multiple_choice' && !s.quizAnswers) {
-        return { ...s, quizAnswers: parsedDetails as any };
-      } else if ((s.assignmentType === 'vocab_context' || s.assignmentType === 'vocabulary') && !s.vocabAnswers) {
-        return { ...s, vocabAnswers: parsedDetails as any };
-      } else if (s.assignmentType === 'rewrite_vocab' && !s.rewriteAnswers) {
-        return { ...s, rewriteAnswers: parsedDetails as any };
+      return val;
+    };
+
+    const sParsed = { ...s };
+    if (sParsed.vocabAnswers) sParsed.vocabAnswers = parseField(sParsed.vocabAnswers);
+    if (sParsed.quizAnswers) sParsed.quizAnswers = parseField(sParsed.quizAnswers);
+    if (sParsed.rewriteAnswers) sParsed.rewriteAnswers = parseField(sParsed.rewriteAnswers);
+    if (sParsed.dictationResults) sParsed.dictationResults = parseField(sParsed.dictationResults);
+    if (sParsed.shadowingResults) sParsed.shadowingResults = parseField(sParsed.shadowingResults);
+
+    if (sParsed.details && typeof sParsed.details === 'string') {
+      let parsedDetails = parseField(sParsed.details);
+      if (sParsed.assignmentType === 'shadowing' && !sParsed.shadowingResults) {
+        sParsed.shadowingResults = parsedDetails as any;
+      } else if (sParsed.assignmentType === 'multiple_choice' && !sParsed.quizAnswers) {
+        sParsed.quizAnswers = parsedDetails as any;
+      } else if ((sParsed.assignmentType === 'vocab_context' || sParsed.assignmentType === 'vocabulary' || sParsed.assignmentType === 'repetition') && !sParsed.vocabAnswers) {
+        sParsed.vocabAnswers = parsedDetails as any;
+      } else if (sParsed.assignmentType === 'rewrite_vocab' && !sParsed.rewriteAnswers) {
+        sParsed.rewriteAnswers = parsedDetails as any;
+      } else if (sParsed.assignmentType === 'dictation' && !sParsed.dictationResults) {
+        sParsed.dictationResults = parsedDetails as any;
       }
     }
-    return s;
+    return sParsed;
   });
 }
 
@@ -1521,7 +1569,8 @@ export function seedIfEmpty(): void {
 export function getVocabularyCards(): VocabCard[] {
   const cards = read<VocabCard[]>(KEYS.vocabulary, []);
   // Filter out corrupted cards (e.g. VocabProgress objects mistakenly saved as cards)
-  return cards.filter(c => c.word !== undefined);
+  // and the old summary row containing comma-separated words
+  return cards.filter(c => c.word !== undefined && !c.word.includes(','));
 }
 
 export function saveVocabularyCards(cards: VocabCard[]): void {
@@ -1677,7 +1726,7 @@ export function recalculateVocabProgress(studentName: string): void {
 
   // Replay submissions
   allSubmissions.forEach(sub => {
-    if (!sub.vocabAnswers) return;
+    if (!sub.vocabAnswers || !Array.isArray(sub.vocabAnswers)) return;
     const subDate = new Date(sub.submittedAt);
     const isSynced = !sub.durationMs || Number(sub.durationMs) === 0;
 
@@ -2003,8 +2052,11 @@ export function generateDailyReviewAssignment(clearDeletedTombstone = false) {
             vocabCards: cardsToReview,
             passage: passageStr
           };
+          const isLocalOnly = updatedAssign._isLocalOnly;
+          if (isLocalOnly) delete updatedAssign._isLocalOnly;
+          
           newAssignments[existingIndex] = updatedAssign;
-          syncAssignmentToSheet(updatedAssign, 'update_assignment');
+          syncAssignmentToSheet(updatedAssign, isLocalOnly ? 'add_assignment' : 'update_assignment');
         }
         hasChanges = true;
       }
@@ -2019,7 +2071,8 @@ export function generateDailyReviewAssignment(clearDeletedTombstone = false) {
           vocabCards: cardsToReview,
           createdAt: targetDate.toISOString(),
           isHidden: false,
-          passage: passageStr
+          passage: passageStr,
+          _isLocalOnly: true
         };
 
         newAssignments.push(reviewAssign);

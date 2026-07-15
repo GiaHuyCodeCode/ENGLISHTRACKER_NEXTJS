@@ -87,7 +87,7 @@ export default function EditAssignmentPage() {
         </div>
       )}
 
-      <div className="max-w-3xl space-y-6">
+      <div className="max-w-5xl mx-auto space-y-6">
         {/* Date & Skill Scheduler */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="glass rounded-2xl border border-border p-6 space-y-3">

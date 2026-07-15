@@ -1322,7 +1322,7 @@ export default function TeacherDashboard() {
                 Biểu Đồ Thi Đua Học Tập
               </h2>
               <div className="glass-strong rounded-3xl p-6 flex flex-col justify-center">
-                <StudentPerformanceChart submissions={filteredSubmissions} />
+                <StudentPerformanceChart submissions={filteredSubmissions} referenceDate={selectedDate} />
               </div>
             </div>
 
@@ -1333,7 +1333,7 @@ export default function TeacherDashboard() {
                 Bảng Thống Kê Tổng Thời Gian Học
               </h2>
               <div className="glass-strong rounded-3xl p-6 flex flex-col justify-center border border-white/5">
-                <StudentTimeChart submissions={filteredSubmissions} />
+                <StudentTimeChart submissions={filteredSubmissions} referenceDate={selectedDate} />
               </div>
             </div>
 
@@ -1599,15 +1599,18 @@ export default function TeacherDashboard() {
           {/* Assignments list */}
           {(() => {
             const filteredMgmtAssignments = allAssignments.filter(a => {
-              const isRepetition = a.type === 'repetition';
+              const isRepetition = a.type?.toLowerCase() === 'repetition' || 
+                                   a.skill?.toLowerCase() === 'repetition' || 
+                                   a.id?.startsWith('daily-review-') || 
+                                   a.id?.startsWith('rep-');
 
               if (mgmtSkillFilter === 'all') {
-                // Mặc định ẩn bài SR ở tab "Tất cả" khi không lọc ngày.
-                // Khi có date filter → hiện SR (để giáo viên thấy bài SR tạo ngày đó).
-                if (isRepetition && !mgmtDateFilter) return false;
+                // Không ẩn bài SR ở tab "Tất cả" nữa, hiển thị bình thường như các bài tập khác
+                // Ngoại trừ các bài SR bị ẩn (isHidden: true)
+                if (isRepetition && a.isHidden) return false;
               } else {
                 // Đang filter theo skill cụ thể — áp dụng bất kể có date filter hay không.
-                if (mgmtSkillFilter === 'Repetition') {
+                if (mgmtSkillFilter?.toLowerCase() === 'repetition') {
                   // Chỉ hiện bài SR
                   if (!isRepetition) return false;
                 } else {
@@ -1620,11 +1623,9 @@ export default function TeacherDashboard() {
 
               if (mgmtDateFilter) {
                 if (!a.createdAt) return false;
-                // So sánh theo ngày dương lịch ở múi giờ local (nhất quán với <input type="date">).
-                // Không dùng string.startsWith trên chuỗi ISO (luôn ở UTC) vì có thể lệch ngày
-                // với giờ local, dẫn đến lọc sai gần mốc nửa đêm.
                 const d = new Date(a.createdAt);
                 const aDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                console.log('DEBUG_FILTER:', { aDate, mgmtDateFilter, createdAt: a.createdAt, title: a.title });
                 if (aDate !== mgmtDateFilter) return false;
               }
 
@@ -1645,8 +1646,12 @@ export default function TeacherDashboard() {
             }
 
             return (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full items-stretch">
+              <div key={mgmtSkillFilter} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full items-stretch">
                 {filteredMgmtAssignments.map(a => {
+                  const isRepetition = a.type?.toLowerCase() === 'repetition' || 
+                                       a.skill?.toLowerCase() === 'repetition' || 
+                                       a.id?.startsWith('daily-review-') || 
+                                       a.id?.startsWith('rep-');
                   const subs = submissions.filter(s => s.assignmentId === a.id);
                   const realSubs = subs.filter(s => s.id && Number(s.durationMs) > 0);
                   const avg = realSubs.length ? Math.round(realSubs.reduce((s, x) => s + x.score, 0) / realSubs.length) : null;
@@ -1663,7 +1668,7 @@ export default function TeacherDashboard() {
                         {a.type === 'vocab_context' ? <BookOpen className="h-5 w-5" /> :
                           a.type === 'multiple_choice' ? <ListChecks className="h-5 w-5" /> :
                             a.type === 'dictation' ? <Headphones className="h-5 w-5" /> :
-                              (a.type === 'vocabulary' || a.type === 'repetition') ? <FileJson className="h-5 w-5" /> :
+                              (a.type === 'vocabulary' || isRepetition) ? <FileJson className="h-5 w-5" /> :
                                 a.type === 'shadowing' ? <Mic className="h-5 w-5" /> :
                                   <PenTool className="h-5 w-5" />}
                       </div>
@@ -1684,7 +1689,7 @@ export default function TeacherDashboard() {
                             {a.type === 'vocab_context' ? `${a.keywords?.length || 0} từ khóa` :
                               a.type === 'multiple_choice' ? `${a.questions?.length || 0} câu hỏi` :
                                 a.type === 'dictation' ? `${getDictationCount(a)} câu` :
-                                  (a.type === 'vocabulary' || a.type === 'repetition') ? `${a.vocabCards?.length || 0} từ vựng` :
+                                  (a.type === 'vocabulary' || isRepetition) ? `${a.vocabCards?.length || 0} từ vựng` :
                                     a.type === 'shadowing' ? `${getDictationCount(a)} câu` :
                                       `${a.keywords?.length || 0} từ khóa`}
                           </span>
@@ -1711,7 +1716,7 @@ export default function TeacherDashboard() {
 
                   return (
                     <div key={a.id} className="flex flex-col md:flex-row h-full items-stretch md:items-start justify-between gap-4 p-5 rounded-2xl glass hover:border-primary/30 transition-all group">
-                      {a.type === 'repetition' ? (
+                      {isRepetition ? (
                         <div className="flex-1 flex items-start gap-3.5 min-w-0 w-full select-none">
                           {renderCardContent()}
                         </div>
@@ -1913,7 +1918,10 @@ export default function TeacherDashboard() {
                     {(() => {
                       const baseCards = getVocabularyCards();
                       const assignCards = allAssignments.filter(a => a.type === 'vocabulary').flatMap(a => a.vocabCards || []);
-                      const uniqueIds = new Set([...baseCards.map(c => c.id), ...assignCards.map(c => c.id)]);
+                      const uniqueIds = new Set([
+                        ...baseCards.map(c => c.word.toLowerCase().replace(/[^a-z0-9]/g, '')),
+                        ...assignCards.map(c => c.word.toLowerCase().replace(/[^a-z0-9]/g, ''))
+                      ]);
                       return uniqueIds.size;
                     })()} từ
                   </span>
@@ -1940,8 +1948,14 @@ export default function TeacherDashboard() {
                     const baseCards = getVocabularyCards();
                     const assignCards = allAssignments.filter(a => a.type === 'vocabulary').flatMap(a => a.vocabCards || []);
                     const totalCardsMap = new Map<string, any>();
-                    baseCards.forEach(c => totalCardsMap.set(c.id, c));
-                    assignCards.forEach(c => totalCardsMap.set(c.id, c));
+                    baseCards.forEach(c => {
+                      const normId = c.word.toLowerCase().replace(/[^a-z0-9]/g, '');
+                      totalCardsMap.set(normId, { ...c, id: normId });
+                    });
+                    assignCards.forEach(c => {
+                      const normId = c.word.toLowerCase().replace(/[^a-z0-9]/g, '');
+                      totalCardsMap.set(normId, { ...c, id: normId });
+                    });
                     const totalCards = Array.from(totalCardsMap.values());
                     
                     const progressMap = new Map<string, any>();

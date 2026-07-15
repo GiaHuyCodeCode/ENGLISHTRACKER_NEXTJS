@@ -146,8 +146,14 @@ export default function StudentDashboard() {
     const baseCards = getVocabularyCards();
     const assignCards = getAssignments().filter(a => a.type === 'vocabulary').flatMap(a => a.vocabCards || []);
     const totalCardsMap = new Map<string, any>();
-    baseCards.forEach(c => totalCardsMap.set(c.id, c));
-    assignCards.forEach(c => totalCardsMap.set(c.id, c));
+    baseCards.forEach(c => {
+      const normId = c.word.toLowerCase().replace(/[^a-z0-9]/g, '');
+      totalCardsMap.set(normId, { ...c, id: normId });
+    });
+    assignCards.forEach(c => {
+      const normId = c.word.toLowerCase().replace(/[^a-z0-9]/g, '');
+      totalCardsMap.set(normId, { ...c, id: normId });
+    });
     const allCards = Array.from(totalCardsMap.values());
 
     const studentProgress = getStudentVocabProgress(student);
@@ -573,7 +579,10 @@ export default function StudentDashboard() {
         <h2 className="text-xl font-bold flex items-center gap-2 text-[hsl(var(--pollen))]">
           <FTrophy /> Biểu Đồ Thi Đua Học Tập
         </h2>
-        <StudentPerformanceChart submissions={getSubmissions().filter(s => s.id && s.assignmentType !== 'repetition' && Number(s.durationMs) > 0)} />
+        <StudentPerformanceChart 
+          submissions={getSubmissions().filter(s => s.id && s.assignmentType !== 'repetition' && Number(s.durationMs) > 0)} 
+          referenceDate={toLocalDateString()} 
+        />
       </div>
 
       {/* Stats for selected student */}
