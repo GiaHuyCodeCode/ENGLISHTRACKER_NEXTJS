@@ -91,6 +91,7 @@ export interface Assignment {
   isHidden?: boolean; // Cho bài tập Spaced Repetition bị ẩn
   _localLastUpdated?: number; // local edit timestamp to avoid race conditions
   _isLocalOnly?: boolean; // Flag to indicate if assignment is only in local storage
+  _localCreatedAt?: number; // Ghi nhận thời gian tạo thực tế ở local, bỏ qua createdAt ảo ở tương lai
 }
 
 export interface VocabAnswerResult {
@@ -659,7 +660,8 @@ export function syncAllFromCloud(cloudData: any): boolean {
       if (a.type === 'repetition' && a.id.startsWith('daily-review-')) {
         if (!cloudIds.has(a.id)) {
           // Nếu bài tập không tồn tại trên cloud và đã được tạo hơn 30 phút (tránh trường hợp mới tạo chưa kịp sync)
-          const createdTime = new Date(a.createdAt || 0).getTime();
+          // Dùng _localCreatedAt để tính tuổi thực sự, vì createdAt của bài SR có thể nằm ở tương lai (e.g. 5h sáng mai)
+          const createdTime = a._localCreatedAt || new Date(a.createdAt || 0).getTime();
           if (nowTime - createdTime > 30 * 60 * 1000) {
             if (!deletedDailyReviewsSet.has(a.id)) {
               deletedDailyReviewsSet.add(a.id);
@@ -2072,7 +2074,8 @@ export function generateDailyReviewAssignment(clearDeletedTombstone = false) {
           createdAt: targetDate.toISOString(),
           isHidden: false,
           passage: passageStr,
-          _isLocalOnly: true
+          _isLocalOnly: true,
+          _localCreatedAt: Date.now()
         };
 
         newAssignments.push(reviewAssign);

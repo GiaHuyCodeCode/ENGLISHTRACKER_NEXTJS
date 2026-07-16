@@ -177,21 +177,23 @@ export function DictationBlock({
         isCorrect = studentAns.toLowerCase() === word.toLowerCase();
         isWrong = !isCorrect;
       } else {
-        isCorrect = !!(roundCorrectWords[word] || hasCorrectedLocally[word]);
-        isWrong = !!(isWordWrongFirstTime[word] && !isCorrect);
+        // Nếu đã từng sai ở round này thì luôn tính là sai cho thanh tiến trình
+        isWrong = !!isWordWrongFirstTime[word];
+        // Chỉ coi là hoàn thành đúng nếu chưa từng sai VÀ hiện tại đã trả lời đúng
+        isCorrect = !!(roundCorrectWords[word] || hasCorrectedLocally[word]) && !isWrong;
       }
 
       let status: 'correct' | 'incorrect' | 'pending' | 'active' = 'pending';
       const isActive = currentCard && card.id === currentCard.id;
 
-      if (isCorrect) {
+      if (isWrong) {
+        status = 'incorrect';
+        incorrect++;
+      } else if (isCorrect) {
         status = 'correct';
         completed++;
       } else if (isActive) {
         status = 'active';
-      } else if (isWrong) {
-        status = 'incorrect';
-        incorrect++;
       } else {
         pending++;
       }
@@ -649,8 +651,22 @@ export function DictationBlock({
 
         {/* Meaning Hint */}
         <div className="space-y-1.5 w-full max-w-md">
-          <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-muted-foreground tracking-widest">Nghĩa tiếng Việt</p>
-          <div className="bg-slate-50 dark:bg-white/5 rounded-2xl px-6 py-4 border border-slate-200 dark:border-white/5">
+          {currentCard.synonyms && currentCard.synonyms.length > 0 && (
+            <div className="flex justify-center mb-3">
+              <div className="flex items-center flex-wrap justify-center gap-2 px-4 py-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl">
+                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-muted-foreground tracking-widest">Từ Đồng Nghĩa:</span>
+                <div className="flex items-center gap-1.5">
+                  {currentCard.synonyms.map((s, i) => (
+                    <span key={i} className="px-2 py-0.5 rounded-md bg-white dark:bg-white/10 border border-slate-200 dark:border-white/5 text-slate-700 dark:text-slate-200 text-sm font-semibold shadow-sm">
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-muted-foreground tracking-widest text-center">Nghĩa tiếng Việt</p>
+          <div className="bg-slate-50 dark:bg-white/5 rounded-2xl px-6 py-4 border border-slate-200 dark:border-white/5 text-center">
             <p className="text-lg md:text-xl font-bold text-slate-800 dark:text-foreground leading-relaxed">{currentCard.meaning}</p>
           </div>
         </div>
@@ -765,16 +781,16 @@ export function DictationBlock({
                 </div>
               </div>
               <div className="bg-black/5 dark:bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2 text-xs text-left max-w-md mx-auto text-muted-foreground animate-fade-in">
-                <div>
-                  <span className="font-semibold text-foreground">💡 Nghĩa của từ: </span>
-                  {currentCard.meaning}
-                </div>
                 {currentCard.synonyms && currentCard.synonyms.length > 0 && (
                   <div>
                     <span className="font-semibold text-foreground">🔗 Đồng nghĩa: </span>
                     {Array.isArray(currentCard.synonyms) ? currentCard.synonyms.join(', ') : currentCard.synonyms}
                   </div>
                 )}
+                <div>
+                  <span className="font-semibold text-foreground">💡 Nghĩa của từ: </span>
+                  {currentCard.meaning}
+                </div>
                 {currentCard.example && (
                   <div>
                     <span className="font-semibold text-foreground">📝 Ví dụ: </span>

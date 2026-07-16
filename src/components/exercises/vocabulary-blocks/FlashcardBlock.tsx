@@ -174,11 +174,6 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
 
           {/* Back */}
           <div className="absolute inset-0 glass-strong rounded-3xl p-8 flex flex-col justify-center rotate-y-180 backface-hidden shadow-2xl space-y-6 group-hover:border-primary/30 transition-colors">
-            <div className="space-y-1">
-              <span className="text-xs uppercase tracking-wider font-bold text-violet-600 dark:text-violet-400">Định Nghĩa</span>
-              <div className="text-xl md:text-2xl font-medium text-foreground">{currentCard.meaning}</div>
-            </div>
-            
             {currentCard.synonyms && currentCard.synonyms.length > 0 && (
               <div className="space-y-1">
                 <span className="text-[10px] uppercase tracking-wider font-bold text-teal-600 dark:text-teal-400">Từ Đồng Nghĩa</span>
@@ -191,6 +186,11 @@ export function FlashcardBlock({ vocabCards, handleSpeak, isSubmitted }: Flashca
                 </div>
               </div>
             )}
+
+            <div className="space-y-1">
+              <span className="text-xs uppercase tracking-wider font-bold text-violet-600 dark:text-violet-400">Định Nghĩa</span>
+              <div className="text-xl md:text-2xl font-medium text-foreground">{currentCard.meaning}</div>
+            </div>
             
             {currentCard.example && (
               <div className="space-y-1 pt-4 border-t border-white/5">

@@ -175,6 +175,7 @@ export function TestBlock({
         }
       } else if (chosen) {
         status = 'active';
+        pending++;
       } else {
         pending++;
       }
@@ -320,16 +321,16 @@ export function TestBlock({
                     </div>
                   </div>
                   <div className="bg-slate-50 dark:bg-white/5 rounded-2xl p-4 border border-slate-200 dark:border-white/5 space-y-2 text-xs text-slate-500 dark:text-muted-foreground">
-                    <div>
-                      <span className="font-semibold text-foreground">💡 Nghĩa của từ: </span>
-                      {c.meaning}
-                    </div>
                     {c.synonyms && c.synonyms.length > 0 && (
                       <div>
                         <span className="font-semibold text-foreground">🔗 Đồng nghĩa: </span>
                         {Array.isArray(c.synonyms) ? c.synonyms.join(', ') : c.synonyms}
                       </div>
                     )}
+                    <div>
+                      <span className="font-semibold text-foreground">💡 Nghĩa của từ: </span>
+                      {c.meaning}
+                    </div>
                     {c.example && (
                       <div>
                         <span className="font-semibold text-foreground">📝 Ví dụ: </span>
