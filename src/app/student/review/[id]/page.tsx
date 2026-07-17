@@ -10,8 +10,9 @@ import { VocabContextExercise } from '@/components/exercises/VocabContextExercis
 import { MultipleChoiceExercise } from '@/components/exercises/MultipleChoiceExercise';
 import { RewriteVocabExercise } from '@/components/exercises/RewriteVocabExercise';
 import { VocabularyExercise } from '@/components/exercises/VocabularyExercise';
+import { GrammarPdfExercise } from '@/components/exercises/GrammarPdfExercise';
 import { RaceTrackLeaderboard } from '@/components/ui/RaceTrackLeaderboard';
-import { ArrowLeft, Clock, CheckCircle2, Trophy, HelpCircle, Star, X, Headphones, Volume2, Mic } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, Trophy, HelpCircle, Star, X, Headphones, Volume2, Mic, FileText } from 'lucide-react';
 import Link from 'next/link';
 
 export default function StudentReviewPage() {
@@ -75,6 +76,25 @@ export default function StudentReviewPage() {
       if (parsedAss.questions) parsedAss.questions = parseJsonSafely(parsedAss.questions);
       if (parsedAss.vocabCards) parsedAss.vocabCards = parseJsonSafely(parsedAss.vocabCards);
       if (parsedAss.sentences) parsedAss.sentences = parseJsonSafely(parsedAss.sentences);
+      
+      // Parse passage for grammar
+      // GAS auto-parses JSON cells so passage may arrive as object or string
+      // Always re-resolve so we don't keep a stale object reference as pdfUrl
+      if (parsedAss.type === 'grammar') {
+        const passageData = parsedAss.passage && typeof parsedAss.passage === 'object'
+          ? parsedAss.passage as any
+          : parsedAss.passage
+            ? (() => { try { return JSON.parse(parsedAss.passage as string); } catch { return null; } })()
+            : null;
+        if (passageData?.pdfUrl && typeof passageData.pdfUrl === 'string') {
+          parsedAss.pdfUrl = passageData.pdfUrl;
+          parsedAss.linkedAssignmentId = passageData.linkedAssignmentId || parsedAss.linkedAssignmentId;
+        } else if (parsedAss.pdfUrl && typeof parsedAss.pdfUrl !== 'string') {
+          // pdfUrl was stored as object - clear it to prevent [object Object]
+          parsedAss.pdfUrl = undefined;
+        }
+      }
+      
       setAssignment(parsedAss);
     }
     setIsLoading(false);
@@ -454,8 +474,19 @@ export default function StudentReviewPage() {
               score={submission.score}
               durationMs={submission.durationMs}
               initialMode="dictation"
-              isRequirementWorkflow={true}
-              hideStudentAnswer={true}
+              isRequirementWorkflow={assignment.type === 'vocabulary' || assignment.type === 'repetition'}
+              isRepetitionWorkflow={false}
+              hideStudentAnswer={!submission.durationMs || Number(submission.durationMs) === 0}
+            />
+          )}
+
+          {assignment.type === 'grammar' && (
+            <GrammarPdfExercise
+              assignment={assignment}
+              onSubmit={() => {}}
+              isSubmitting={false}
+              result={submission}
+              durationMs={submission.durationMs}
             />
           )}
 
@@ -553,7 +584,9 @@ export default function StudentReviewPage() {
           )}
 
           {/* Standings Leaderboard */}
-          <RaceTrackLeaderboard submissions={getSubmissions().filter(s => s.assignmentId === assignment.id)} />
+          {assignment.type !== 'grammar' && (
+            <RaceTrackLeaderboard submissions={getSubmissions().filter(s => s.assignmentId === assignment.id)} />
+          )}
         </div>
       </div>
     </div>

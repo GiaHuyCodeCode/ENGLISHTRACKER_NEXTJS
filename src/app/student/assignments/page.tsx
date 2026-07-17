@@ -99,8 +99,7 @@ export default function StudentAssignmentsPage() {
   const [isSyncing, setIsSyncing] = useState(false);
 
   const refreshData = async () => {
-    // 1. Lấy dữ liệu local và generate SR assignments
-    autoSyncAllSpacedRepetition();
+    // 1. Lấy dữ liệu local
     setAssignments(getAssignments());
     setMounted(true);
 
@@ -111,8 +110,6 @@ export default function StudentAssignmentsPage() {
       if (res.ok) {
         const cloudData = await res.json();
         const hasChanges = syncAllFromCloud(cloudData);
-        // Re-generate SR sau khi sync để đảm bảo bài mới từ teacher được tính
-        autoSyncAllSpacedRepetition();
         if (hasChanges) {
           setAssignments(getAssignments());
           if (studentName) {
@@ -319,6 +316,7 @@ export default function StudentAssignmentsPage() {
                           a.type === 'dictation' ? 'bg-sky-500/15' :
                           a.type === 'vocabulary' ? 'bg-indigo-500/15' :
                           a.type === 'shadowing' ? 'bg-emerald-500/15' :
+                          a.type === 'grammar' ? 'bg-fuchsia-500/15' :
                           'bg-amber-500/15'
                         }`}>
                           {a.type === 'vocab_context' ? <BookOpen className="h-5 w-5 text-violet-600 dark:text-violet-400" /> :
@@ -326,6 +324,7 @@ export default function StudentAssignmentsPage() {
                            a.type === 'dictation' ? <Headphones className="h-5 w-5 text-sky-600 dark:text-sky-400" /> :
                            a.type === 'vocabulary' ? <FileJson className="h-5 w-5 text-indigo-600 dark:text-indigo-400" /> :
                            a.type === 'shadowing' ? <Mic className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /> :
+                           a.type === 'grammar' ? <FileText className="h-5 w-5 text-fuchsia-600 dark:text-fuchsia-400" /> :
                            <PenTool className="h-5 w-5 text-amber-600 dark:text-amber-400" />}
                         </div>
                         <span className={`text-[11px] px-2 py-1 rounded-lg font-semibold ${
@@ -334,13 +333,15 @@ export default function StudentAssignmentsPage() {
                           a.type === 'dictation' ? 'bg-sky-500/10 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400' :
                           a.type === 'vocabulary' ? 'bg-indigo-500/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' :
                           a.type === 'shadowing' ? 'bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
+                          a.type === 'grammar' ? 'bg-fuchsia-500/10 dark:bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400' :
                           'bg-amber-500/10 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
                         }`}>
                           {a.type === 'vocab_context' ? 'Vocab' :
                            a.type === 'multiple_choice' ? 'Quiz' :
                            a.type === 'dictation' ? 'Dictation' :
                            a.type === 'vocabulary' ? 'Học Từ' :
-                           a.type === 'shadowing' ? 'Shadowing' : 'Viết'}
+                           a.type === 'shadowing' ? 'Shadowing' :
+                           a.type === 'grammar' ? 'Tài Liệu' : 'Viết'}
                         </span>
                       </div>
                       <h3 className={`font-semibold text-sm leading-snug mb-2 transition-colors ${
@@ -353,6 +354,7 @@ export default function StudentAssignmentsPage() {
                          a.type === 'vocabulary' ? `${a.vocabCards?.length || 0} từ • Học & Kiểm tra` :
                          a.type === 'repetition' ? `${a.vocabCards?.length || 0} từ • Nghe chép ôn tập` :
                          a.type === 'shadowing' ? `${getDictationCount(a)} câu • Nghe & nhắc lại` :
+                         a.type === 'grammar' ? (a.linkedAssignmentId ? 'Lý thuyết ngữ pháp • Có bài trắc nghiệm liên kết' : 'Lý thuyết ngữ pháp • Đọc & học tập') :
                          `${a.keywords?.length || 0} từ khóa cần dùng`}
                         {a.type !== 'repetition' && a.createdAt && ` • Ngày giao: ${new Date(a.createdAt).toLocaleDateString('vi-VN')}`}
                         {a.type === 'repetition' && (() => {
@@ -430,6 +432,7 @@ export default function StudentAssignmentsPage() {
                       a.type === 'dictation' ? 'bg-sky-500/10 dark:bg-sky-500/10' :
                       a.type === 'vocabulary' ? 'bg-indigo-500/10 dark:bg-indigo-500/10' :
                       a.type === 'shadowing' ? 'bg-emerald-500/10 dark:bg-emerald-500/10' :
+                      a.type === 'grammar' ? 'bg-fuchsia-500/10 dark:bg-fuchsia-500/10' :
                       'bg-amber-500/10 dark:bg-amber-500/10'
                     }`}>
                       {a.type === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-600 dark:text-violet-400" /> :
@@ -437,6 +440,7 @@ export default function StudentAssignmentsPage() {
                        a.type === 'dictation' ? <Headphones className="h-4 w-4 text-sky-600 dark:text-sky-400" /> :
                        a.type === 'vocabulary' ? <FileJson className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> :
                        a.type === 'shadowing' ? <Mic className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> :
+                       a.type === 'grammar' ? <FileText className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-400" /> :
                        <PenTool className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
                     </div>
                     <div className="flex-1 min-w-0">

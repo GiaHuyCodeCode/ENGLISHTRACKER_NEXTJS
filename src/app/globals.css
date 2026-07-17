@@ -34,29 +34,29 @@
   }
 
   .light {
-    /* LIGHT MODE — Bloom Cream */
-    --background: 40 25% 92%;
-    --foreground: 150 35% 8%;
-    --card: 0 0% 100%;
+    /* LIGHT MODE — Clean Sage Off-White & Petal Rose */
+    --background: 150 8% 97%;          /* Clean refreshing sage off-white #f5f7f5 */
+    --foreground: 150 35% 8%;          /* Deep botanical black #0d1510 */
+    --card: 0 0% 100%;                 /* Pure white for floating contrast */
     --card-foreground: 150 35% 8%;
     --popover: 0 0% 100%;
     --popover-foreground: 150 35% 8%;
-    --primary: 340 60% 50%;
+    --primary: 340 65% 45%;            /* Rich, readable petal rose in light mode */
     --primary-foreground: 0 0% 100%;
-    --secondary: 40 20% 90%;
-    --secondary-foreground: 150 30% 15%;
-    --muted: 40 15% 91%;
-    --muted-foreground: 150 12% 40%;
-    --accent: 47 72% 48%;
+    --secondary: 150 8% 93%;           /* Soft sage gray */
+    --secondary-foreground: 150 30% 12%;
+    --muted: 150 6% 94%;
+    --muted-foreground: 150 10% 40%;
+    --accent: 47 72% 40%;              /* Rich gold pollen */
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 70% 50%;
+    --destructive: 0 75% 45%;
     --destructive-foreground: 0 0% 100%;
-    --border: 40 15% 84%;
-    --input: 40 15% 84%;
-    --ring: 340 60% 50%;
-    --petal:  340 60% 50%;
-    --pollen: 47 72% 48%;
-    --fern:   150 12% 40%;
+    --border: 150 8% 88%;              /* Very clean border */
+    --input: 150 8% 88%;
+    --ring: 340 65% 45%;
+    --petal:  340 65% 45%;
+    --pollen: 47 72% 40%;
+    --fern:   150 10% 40%;
     --forest: 150 35% 8%;
   }
 }
@@ -575,9 +575,9 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .light .input-field,
 .light .input-inline {
   background: hsl(0 0% 100%);
-  border-color: hsl(340 15% 75%);
+  border-color: hsl(150 8% 82%);
   color: hsl(var(--foreground));
-  box-shadow: inset 0 1px 3px hsl(340 10% 85% / 0.5);
+  box-shadow: inset 0 1px 3px hsl(150 8% 90% / 0.5);
 }
 .light .nav-link.active {
   background: hsl(var(--petal) / 0.1);
@@ -585,28 +585,28 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 /* ── Light Mode: Card & Surface Overrides ──────────────────────────── */
-/* Light mode: cards must visually "lift" off the warm cream page bg (#f5f0e8).
-   Use white bg, tinted border, and a warm-tinted colored shadow for depth. */
+/* Light mode: cards must visually "lift" off the page bg.
+   Use white bg, tinted border, and a natural sage-tinted shadow for depth. */
 .light .glass {
-  background: hsl(0 0% 100% / 0.7);
-  border-color: hsl(340 18% 82% / 0.6);
+  background: hsl(0 0% 100% / 0.82);
+  border-color: hsl(150 8% 86% / 0.6);
   box-shadow:
     inset 0 1px 0 hsl(0 0% 100%),
-    0 1px 4px hsl(340 20% 70% / 0.08),
-    0 4px 20px hsl(340 15% 60% / 0.06);
+    0 1px 3px hsl(150 10% 20% / 0.03),
+    0 6px 20px hsl(150 10% 20% / 0.04);
 }
 .light .glass-strong {
-  background: hsl(0 0% 100% / 0.85);
-  border-color: hsl(340 20% 80% / 0.6);
+  background: hsl(0 0% 100% / 0.94);
+  border-color: hsl(150 8% 85% / 0.6);
   box-shadow:
     inset 0 1px 0 hsl(0 0% 100%),
-    0 2px 8px hsl(340 20% 65% / 0.1),
-    0 8px 32px hsl(340 15% 55% / 0.08);
+    0 2px 6px hsl(150 10% 20% / 0.04),
+    0 10px 30px hsl(150 10% 20% / 0.05);
 }
 .light .glass-fixed {
-  background: hsl(40 25% 98% / 0.85);
-  border-color: hsl(340 20% 83% / 0.6);
-  box-shadow: 0 2px 24px hsl(340 15% 60% / 0.08);
+  background: hsl(150 8% 98% / 0.88);
+  border-color: hsl(150 8% 86% / 0.6);
+  box-shadow: 0 2px 24px hsl(150 10% 20% / 0.04);
 }
 
 /* ── Light Mode: Gradient Text ─────────────────────────────────────────── */
@@ -625,8 +625,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
 /* ── Light Mode: Eyebrow Tag ────────────────────────────────────────────── */
 .light .eyebrow-tag {
-  background: hsl(var(--petal) / 0.10);
-  border-color: hsl(var(--petal) / 0.22);
+  background: hsl(var(--petal) / 0.08);
+  border-color: hsl(var(--petal) / 0.18);
   color: hsl(340 60% 40%);
 }
 
@@ -636,57 +636,57 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 /* ── Light Mode: Sidebar ────────────────────────────────────────────── */
 .light aside,
 .light [data-sidebar] {
-  background: hsl(40 25% 98% / 0.98) !important;
-  border-right-color: hsl(340 20% 84%) !important;
+  background: hsl(150 8% 98% / 0.98) !important;
+  border-right-color: hsl(150 8% 88%) !important;
 }
 
 /* ── Light Mode: Gradient body bg fallback ──────────────────────────── */
 .light body {
-  background-color: hsl(40 30% 94%);
+  background-color: hsl(150 8% 97%);
   background-image:
-    radial-gradient(ellipse 80% 50% at 20% 0%, hsl(340 40% 90% / 0.25) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 80% 100%, hsl(47 55% 85% / 0.18) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 50% at 20% 0%, hsl(340 50% 93% / 0.3) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, hsl(47 60% 92% / 0.25) 0%, transparent 60%);
 }
 
 /* ── Light Mode: Sticky Mobile Status Bar ───────────────────────────── */
 .light .sticky-status-bar {
   background: hsl(0 0% 100% / 0.92);
-  border-bottom-color: hsl(340 15% 85%);
-  box-shadow: 0 1px 12px hsl(340 15% 70% / 0.12);
+  border-bottom-color: hsl(150 8% 88%);
+  box-shadow: 0 1px 12px hsl(150 10% 20% / 0.04);
 }
 
 /* ── Light Mode: Secondary/Muted surfaces ───────────────────────────── */
 .light .bg-secondary\/50 {
-  background-color: hsl(40 20% 92%) !important;
+  background-color: hsl(150 8% 94%) !important;
 }
 .light .bg-black\/5 {
-  background-color: hsl(340 10% 92%) !important;
+  background-color: hsl(150 8% 94%) !important;
 }
 .light .border-black\/5 {
-  border-color: hsl(340 12% 82%) !important;
+  border-color: hsl(150 8% 88%) !important;
 }
 .light .border-white\/5 {
-  border-color: hsl(340 14% 78%) !important;
-  border-top-color: hsl(340 14% 78%) !important;
-  border-bottom-color: hsl(340 14% 78%) !important;
-  border-left-color: hsl(340 14% 78%) !important;
-  border-right-color: hsl(340 14% 78%) !important;
+  border-color: hsl(150 8% 86%) !important;
+  border-top-color: hsl(150 8% 86%) !important;
+  border-bottom-color: hsl(150 8% 86%) !important;
+  border-left-color: hsl(150 8% 86%) !important;
+  border-right-color: hsl(150 8% 86%) !important;
 }
 .light .bg-white\/5 {
   background-color: hsl(0 0% 100% / 0.8) !important;
 }
 .light .divide-white\/5 > :not([hidden]) ~ :not([hidden]) {
-  border-color: hsl(340 14% 78%) !important;
+  border-color: hsl(150 8% 86%) !important;
 }
 .light .border-t-white\/5 {
-  border-top-color: hsl(340 14% 78%) !important;
+  border-top-color: hsl(150 8% 86%) !important;
 }
 .light .border-b-white\/5 {
-  border-bottom-color: hsl(340 14% 78%) !important;
+  border-bottom-color: hsl(150 8% 86%) !important;
 }
 .light .bg-secondary\/10 {
-  background-color: hsl(40 20% 92%) !important;
+  background-color: hsl(150 8% 95%) !important;
 }
 .light .bg-secondary\/30 {
-  background-color: hsl(40 20% 89%) !important;
+  background-color: hsl(150 8% 91%) !important;
 }

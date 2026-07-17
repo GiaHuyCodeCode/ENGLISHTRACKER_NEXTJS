@@ -79,7 +79,7 @@ export function VocabularyExercise({
   } | null>(null);
 
   // Thêm state cho chế độ nghe trước/sau
-  const [speakMode, setSpeakMode] = useState<'before' | 'after'>('after');
+  const [speakMode, setSpeakMode] = useState<'before' | 'after'>('before');
   const [isMobileMapOpen, setIsMobileMapOpen] = useState(false);
   const [autoSubmitCountdown, setAutoSubmitCountdown] = useState<number | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -232,7 +232,8 @@ export function VocabularyExercise({
         isCorrect = studentAnswer.toLowerCase() === c.word.toLowerCase();
       } else if (isRequirementWorkflow || isRepetitionWorkflow) {
         studentAnswer = (textAnswers[c.word] || '').trim();
-        isCorrect = studentAnswer.toLowerCase() === c.word.toLowerCase();
+        const attempts = dictationAttempts[c.word] || 1;
+        isCorrect = studentAnswer.toLowerCase() === c.word.toLowerCase() && attempts <= 1;
       } else if (activeMode === 'game_match') {
         const isMatched = gameMatchedIds.includes(`w_${c.id}`);
         studentAnswer = isMatched ? 'Matched' : 'Unmatched';
@@ -746,7 +747,7 @@ export function VocabularyExercise({
                     : `Dự kiến: ${calculateScore()}%`}
                 </span>
               </div>
-              {isAllAnswered && (
+              {isAllAnswered && !((isRequirementWorkflow || isRepetitionWorkflow) && activeMode === 'dictation') && (
                 <button
                   onClick={handleSubmitAll}
                   disabled={isSubmitting}
@@ -890,7 +891,7 @@ export function VocabularyExercise({
       )}
 
       {/* ── Sticky Mobile Submit Bar ─────────────────────────────────── */}
-      {!isSubmitted && ((!isRequirementWorkflow && !isRepetitionWorkflow) || (isRequirementWorkflow && activeMode === 'test') || (isRepetitionWorkflow && activeMode === 'dictation')) && (
+      {!isSubmitted && ((!isRequirementWorkflow && !isRepetitionWorkflow) || (isRequirementWorkflow && activeMode === 'test')) && (
         <div className="fixed bottom-0 left-0 right-0 z-30 lg:hidden px-4" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           <div className="py-3 px-2 glass-strong border-t border-black/10 dark:border-white/10 rounded-t-2xl">
             <div className="flex items-center justify-between mb-2 px-1">

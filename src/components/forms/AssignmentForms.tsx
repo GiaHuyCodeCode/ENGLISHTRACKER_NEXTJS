@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { VocabKeyword, QuizQuestion, DictationSentence, getVocabularyCards } from '@/lib/local-store';
-import { BookOpen, ListChecks, Plus, Trash2, Upload, CheckCircle2, AlertCircle, ArrowLeft, Eye, FileJson, PenTool, Headphones, Play, Clock, ChevronDown, Volume2, Save, X, XCircle, Search, Copy, Mic } from 'lucide-react';
+import { VocabKeyword, QuizQuestion, DictationSentence, getVocabularyCards, getAssignments } from '@/lib/local-store';
+import { BookOpen, ListChecks, Plus, Trash2, Upload, CheckCircle2, AlertCircle, ArrowLeft, Eye, FileJson, PenTool, Headphones, Play, Clock, ChevronDown, Volume2, Save, X, XCircle, Search, Copy, Mic, FileText, Loader2 } from 'lucide-react';
 import { audioManager } from '@/lib/audio';
 
 // YouTube URL parser
@@ -1282,6 +1282,237 @@ function VocabLibrarySidebar_REMOVED() {
             </div>
           ))
         )}
+      </div>
+    </div>
+  );
+}
+
+export function GrammarPdfForm({ onSave, isSaving, initialData }: {
+  onSave: (d: { title: string; pdfUrl: string; linkedAssignmentId?: string }) => void;
+  isSaving: boolean;
+  initialData?: any;
+}) {
+  let initPdfUrl = initialData?.pdfUrl || '';
+  let initLinkedId = initialData?.linkedAssignmentId || '';
+  if (!initPdfUrl && initialData?.passage) {
+    try {
+      const parsed = typeof initialData.passage === 'string' ? JSON.parse(initialData.passage) : initialData.passage;
+      if (parsed?.pdfUrl) initPdfUrl = parsed.pdfUrl;
+      if (parsed?.linkedAssignmentId) initLinkedId = parsed.linkedAssignmentId;
+    } catch(e) {}
+  }
+
+  const [title, setTitle] = useState(initialData?.title || '');
+  const [pdfUrl, setPdfUrl] = useState(initPdfUrl);
+  const [linkedAssignmentId, setLinkedAssignmentId] = useState(initLinkedId);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Lọc danh sách bài tập trắc nghiệm có sẵn để liên kết
+  const quizAssignments = getAssignments(true).filter(a => a.type === 'multiple_choice');
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      setUploadError('Vui lòng chọn file định dạng PDF.');
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) { // giới hạn 15MB
+      setUploadError('File quá lớn. Vui lòng chọn file dưới 15MB.');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      setUploadError('');
+
+      // Đọc file dưới dạng Base64
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64WithHeader = reader.result as string;
+        const base64Data = base64WithHeader.split(',')[1]; // Lấy phần data bỏ qua header
+
+        // Gọi Next.js API upload proxy
+        const response = await fetch('/api/upload-pdf-to-drive', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filename: file.name,
+            base64Data: base64Data,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Không thể upload file lên Google Drive.');
+        }
+
+        const data = await response.json();
+        if ((data.status === 'success' || data.url) && data.url) {
+          setPdfUrl(data.url || '');
+          // Tự động điền tiêu đề nếu chưa có
+          if (!title) {
+            const cleanTitle = file.name.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
+            setTitle(cleanTitle);
+          }
+        } else {
+          throw new Error(data.message || 'Lỗi không xác định khi upload.');
+        }
+        setIsUploading(false);
+      };
+      reader.onerror = () => {
+        throw new Error('Lỗi khi đọc file.');
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error(err);
+      setUploadError(err.message || 'Có lỗi xảy ra khi upload file lên Drive.');
+      setIsUploading(false);
+    }
+  };
+
+  const handleSave = () => {
+    if (!title.trim()) {
+      setUploadError('Vui lòng nhập tiêu đề bài học.');
+      return;
+    }
+    if (!pdfUrl.trim()) {
+      setUploadError('Vui lòng tải lên file PDF hoặc dán URL tài liệu.');
+      return;
+    }
+    setUploadError('');
+    onSave({
+      title: title.trim(),
+      pdfUrl: pdfUrl.trim(),
+      linkedAssignmentId: linkedAssignmentId || undefined
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-foreground/80">Tiêu đề bài học</label>
+        <input
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          className="input-field"
+          placeholder="VD: Lý thuyết Câu Điều Kiện - Conditional Sentences"
+        />
+      </div>
+
+      <div className="space-y-3">
+        <label className="text-sm font-medium text-foreground/80 flex items-center justify-between">
+          <span>File tài liệu PDF</span>
+          <span className="text-xs text-muted-foreground font-normal">Tự động tải lên Google Drive</span>
+        </label>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* File Upload Box */}
+          <div 
+            onClick={() => !isUploading && fileInputRef.current?.click()}
+            className={`border-2 border-dashed border-border/50 rounded-xl p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all group flex flex-col items-center justify-center min-h-[140px] ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+          >
+            {isUploading ? (
+              <>
+                <Loader2 className="h-8 w-8 text-primary animate-spin mb-2" />
+                <p className="text-xs font-semibold text-primary">Đang tải file lên Google Drive...</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Vui lòng chờ trong giây lát</p>
+              </>
+            ) : (
+              <>
+                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <Upload className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+                <p className="text-xs font-semibold group-hover:text-primary transition-colors">
+                  Bấm để chọn file PDF tài liệu
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Hỗ trợ PDF dung lượng tối đa 15MB</p>
+              </>
+            )}
+            <input 
+              ref={fileInputRef} 
+              type="file" 
+              accept="application/pdf" 
+              className="hidden" 
+              onChange={handleFileUpload} 
+            />
+          </div>
+
+          {/* PDF URL Input / Preview link */}
+          <div className="glass rounded-xl border border-border p-5 flex flex-col justify-between">
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Hoặc nhập link trực tiếp</span>
+              <input
+                value={pdfUrl}
+                onChange={e => setPdfUrl(e.target.value)}
+                className="input-field text-xs"
+                placeholder="Link Google Drive, Dropbox hoặc link PDF ngoài..."
+              />
+            </div>
+            
+            {pdfUrl && (
+              <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs flex items-center justify-between">
+                <div className="flex items-center gap-2 text-emerald-400 font-medium truncate pr-4">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Đã liên kết PDF thành công</span>
+                </div>
+                <a 
+                  href={`/api/proxy-pdf?url=${encodeURIComponent(pdfUrl)}`}
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-[10px] font-bold text-emerald-400 rounded transition-colors shrink-0 flex items-center gap-1"
+                >
+                  <Eye className="h-3 w-3" /> Xem Thử
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Linked Assignment Option */}
+      <div className="glass rounded-xl border border-border p-5 space-y-3">
+        <label className="text-sm font-semibold text-foreground/80 flex items-center gap-2">
+          <ListChecks className="h-4 w-4 text-violet-500" />
+          Bài tập trắc nghiệm liên kết (Tùy chọn)
+        </label>
+        <select
+          value={linkedAssignmentId}
+          onChange={e => setLinkedAssignmentId(e.target.value)}
+          className="input-field w-full bg-slate-900 border-border text-foreground text-xs"
+        >
+          <option value="">-- Chọn bài trắc nghiệm liên kết --</option>
+          {quizAssignments.map(a => (
+            <option key={a.id} value={a.id}>{a.title} ({a.questions?.length || 0} câu hỏi)</option>
+          ))}
+        </select>
+        <p className="text-[11px] text-muted-foreground">
+          Sau khi học sinh xem hết trang PDF cuối và bấm "Hoàn thành", hệ thống sẽ tự động hiển thị gợi ý chuyển hướng trực tiếp sang làm bài trắc nghiệm này.
+        </p>
+      </div>
+
+      {uploadError && (
+        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          {uploadError}
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="pt-2">
+        <button
+          onClick={handleSave}
+          disabled={isSaving || isUploading}
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 transition-all glow-primary"
+        >
+          <Save className="h-4 w-4" />
+          {isSaving ? 'Đang lưu...' : 'Lưu Bài Tập PDF'}
+        </button>
       </div>
     </div>
   );

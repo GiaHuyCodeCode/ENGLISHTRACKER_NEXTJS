@@ -58,6 +58,7 @@ export function DictationBlock({
   const [isWordWrongFirstTime, setIsWordWrongFirstTime] = useState<Record<string, boolean>>({});
   const [showEndScreen, setShowEndScreen] = useState(false);
   const [countdown, setCountdown] = useState(5);
+  const [isSpeakerActive, setIsSpeakerActive] = useState(false);
   const wrongTimerRef = useRef<any>(null);
 
   const wrongCountInRound = roundWords.filter(w => !roundCorrectWords[w.word]).length;
@@ -440,7 +441,8 @@ export function DictationBlock({
         <div className="grid gap-4">
           {vocabCards.map((card, idx) => {
             const studentAns = (answers[card.word] || '').trim();
-            const isCorrect = studentAns.toLowerCase() === card.word.toLowerCase();
+            const totalAttempts = attemptsRecord?.[card.word] || 1;
+            const isCorrect = studentAns.toLowerCase() === card.word.toLowerCase() && totalAttempts <= 1;
             return (
               <div key={card.id} className={`rounded-2xl p-4 md:p-5 border flex flex-col md:flex-row gap-4 items-start md:items-center transition-all
                 bg-white dark:bg-secondary/30
@@ -641,9 +643,32 @@ export function DictationBlock({
         <div className="relative">
           <div className="absolute inset-0 bg-[#0071e3]/20 rounded-full blur-xl pulse-dot"></div>
           <button 
-            onClick={() => handleSpeak(currentCard.word, 1.0, currentCard.audioUrl)} 
+            onMouseDown={(e) => {
+              e.preventDefault();
+              if (!wrongTimerActive) {
+                setIsSpeakerActive(true);
+                setTimeout(() => setIsSpeakerActive(false), 150);
+                handleSpeak(currentCard.word, 1.0, currentCard.audioUrl);
+              }
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              if (!wrongTimerActive) {
+                setIsSpeakerActive(true);
+                setTimeout(() => setIsSpeakerActive(false), 150);
+                handleSpeak(currentCard.word, 1.0, currentCard.audioUrl);
+              }
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+            }}
             disabled={wrongTimerActive}
-            className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-[#0071e3]/10 border border-[#0071e3]/20 hover:bg-[#0071e3] hover:text-white text-[#0071e3] flex items-center justify-center transition-all shadow-md hover-lift disabled:opacity-50"
+            className={`relative w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all shadow-md disabled:opacity-50
+              ${isSpeakerActive
+                ? 'bg-[#0071e3]/30 border-[#0071e3]/50 text-[#0071e3] scale-95 opacity-60 duration-75'
+                : 'bg-[#0071e3]/10 border-[#0071e3]/20 hover:bg-[#0071e3] hover:text-white text-[#0071e3] hover-lift'
+              }
+            `}
           >
             <Volume2 className="h-10 w-10 md:h-12 md:w-12" strokeWidth={1.5} />
           </button>

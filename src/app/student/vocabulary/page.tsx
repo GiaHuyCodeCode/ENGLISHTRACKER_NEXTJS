@@ -82,7 +82,11 @@ export default function StudentVocabularyPage() {
 
   const [speakingWord, setSpeakingWord] = useState<string | null>(null);
 
-  const handleFinishSrsReview = (answers: { word: string; studentAnswer: string; isCorrect: boolean; attempts?: number }[]) => {
+  const handleFinishSrsReview = (
+    answers: { word: string; studentAnswer: string; isCorrect: boolean; attempts?: number }[],
+    score?: number,
+    dictationScore?: number
+  ) => {
     const freshCards = getVocabularyCards();
     const todayStr = new Date().toISOString().split('T')[0];
     
@@ -100,27 +104,37 @@ export default function StudentVocabularyPage() {
 
     if (answers.length > 0) {
       const correctCount = answers.filter(a => a.isCorrect).length;
-      const score = Math.round((correctCount / answers.length) * 100);
+      const finalScore = score !== undefined ? score : Math.round((correctCount / answers.length) * 100);
       
       if (assignIdParam) {
         submitVocabularyAssignment({
           assignmentId: assignIdParam,
           studentName: studentName,
-          score: score,
+          score: finalScore,
+          dictationScore: dictationScore,
           answers: answers,
           durationMs: Date.now() - startTimeRef.current
         });
         // Do not redirect, let the UI show the big success screen
       } else {
-        const dueAssignment = getAssignments().find(a =>
+        // Ưu tiên tìm bài tập Ôn tập SR hôm nay/hợp lệ trước, sau đó mới tìm bài Vocabulary gốc
+        const dailyReviewId = `daily-review-${todayStr}`;
+        const todayReviewAssign = getAssignments().find(a => a.id === dailyReviewId);
+        
+        const dueAssignment = todayReviewAssign || getAssignments().find(a =>
+          a.type === 'repetition' &&
+          (a.vocabCards || []).some(c => answers.some(va => va.word === c.word))
+        ) || getAssignments().find(a =>
           (a.type === 'vocabulary' || a.type === 'repetition') &&
           (a.vocabCards || []).some(c => answers.some(va => va.word === c.word))
         );
+
         if (dueAssignment) {
           submitVocabularyAssignment({
             assignmentId: dueAssignment.id,
             studentName: studentName,
-            score: score,
+            score: finalScore,
+            dictationScore: dictationScore,
             answers: answers,
             durationMs: Date.now() - startTimeRef.current
           });
@@ -486,7 +500,8 @@ export default function StudentVocabularyPage() {
               </div>
               <VocabularyExercise
                 vocabCards={reviewQueue}
-                isRepetitionWorkflow={true}
+                isRequirementWorkflow={true}
+                isRepetitionWorkflow={false}
                 onSubmit={handleFinishSrsReview}
               />
             </div>

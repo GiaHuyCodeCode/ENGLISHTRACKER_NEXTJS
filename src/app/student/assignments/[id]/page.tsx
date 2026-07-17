@@ -5,15 +5,16 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   getAssignment, getStudentSubmission, getSubmissions, submitVocab, submitQuiz, submitRewrite, submitVocabularyAssignment,
   Assignment, Submission, getStudentNames, getStudentColors, getStudentAvatar, seedIfEmpty,
-  getAssignmentNextReviewDate,
+  getAssignmentNextReviewDate, submitPdfAssignment,
 } from '@/lib/local-store';
 import { VocabContextExercise } from '@/components/exercises/VocabContextExercise';
 import { MultipleChoiceExercise } from '@/components/exercises/MultipleChoiceExercise';
 import { RaceTrackLeaderboard } from '@/components/ui/RaceTrackLeaderboard';
 import { RewriteVocabExercise } from '@/components/exercises/RewriteVocabExercise';
 import { VocabularyExercise } from '@/components/exercises/VocabularyExercise';
+import { GrammarPdfExercise } from '@/components/exercises/GrammarPdfExercise';
 import { ExerciseTimer } from '@/components/ui/ExerciseTimer';
-import { ArrowLeft, BookOpen, ListChecks, User, ChevronRight, AlertCircle, PenTool, FileJson, Clock, Trophy } from 'lucide-react';
+import { ArrowLeft, BookOpen, ListChecks, User, ChevronRight, AlertCircle, PenTool, FileJson, Clock, Trophy, FileText } from 'lucide-react';
 
 // ── Student picker modal ────────────────────────────────────────────────────
 
@@ -124,7 +125,25 @@ export default function ExercisePage() {
     if (parsed.questions) parsed.questions = parseJsonSafely(parsed.questions);
     if (parsed.vocabCards) parsed.vocabCards = parseJsonSafely(parsed.vocabCards);
     if (parsed.sentences) parsed.sentences = parseJsonSafely(parsed.sentences);
-    
+
+    // For grammar, extract pdfUrl and linkedAssignmentId from passage
+    // GAS auto-parses JSON cells so passage may arrive as object or string
+    // Always re-resolve to avoid stale object references stored as pdfUrl
+    if (parsed.type === 'grammar') {
+      const passageData = parsed.passage && typeof parsed.passage === 'object'
+        ? parsed.passage as any
+        : parsed.passage
+          ? parseJsonSafely(parsed.passage)
+          : null;
+      if (passageData?.pdfUrl && typeof passageData.pdfUrl === 'string') {
+        parsed.pdfUrl = passageData.pdfUrl;
+        parsed.linkedAssignmentId = passageData.linkedAssignmentId || parsed.linkedAssignmentId;
+      } else if (parsed.pdfUrl && typeof parsed.pdfUrl !== 'string') {
+        // pdfUrl was stored as object - clear it to prevent [object Object]
+        parsed.pdfUrl = undefined;
+      }
+    }
+
     setAssignment(parsed);
 
     const saved = localStorage.getItem('et_current_student');
@@ -262,10 +281,36 @@ export default function ExercisePage() {
     }
   };
 
+  const handlePdfSubmit = () => {
+    if (currentStudent) doSubmitPdf(currentStudent);
+    else {
+      setPendingAnswers('pdf_completed');
+      setShowModal(true);
+    }
+  };
+
+  const doSubmitPdf = (name: string) => {
+    setIsSubmitting(true);
+    setShowModal(false);
+    localStorage.setItem('et_current_student', name);
+    setCurrentStudent(name);
+    try {
+      const sub = submitPdfAssignment({
+        assignmentId: id,
+        studentName: name,
+        durationMs: Date.now() - startTimeRef.current,
+      });
+      setResult(sub);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleModalConfirm = (name: string) => {
     if (assignment?.type === 'vocab_context') doSubmitVocab(name, pendingAnswers, pendingOverrides);
     else if (assignment?.type === 'multiple_choice') doSubmitQuiz(name, pendingAnswers);
     else if (assignment?.type === 'vocabulary' || assignment?.type === 'repetition') doSubmitVocabulary(name, pendingAnswers);
+    else if (assignment?.type === 'grammar') doSubmitPdf(name);
     else doSubmitRewrite(name, pendingAnswers);
   };
 
@@ -298,11 +343,13 @@ export default function ExercisePage() {
               <span className={`text-[11px] px-2 py-0.5 rounded-md font-semibold ${
                 assignment.type === 'vocab_context' ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400' : 
                 assignment.type === 'multiple_choice' ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400' :
+                assignment.type === 'grammar' ? 'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400' :
                 (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? 'bg-[#0071e3]/15 text-sky-600 dark:text-sky-400' :
                 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
               }`}>
                 {assignment.type === 'vocab_context' ? 'Vocab In-Context' : 
                  assignment.type === 'multiple_choice' ? 'Trắc Nghiệm' :
+                 assignment.type === 'grammar' ? 'Tài Liệu PDF' :
                  (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? 'Học Từ Vựng' : 'Viết Chuyện Chêm'}
               </span>
               {isReview && (
@@ -326,11 +373,13 @@ export default function ExercisePage() {
           <div className={`p-2 rounded-lg ${
             assignment.type === 'vocab_context' ? 'bg-violet-500/15' : 
             assignment.type === 'multiple_choice' ? 'bg-teal-500/15' : 
+            assignment.type === 'grammar' ? 'bg-fuchsia-500/15' :
             (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? 'bg-[#0071e3]/15' : 
             'bg-amber-500/15'
           }`}>
             {assignment.type === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={1.5} /> : 
              assignment.type === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-600 dark:text-teal-400" strokeWidth={1.5} /> :
+             assignment.type === 'grammar' ? <FileText className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-400" strokeWidth={1.5} /> :
              (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? <FileJson className="h-4 w-4 text-sky-600 dark:text-sky-400" strokeWidth={1.5} /> :
              <PenTool className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />}
           </div>
@@ -338,11 +387,13 @@ export default function ExercisePage() {
             <p className="text-sm font-semibold">
               {assignment.type === 'vocab_context' ? 'Điền Nghĩa Từ Vựng' : 
                assignment.type === 'multiple_choice' ? 'Chọn Đáp Án Đúng' :
+               assignment.type === 'grammar' ? 'Lý Thuyết Ngữ Pháp PDF' :
                (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? 'Học & Kiểm Tra Từ Vựng' : 'Viết Chuyện Chêm'}
             </p>
             <p className="text-xs text-muted-foreground">
               {assignment.type === 'vocab_context' ? `${assignment.keywords?.length} từ khóa` : 
                assignment.type === 'multiple_choice' ? `${assignment.questions?.length} câu hỏi` :
+               assignment.type === 'grammar' ? (assignment.linkedAssignmentId ? 'Có bài tập trắc nghiệm liên kết' : 'Đọc tài liệu lý thuyết') :
                (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? `${assignment.vocabCards?.length || 0} từ vựng` :
                `${assignment.keywords?.length} từ khóa cần dùng`}
             </p>
@@ -403,16 +454,26 @@ export default function ExercisePage() {
               score={displayResult?.score}
               durationMs={displayResult?.durationMs}
               initialMode={assignment.type === 'repetition' ? 'dictation' : initialMode}
-              isRequirementWorkflow={assignment.type === 'vocabulary'}
-              isRepetitionWorkflow={assignment.type === 'repetition'}
+              isRequirementWorkflow={assignment.type === 'vocabulary' || assignment.type === 'repetition'}
+              isRepetitionWorkflow={false}
               hideTabs={assignment.type === 'vocabulary' || assignment.type === 'repetition'}
               allSubmissions={getSubmissions().filter(s => s.assignmentId === id)}
+            />
+          )}
+
+          {assignment.type === 'grammar' && (
+            <GrammarPdfExercise
+              assignment={assignment}
+              onSubmit={handlePdfSubmit}
+              isSubmitting={isSubmitting}
+              result={displayResult}
+              durationMs={displayResult?.durationMs}
             />
           )}
         </div>
 
         {/* Post-submit CTA */}
-        {(result || isReview) && (
+        {(result || isReview) && assignment.type !== 'grammar' && (
           <div className="flex gap-3">
             <button
               onClick={() => router.push('/student/assignments')}
@@ -430,7 +491,7 @@ export default function ExercisePage() {
         )}
 
         {/* Leaderboard */}
-        {(result || isReview) && (
+        {(result || isReview) && assignment.type !== 'grammar' && (
           <RaceTrackLeaderboard submissions={getSubmissions().filter(s => s.assignmentId === id)} />
         )}
       </div>

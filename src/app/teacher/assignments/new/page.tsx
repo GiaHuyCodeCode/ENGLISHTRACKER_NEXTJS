@@ -6,12 +6,12 @@ import { saveAssignment, VocabKeyword, QuizQuestion, getVocabularyCards, Dictati
 import {
   BookOpen, ListChecks, Plus, Trash2, Upload,
   CheckCircle2, AlertCircle, ArrowLeft, Eye, FileJson, PenTool,
-  Headphones, Play, Clock, ChevronDown, Volume2, Mic
+  Headphones, Play, Clock, ChevronDown, Volume2, Mic, FileText
 } from 'lucide-react';
 
-type Tab = 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary' | 'shadowing';
+type Tab = 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary' | 'shadowing' | 'grammar';
 
-import { VocabForm, QuizForm, RewriteVocabForm, DictationForm, VocabularyForm, ShadowingForm } from '@/components/forms/AssignmentForms';
+import { VocabForm, QuizForm, RewriteVocabForm, DictationForm, VocabularyForm, ShadowingForm, GrammarPdfForm } from '@/components/forms/AssignmentForms';
 
 export default function NewAssignmentPage() {
   const router = useRouter();
@@ -29,7 +29,7 @@ export default function NewAssignmentPage() {
   useEffect(() => {
     if (tab === 'vocab_context' || tab === 'vocabulary') {
       setSkill('Vocab');
-    } else if (tab === 'multiple_choice') {
+    } else if (tab === 'multiple_choice' || tab === 'grammar') {
       setSkill('Grammar');
     } else if (tab === 'dictation') {
       setSkill('Listening');
@@ -115,9 +115,9 @@ export default function NewAssignmentPage() {
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Type tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
           {([
             { key: 'vocab_context' as Tab, icon: BookOpen,   label: 'Điền Chuyện Chêm', desc: 'Điền nghĩa tiếng Việt',          color: 'violet'  },
             { key: 'multiple_choice' as Tab, icon: ListChecks, label: 'Trắc Nghiệm',      desc: 'Chọn 1 trong 4 đáp án',          color: 'teal'    },
@@ -125,6 +125,7 @@ export default function NewAssignmentPage() {
             { key: 'dictation' as Tab,       icon: Headphones, label: 'Dictation',         desc: 'Nghe & gõ lại câu',              color: 'sky'     },
             { key: 'vocabulary' as Tab,      icon: FileJson,   label: 'Học Từ Vựng',       desc: 'Flashcard, Quiz, Chính tả',      color: 'indigo'  },
             { key: 'shadowing' as Tab,       icon: Mic,        label: 'Shadowing',          desc: 'Nghe & nhắc lại câu (Speaking)', color: 'emerald' },
+            { key: 'grammar' as Tab,     icon: FileText,   label: 'Tài Liệu PDF',      desc: 'Đọc PDF & bài trắc nghiệm liên kết', color: 'fuchsia' },
           ]).map(({ key, icon: Icon, label, desc, color }) => (
             <button key={key} onClick={() => setTab(key)}
               className={`group glass hover-lift rounded-2xl p-5 text-left border-2 transition-all ${
@@ -134,6 +135,7 @@ export default function NewAssignmentPage() {
                   : color === 'amber'   ? 'border-amber-500/50 bg-amber-500/10'
                   : color === 'indigo'  ? 'border-indigo-500/50 bg-indigo-500/10'
                   : color === 'emerald' ? 'border-emerald-500/50 bg-emerald-500/10'
+                  : color === 'fuchsia' ? 'border-fuchsia-500/50 bg-fuchsia-500/10'
                   : 'border-sky-500/50 bg-sky-500/10'
                   : 'border-border hover:border-border/80'
               }`}>
@@ -144,6 +146,7 @@ export default function NewAssignmentPage() {
                   : color === 'amber'   ? 'text-amber-400'
                   : color === 'indigo'  ? 'text-indigo-400'
                   : color === 'emerald' ? 'text-emerald-400'
+                  : color === 'fuchsia' ? 'text-fuchsia-400'
                   : 'text-sky-400'
                   : 'text-muted-foreground group-hover:text-foreground'
               }`} />
@@ -153,13 +156,14 @@ export default function NewAssignmentPage() {
                 : color === 'amber'   ? 'text-amber-300'
                 : color === 'indigo'  ? 'text-indigo-300'
                 : color === 'emerald' ? 'text-emerald-300'
+                : color === 'fuchsia' ? 'text-fuchsia-300'
                 : 'text-sky-300'
               ) : ''}`}>{label}</p>
-              <p className="text-xs text-muted-foreground mt-1">{desc}</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-tight">{desc}</p>
             </button>
           ))}
         </div>
-
+ 
         {/* Date & Skill Scheduler */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="glass rounded-2xl border border-border p-6 space-y-3">
@@ -177,7 +181,7 @@ export default function NewAssignmentPage() {
               Bài tập sẽ chỉ hiển thị ở phía học sinh kể từ ngày được chọn này.
             </p>
           </div>
-
+ 
           <div className="glass rounded-2xl border border-border p-6 space-y-3">
             <label className="text-sm font-semibold text-foreground/80 flex items-center gap-2">
               <BookOpen className="h-4 w-4 text-primary" />
@@ -200,7 +204,7 @@ export default function NewAssignmentPage() {
             </p>
           </div>
         </div>
-
+ 
         {/* Form */}
         <div className="glass rounded-2xl border border-border p-6">
           {tab === 'vocab_context' && <VocabForm onSave={d => handleSave(d, 'vocab_context')} isSaving={isSaving} />}
@@ -209,6 +213,7 @@ export default function NewAssignmentPage() {
           {tab === 'dictation' && <DictationForm onSave={d => handleSave(d as any, 'dictation')} isSaving={isSaving} />}
           {tab === 'vocabulary' && <VocabularyForm onSave={d => handleSave(d, 'vocabulary')} isSaving={isSaving} />}
           {tab === 'shadowing' && <ShadowingForm onSave={d => handleSave(d as any, 'shadowing')} isSaving={isSaving} />}
+          {tab === 'grammar' && <GrammarPdfForm onSave={d => handleSave(d as any, 'grammar')} isSaving={isSaving} />}
         </div>
       </div>
     </div>

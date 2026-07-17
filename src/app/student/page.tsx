@@ -8,8 +8,7 @@ import {
   getStudentNames, getStudentColors, getStudentAvatar,
   Submission, Assignment, DailyTracking,
   getGamificationProfiles, GamificationProfile, getBadges,
-  getVocabularyCards, getStudentVocabProgress, syncAllFromCloud, STAGE_CONFIG,
-  autoSyncAllSpacedRepetition
+  getVocabularyCards, getStudentVocabProgress, syncAllFromCloud, STAGE_CONFIG
 } from '@/lib/local-store';
 
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';

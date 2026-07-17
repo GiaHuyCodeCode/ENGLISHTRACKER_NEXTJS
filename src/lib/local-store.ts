@@ -75,7 +75,7 @@ export interface ShadowingResult {
 export interface Assignment {
   id: string;
   title: string;
-  type: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary' | 'shadowing' | 'repetition';
+  type: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary' | 'shadowing' | 'repetition' | 'grammar';
   passage?: string;
   keywords?: VocabKeyword[];
   questions?: QuizQuestion[];
@@ -92,6 +92,10 @@ export interface Assignment {
   _localLastUpdated?: number; // local edit timestamp to avoid race conditions
   _isLocalOnly?: boolean; // Flag to indicate if assignment is only in local storage
   _localCreatedAt?: number; // Ghi nhận thời gian tạo thực tế ở local, bỏ qua createdAt ảo ở tương lai
+  // Grammar PDF fields
+  pdfUrl?: string;
+  pdfMode?: 'study_only' | 'read_quiz'; // giữ lại phòng khi mở rộng
+  linkedAssignmentId?: string;
 }
 
 export interface VocabAnswerResult {
@@ -99,6 +103,7 @@ export interface VocabAnswerResult {
   attempts?: number; // Số lần thử trong phần nghe chép
 }
 export interface QuizAnswerResult {
+  id?: number; // some helpers use id
   questionId: number; studentAnswer: string; isCorrect: boolean;
   correctAnswer: string; explanation: string; knowledgeArea?: string;
 }
@@ -111,7 +116,7 @@ export interface Submission {
   id: string;
   assignmentId: string;
   assignmentTitle: string;
-  assignmentType: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary' | 'shadowing' | 'repetition';
+  assignmentType: 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary' | 'shadowing' | 'repetition' | 'grammar';
   studentName: string;
   score: number;
   vocabAnswers?: VocabAnswerResult[];
@@ -597,13 +602,26 @@ export function syncAllFromCloud(cloudData: any): boolean {
     }
 
     const merged = activeCloudAssignments.map((cloudA: any) => {
+      // Map passage to pdfUrl and linkedAssignmentId for grammar
+      if (cloudA.type === 'grammar' && cloudA.passage) {
+        // GAS auto-parses JSON cells, so passage may already be an object
+        const passageData = typeof cloudA.passage === 'object' ? cloudA.passage
+          : (() => { try { return JSON.parse(cloudA.passage); } catch { return null; } })();
+        if (passageData?.pdfUrl) {
+          cloudA.pdfUrl = passageData.pdfUrl;
+          cloudA.linkedAssignmentId = passageData.linkedAssignmentId || '';
+        } else if (typeof cloudA.passage === 'string') {
+          cloudA.pdfUrl = cloudA.passage;
+        }
+      }
+
       // Đảm bảo createdAt của bài daily-review LUÔN LUÔN khớp với ID, 
       // bất kể Google Sheets hay local cache có lưu sai hay không.
       if (cloudA.id && cloudA.id.startsWith('daily-review-')) {
         const datePart = cloudA.id.replace('daily-review-', '');
         const targetDate = new Date(datePart);
         if (!isNaN(targetDate.getTime())) {
-          targetDate.setHours(8, 0, 0, 0);
+          targetDate.setHours(5, 0, 0, 0);
           cloudA.createdAt = targetDate.toISOString();
         }
       }
@@ -1227,6 +1245,29 @@ export function submitQuiz(payload: {
   return sub;
 }
 
+export function submitPdfAssignment(payload: {
+  assignmentId: string; studentName: string;
+  durationMs?: number;
+}): Submission {
+  const assignment = getAssignment(payload.assignmentId);
+  if (!assignment) throw new Error('Assignment not found');
+
+  const sub: Submission = {
+    id: crypto.randomUUID(),
+    assignmentId: payload.assignmentId,
+    assignmentTitle: assignment.title,
+    assignmentType: 'grammar',
+    studentName: payload.studentName,
+    score: 100,
+    feedback: 'Chúc mừng bạn đã đọc xong tài liệu ngữ pháp!',
+    durationMs: payload.durationMs,
+    submittedAt: getAdjustedSubmitTime(assignment.createdAt),
+  };
+  write(KEYS.submissions, [...getSubmissions(), sub]);
+  syncSubmissionToSheet(sub);
+  return sub;
+}
+
 export function submitRewrite(payload: {
   assignmentId: string; studentName: string;
   studentText: string;
@@ -1838,10 +1879,9 @@ export function previewSRGeneration(clearDeletedTombstone = false): SRPreviewRes
   today.setHours(0, 0, 0, 0);
   const todayStr = toLocalDateString(today);
 
-  // Tính ngày mai 5h sáng cho bài vocab tạo hôm nay
-  const tomorrowAt5 = new Date(today);
-  tomorrowAt5.setDate(tomorrowAt5.getDate() + 1);
-  tomorrowAt5.setHours(5, 0, 0, 0);
+  // Tính 5h sáng hôm nay
+  const todayAt5 = new Date(today);
+  todayAt5.setHours(5, 0, 0, 0);
 
   const intervals = [1, 4, 11, 25, 55, 115];
 
@@ -1885,11 +1925,11 @@ export function previewSRGeneration(clearDeletedTombstone = false): SRPreviewRes
     const existingAssign = assignments.find(a => a.id === dailyReviewId);
     const passageStr = JSON.stringify({ sources });
 
-    // Xác định scheduledFor: ngày hôm nay thì dời sang 5h sáng ngày mai
+    // Xác định scheduledFor: ngày hôm nay thì lên lịch 5h sáng hôm nay
     const isToday = dateStr === todayStr;
     const targetDate = new Date(currentDate);
-    targetDate.setHours(isToday ? 0 : 8, 0, 0, 0);
-    const scheduledFor = isToday ? tomorrowAt5.toISOString() : targetDate.toISOString();
+    targetDate.setHours(5, 0, 0, 0);
+    const scheduledFor = isToday ? todayAt5.toISOString() : targetDate.toISOString();
 
     let status: SRPreviewItem['status'];
 
@@ -1927,7 +1967,7 @@ export function previewSRGeneration(clearDeletedTombstone = false): SRPreviewRes
       cardCount: cardsToReview.length,
       sources,
       status,
-      scheduledFor: isToday ? tomorrowAt5.toISOString() : undefined,
+      scheduledFor: isToday ? todayAt5.toISOString() : undefined,
     });
 
     currentDate.setDate(currentDate.getDate() + 1);
@@ -1950,10 +1990,7 @@ export function generateDailyReviewAssignment(clearDeletedTombstone = false) {
   today.setHours(0, 0, 0, 0);
   const todayStr = toLocalDateString(today);
 
-  // Bài vocab tạo hôm nay → SR lên lịch 5h sáng ngày mai
-  const tomorrowAt5 = new Date(today);
-  tomorrowAt5.setDate(tomorrowAt5.getDate() + 1);
-  tomorrowAt5.setHours(5, 0, 0, 0);
+  // Bài ôn tập sẽ được lên lịch vào lúc 5h sáng ngày ôn tập (currentDate)
 
   // Lần 1: 0, Lần 2: 1, Lần 3: 4, Lần 4: 11, Lần 5: 25, Lần 6: 55, Lần 7: 115
   const intervals = [1, 4, 11, 25, 55, 115]; // Tương ứng Lần 2, 3, 4, 5, 6, 7
@@ -1999,15 +2036,9 @@ export function generateDailyReviewAssignment(clearDeletedTombstone = false) {
       }
     });
 
-    // Xác định thời điểm thực tế cho bài ôn tập:
-    // - Ngày hôm nay (vocab vừa tạo hôm nay) → dời sang 5h sáng ngày mai
-    // - Các ngày trong quá khứ → 8h sáng ngày đó
-    const isToday = dateStr === todayStr;
-    const targetDate = isToday ? tomorrowAt5 : (() => {
-      const d = new Date(currentDate);
-      d.setHours(8, 0, 0, 0);
-      return d;
-    })();
+    // Xác định thời điểm thực tế cho bài ôn tập: Lên lịch lúc 5h sáng ngày ôn tập
+    const targetDate = new Date(currentDate);
+    targetDate.setHours(5, 0, 0, 0);
 
     const passageStr = JSON.stringify({ sources });
 

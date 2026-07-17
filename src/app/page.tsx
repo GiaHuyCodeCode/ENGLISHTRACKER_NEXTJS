@@ -313,8 +313,6 @@ export default function TeacherDashboard() {
       if (res.ok) {
         const cloudData = await res.json();
         const hasChanges = syncAllFromCloud(cloudData);
-        // Re-generate SR sau khi sync để đảm bảo bài vocab mới từ teacher được tính
-        autoSyncAllSpacedRepetition();
         if (hasChanges) {
           setAssignments(getAssignments(true));
           setSubmissions(getSubmissions());
@@ -343,7 +341,6 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     seedIfEmpty();
-    autoSyncAllSpacedRepetition();
     refreshData();
   }, []);
 
@@ -982,7 +979,7 @@ export default function TeacherDashboard() {
                             </span>
                             {item.scheduledFor && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border text-sky-400 bg-sky-500/10 border-sky-500/20">
-                                Hôm nay → Mai 5h
+                                Hôm nay 5h sáng
                               </span>
                             )}
                           </div>
