@@ -9,6 +9,7 @@ import {
   getVocabularyCards, getVocabProgressList, saveVocabProgressList, saveVocabularyCards, VocabCard,
   importExternalVocabWithProgress, STAGE_CONFIG, autoSyncAllSpacedRepetition, autoSubmitPreviousStagesLocal, syncPastReviewAssignments,
   previewSRGeneration, SRPreviewResult, getCalculatedStage, syncVocabProgressFromAssignments,
+  saveSubmissions,
 } from '@/lib/local-store';
 import { syncVocabListToSheet, syncActionToSheet } from '@/lib/google-sheets';
 import { StudentPerformanceChart } from '@/components/ui/StudentPerformanceChart';
@@ -446,6 +447,8 @@ export default function TeacherDashboard() {
       isOpen: true,
       title: 'Đồng bộ bài tập cũ',
       message: 'Hệ thống sẽ tự động tạo bài nộp (100 điểm, 0 giây) cho tất cả các học viên chưa làm bài này. Bạn có chắc chắn không?',
+      confirmText: 'Đồng ý',
+      confirmClass: 'bg-primary text-primary-foreground hover:opacity-90',
       action: async () => {
         setConfirmDialog(null);
         try {
@@ -486,7 +489,7 @@ export default function TeacherDashboard() {
           });
           
           if (newSubs.length > 0) {
-            localStorage.setItem('et_submissions', JSON.stringify([...allSubs, ...newSubs]));
+            saveSubmissions([...allSubs, ...newSubs]);
           }
           
           await syncActionToSheet({
@@ -575,7 +578,7 @@ export default function TeacherDashboard() {
           });
 
           if (newSubs.length > 0) {
-            localStorage.setItem('et_submissions', JSON.stringify([...allSubs, ...newSubs]));
+            saveSubmissions([...allSubs, ...newSubs]);
           }
 
           await syncActionToSheet({
@@ -798,7 +801,7 @@ export default function TeacherDashboard() {
     dSubs.forEach(s => {
       const a = assignmentMap.get(s.assignmentId);
       const skill = a?.skill || 'Vocab';
-      if (skill === 'Vocab') scores.Vocab.push(s.score);
+      if (skill === 'Vocab' || skill === 'Repetition') scores.Vocab.push(s.score);
       else if (skill === 'Grammar') scores.Grammar.push(s.score);
       else if (skill === 'Reading') scores.Reading.push(s.score);
       else if (skill === 'Listening') scores.Listening.push(s.score);
@@ -832,7 +835,7 @@ export default function TeacherDashboard() {
     submissions.filter(s => s.id && Number(s.durationMs) > 0).forEach(s => {
       const a = assignmentMap.get(s.assignmentId);
       const aSkill = a?.skill || 'Vocab';
-      if (aSkill.toLowerCase() === skill.toLowerCase()) scores.push(s.score);
+      if (aSkill.toLowerCase() === skill.toLowerCase() || (skill.toLowerCase() === 'vocab' && aSkill.toLowerCase() === 'repetition')) scores.push(s.score);
     });
     trackings.forEach(t => {
       let tSkill: string = t.category;
@@ -945,7 +948,7 @@ export default function TeacherDashboard() {
 
             {/* Items list */}
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {srPreviewDialog.items.length === 0 ? (
+              {srPreviewDialog.items.filter(i => i.status !== 'unchanged').length === 0 ? (
                 <div className="text-center py-10 text-muted-foreground">
                   <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-emerald-400/50" />
                   <p className="font-semibold">Không có thay đổi nào</p>
@@ -953,6 +956,7 @@ export default function TeacherDashboard() {
                 </div>
               ) : (
                 srPreviewDialog.items
+                  .filter(item => item.status !== 'unchanged')
                   .sort((a, b) => a.date.localeCompare(b.date))
                   .map(item => {
                     const statusConfig = {

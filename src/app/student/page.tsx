@@ -131,7 +131,7 @@ export default function StudentDashboard() {
   const calculateStats = useCallback((student: string) => {
     // Lấy TẤT CẢ submissions hợp lệ — kể cả bài sync từ cloud (durationMs=0)
     // Dùng để xác định "Đã Hoàn Thành" và "Cần Làm"
-    const subs = getSubmissions().filter(s => s.id && s.studentName === student && s.assignmentType !== 'repetition').sort(
+    const subs = getSubmissions().filter(s => s.id && s.studentName === student && !(s.assignmentType === 'repetition' && (!s.durationMs || Number(s.durationMs) === 0))).sort(
       (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
     );
     const trks = getDailyTrackings().filter(t => t.studentName === student).sort(
@@ -354,7 +354,7 @@ export default function StudentDashboard() {
     submissions.filter(s => s.id && Number(s.durationMs) > 0).forEach(s => {
       const a = assignmentMap.get(s.assignmentId);
       const skill = a?.skill || 'Vocab';
-      if (skill === 'Vocab') scores.Vocab.push(s.score);
+      if (skill === 'Vocab' || skill === 'Repetition') scores.Vocab.push(s.score);
       else if (skill === 'Grammar') scores.Grammar.push(s.score);
       else if (skill === 'Reading') scores.Reading.push(s.score);
       else if (skill === 'Listening') scores.Listening.push(s.score);
@@ -375,7 +375,7 @@ export default function StudentDashboard() {
     allSubmissions.filter(s => s.id && Number(s.durationMs) > 0).forEach(s => {
       const a = assignmentMap.get(s.assignmentId);
       const skill = a?.skill || 'Vocab';
-      if (skill === 'Vocab') classScores.Vocab.push(s.score);
+      if (skill === 'Vocab' || skill === 'Repetition') classScores.Vocab.push(s.score);
       else if (skill === 'Grammar') classScores.Grammar.push(s.score);
       else if (skill === 'Reading') classScores.Reading.push(s.score);
       else if (skill === 'Listening') classScores.Listening.push(s.score);
@@ -427,7 +427,7 @@ export default function StudentDashboard() {
   };
 
   // ── Comparison Calculation ────────────────────────────────────────────────
-  const allSubmissions = getSubmissions().filter(s => s.id && s.assignmentType !== 'repetition' && Number(s.durationMs) > 0);
+  const allSubmissions = getSubmissions().filter(s => s.id && !(s.assignmentType === 'repetition' && (!s.durationMs || Number(s.durationMs) === 0)) && Number(s.durationMs) > 0);
   const allTrackings = getDailyTrackings();
   const allScoresList = [...allSubmissions.map(s => s.score)];
   const classAvg = allScoresList.length ? Math.round(allScoresList.reduce((a, b) => a + b, 0) / allScoresList.length) : null;
@@ -579,7 +579,7 @@ export default function StudentDashboard() {
           <FTrophy /> Biểu Đồ Thi Đua Học Tập
         </h2>
         <StudentPerformanceChart 
-          submissions={getSubmissions().filter(s => s.id && s.assignmentType !== 'repetition' && Number(s.durationMs) > 0)} 
+          submissions={getSubmissions().filter(s => s.id && !(s.assignmentType === 'repetition' && (!s.durationMs || Number(s.durationMs) === 0)) && Number(s.durationMs) > 0)} 
           referenceDate={toLocalDateString()} 
         />
       </div>
@@ -1042,12 +1042,14 @@ export default function StudentDashboard() {
                             s.assignmentType === 'multiple_choice' ? 'bg-teal-500/10 dark:bg-teal-500/10' :
                             s.assignmentType === 'dictation' ? 'bg-sky-500/10 dark:bg-sky-500/10' :
                             s.assignmentType === 'vocabulary' ? 'bg-indigo-500/10 dark:bg-indigo-500/10' :
+                            s.assignmentType === 'repetition' ? 'bg-emerald-500/10 dark:bg-emerald-500/10' :
                             'bg-amber-500/10 dark:bg-amber-500/10'
                           }`}>
                             {s.assignmentType === 'vocab_context' ? <FBook className="h-4 w-4 text-violet-600 dark:text-violet-600 dark:text-violet-400" /> :
                              s.assignmentType === 'multiple_choice' ? <FListChecks className="h-4 w-4 text-teal-600 dark:text-teal-600 dark:text-teal-400" /> :
                              s.assignmentType === 'dictation' ? <FHeadphones className="h-4 w-4 text-sky-600 dark:text-sky-600 dark:text-sky-400" /> :
                              s.assignmentType === 'vocabulary' ? <FFileJson className="h-4 w-4 text-indigo-600 dark:text-indigo-600 dark:text-indigo-400" /> :
+                             s.assignmentType === 'repetition' ? <FBook className="h-4 w-4 text-emerald-600 dark:text-emerald-600 dark:text-emerald-400" /> :
                              <FPenTool className="h-4 w-4 text-amber-600 dark:text-amber-600 dark:text-amber-400" />}
                           </div>
                           <div className="flex-1 min-w-0">

@@ -1,6 +1,6 @@
 import { USE_MOCK_DB, mockAssignments, mockSubmissions, mockTrackings, mockVocabCards, mockVocabProgress, mockGamification } from './database_mockup';
 import { syncSubmissionToSheet, syncAssignmentToSheet, syncActionToSheet, syncVocabListToSheet } from './google-sheets';
-import { toLocalDateString } from './utils';
+import { toLocalDateString, generateUUID } from './utils';
 
 // ─── Fuzzy Match (Levenshtein, threshold 80%) ────────────────────────────────
 
@@ -235,7 +235,7 @@ export function createStudent(name: string, color: string) {
   
   const avatar = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'ST';
   const newStudent: Student = {
-    id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(7),
+    id: generateUUID(),
     name,
     color,
     avatar,
@@ -414,13 +414,32 @@ export function getGamificationProfiles(): GamificationProfile[] {
 
 // ─── CRUD – Assignments ───────────────────────────────────────────────────────
 
+const storageCache: Record<string, any> = {};
+let submissionsCache: Submission[] | null = null;
+
 function read<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
-  try { return JSON.parse(localStorage.getItem(key) || '') as T; } catch { return fallback; }
+  if (storageCache[key] !== undefined) {
+    return storageCache[key] as T;
+  }
+  try {
+    const val = localStorage.getItem(key);
+    const parsed = val ? (JSON.parse(val) as T) : fallback;
+    storageCache[key] = parsed;
+    return parsed;
+  } catch {
+    storageCache[key] = fallback;
+    return fallback;
+  }
 }
+
 function write<T>(key: string, value: T): void {
   if (typeof window === 'undefined') return;
+  storageCache[key] = value;
   localStorage.setItem(key, JSON.stringify(value));
+  if (key === KEYS.submissions) {
+    submissionsCache = null;
+  }
 }
 
 export function getAssignments(includeHidden: boolean = false): Assignment[] {
@@ -443,7 +462,7 @@ export function getAssignment(id: string): Assignment | undefined {
 
 export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { createdAt?: string }): Assignment {
   const all = getAssignments(true);
-  const a: Assignment = { ...data, id: crypto.randomUUID(), createdAt: data.createdAt || new Date().toISOString() };
+  const a: Assignment = { ...data, id: generateUUID(), createdAt: data.createdAt || new Date().toISOString() };
   write(KEYS.assignments, [...all, a]);
 
   // Đồng bộ lên Google Sheets (Chạy ngầm)
@@ -458,7 +477,7 @@ export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { cr
       if (!updatedCards.some(curr => curr.word.toLowerCase() === c.word.toLowerCase())) {
         updatedCards.push({
           ...c,
-          id: c.id || crypto.randomUUID(),
+          id: c.id || generateUUID(),
           createdAt: c.createdAt || new Date().toISOString()
         });
         hasNewCards = true;
@@ -517,7 +536,7 @@ export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { cr
     };
     const rewriteAssignment: Assignment = {
       ...rewriteData,
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       type: 'rewrite_vocab'
     };
     const updatedAll = getAssignments(true);
@@ -529,7 +548,7 @@ export function saveAssignment(data: Omit<Assignment, 'id' | 'createdAt'> & { cr
   // Không dùng virtual shadowing nữa để tránh nhầm lẫn id khi xóa.
   if (a.type === 'dictation' && (data as any).createShadowing === true && Array.isArray(a.sentences) && a.sentences.length > 0) {
     const shadowingAssignment: Assignment = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       title: `Shadowing: ${a.title}`,
       type: 'shadowing',
       skill: 'Speaking',
@@ -724,9 +743,18 @@ export function syncAllFromCloud(cloudData: any): boolean {
     hasChanges = true;
   }
 
-  // 2. Submissions (Overwrite completely)
+  // 2. Submissions (Overwrite completely, preserving local durationMs if cloud is 0/missing)
   if (Array.isArray(cloudData.submissions)) {
-    write(KEYS.submissions, cloudData.submissions);
+    const localSubs = getSubmissions();
+    const localSubsMap = new Map(localSubs.map(s => [s.id, s]));
+    const mergedSubs = cloudData.submissions.map((cloudS: any) => {
+      const localS = localSubsMap.get(cloudS.id);
+      if (localS && localS.durationMs && (!cloudS.durationMs || Number(cloudS.durationMs) === 0)) {
+        return { ...cloudS, durationMs: localS.durationMs };
+      }
+      return cloudS;
+    });
+    write(KEYS.submissions, mergedSubs);
     hasChanges = true;
     
     // Recalculate vocab progress for all active students when submissions change
@@ -857,7 +885,7 @@ export function updateAssignment(id: string, partial: Partial<Assignment>) {
         if (!updatedCards.some(curr => curr.word.toLowerCase() === c.word.toLowerCase())) {
           updatedCards.push({
             ...c,
-            id: c.id || crypto.randomUUID(),
+            id: c.id || generateUUID(),
             createdAt: c.createdAt || new Date().toISOString()
           });
           hasNewCards = true;
@@ -913,8 +941,9 @@ export function deleteVirtualShadowingSubmissions(shadowingAssignmentId: string)
 // ─── CRUD – Submissions ───────────────────────────────────────────────────────
 
 export function getSubmissions(): Submission[] {
+  if (submissionsCache) return submissionsCache;
   const raw = read<Submission[]>(KEYS.submissions, []);
-  return raw.map(s => {
+  submissionsCache = raw.map(s => {
     const parseField = (val: any) => {
       if (typeof val === 'string') {
         try { return JSON.parse(val); } catch { return val; }
@@ -945,6 +974,11 @@ export function getSubmissions(): Submission[] {
     }
     return sParsed;
   });
+  return submissionsCache;
+}
+
+export function saveSubmissions(subs: Submission[]): void {
+  write(KEYS.submissions, subs);
 }
 
 export function getSubmissionsByStudent(name: string): Submission[] {
@@ -1043,6 +1077,12 @@ export function clearAllData(): void {
   // Không xóa KEYS.seeded để tránh việc tự động tạo lại dữ liệu mẫu khi reload
   localStorage.removeItem('et_gamification');
   
+  // Clear in-memory caches
+  submissionsCache = null;
+  Object.keys(storageCache).forEach(k => {
+    delete storageCache[k];
+  });
+  
   syncActionToSheet({ action: 'clear_all_data' });
 }
 
@@ -1111,7 +1151,7 @@ export function submitVocab(payload: {
   const score = keywords.length > 0 ? Math.round((correct / keywords.length) * 100) : 0;
 
   const sub: Submission = {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     assignmentId: payload.assignmentId,
     assignmentTitle: assignment.title,
     assignmentType: 'vocab_context',
@@ -1147,7 +1187,7 @@ export function submitVocabularyAssignment(payload: {
   const submittedAt = getAdjustedSubmitTime(assignment.createdAt, nextReviewDate);
 
   const sub: Submission = {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     assignmentId: payload.assignmentId,
     assignmentTitle: assignment.title,
     assignmentType: isRepetition ? 'repetition' : 'vocabulary',
@@ -1177,7 +1217,7 @@ export function submitVocabularyAssignment(payload: {
     if (!updatedCards.some(curr => curr.word.toLowerCase() === c.word.toLowerCase())) {
       updatedCards.push({
         ...c,
-        id: c.id || crypto.randomUUID(),
+        id: c.id || generateUUID(),
         createdAt: c.createdAt || new Date().toISOString()
       });
     }
@@ -1229,7 +1269,7 @@ export function submitQuiz(payload: {
     : 'Tuyệt vời, bạn đã nắm vững các kiến thức trong bài!';
 
   const sub: Submission = {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     assignmentId: payload.assignmentId,
     assignmentTitle: assignment.title,
     assignmentType: 'multiple_choice',
@@ -1253,7 +1293,7 @@ export function submitPdfAssignment(payload: {
   if (!assignment) throw new Error('Assignment not found');
 
   const sub: Submission = {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     assignmentId: payload.assignmentId,
     assignmentTitle: assignment.title,
     assignmentType: 'grammar',
@@ -1301,7 +1341,7 @@ export function submitRewrite(payload: {
   };
 
   const sub: Submission = {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     assignmentId: payload.assignmentId,
     assignmentTitle: assignment.title,
     assignmentType: 'rewrite_vocab',
@@ -1331,7 +1371,7 @@ export function submitDictation(payload: {
   const score = payload.results.length > 0 ? Math.round(totalAccuracy / payload.results.length) : 0;
 
   const sub: Submission = {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     assignmentId: payload.assignmentId,
     assignmentTitle: assignment.title,
     assignmentType: 'dictation',
@@ -1393,7 +1433,7 @@ export function submitSentenceShadowing(payload: {
 
   // Lần đầu nộp → tạo mới bình thường
   const sub: Submission = {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     assignmentId: payload.assignmentId,
     assignmentTitle: payload.assignmentTitle,
     assignmentType: 'shadowing',
@@ -1416,7 +1456,7 @@ export function submitDailyTracking(payload: {
   customDate?: string;
 }): DailyTracking {
   const record: DailyTracking = {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     studentName: payload.studentName,
     category: payload.category,
     score: payload.score,
@@ -1784,7 +1824,7 @@ export function importExternalVocabWithProgress(
     if (!existingCard) {
       existingCard = {
         ...c,
-        id: c.id || (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(7)),
+        id: c.id || generateUUID(),
         createdAt: c.createdAt || new Date().toISOString()
       };
       updatedCards.push(existingCard);
@@ -2143,7 +2183,7 @@ export async function syncPastReviewAssignments(): Promise<{ count: number }> {
         }));
 
         newSubs.push({
-          id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(7),
+          id: generateUUID(),
           assignmentId: a.id,
           assignmentTitle: a.title,
           assignmentType: a.type,
@@ -2246,7 +2286,7 @@ export function autoSubmitPreviousStagesLocal(
       const exists = allSubs.find(sub => sub.studentName === student && sub.assignmentId === repAssignId);
       if (!exists) {
         allSubs.push({
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           assignmentId: repAssignId,
           assignmentTitle: repTitle,
           assignmentType: 'repetition',

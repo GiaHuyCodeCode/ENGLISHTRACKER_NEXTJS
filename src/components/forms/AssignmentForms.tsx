@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { VocabKeyword, QuizQuestion, DictationSentence, getVocabularyCards, getAssignments } from '@/lib/local-store';
 import { BookOpen, ListChecks, Plus, Trash2, Upload, CheckCircle2, AlertCircle, ArrowLeft, Eye, FileJson, PenTool, Headphones, Play, Clock, ChevronDown, Volume2, Save, X, XCircle, Search, Copy, Mic, FileText, Loader2 } from 'lucide-react';
 import { audioManager } from '@/lib/audio';
+import { generateUUID } from '@/lib/utils';
 
 // YouTube URL parser
 export function extractYoutubeId(url: string): string | null {
@@ -790,7 +791,7 @@ export function VocabularyForm({ onSave, isSaving, initialData }: {
         if (!c.word) throw new Error(`Từ vựng thứ ${index + 1} thiếu trường "word"`);
         if (!c.meaning) throw new Error(`Từ vựng "${c.word || index + 1}" thiếu trường "meaning"`);
         return {
-          id: c.id || crypto.randomUUID(),
+          id: c.id || generateUUID(),
           word: c.word.trim(),
           phonetic: (c.phonetic || '').trim(),
           synonyms: Array.isArray(c.synonyms) ? c.synonyms.map((s: any) => String(s).trim()) : [],
@@ -1042,7 +1043,7 @@ export function ShadowingForm({ onSave, isSaving, initialData }: {
       }
       const parsed: DictationSentence[] = json.sentences.map((s: any) => ({
         // Giữ UUID nếu đã có, ngược lại tạo UUID mới — không dùng số thứ tự
-        id: s.id && typeof s.id === 'string' && s.id.includes('-') ? s.id : crypto.randomUUID(),
+        id: s.id && typeof s.id === 'string' && s.id.includes('-') ? s.id : generateUUID(),
         text: s.text || '',
         phonetic: s.phonetic || '',
         audioUrl: s.audioUrl || '',

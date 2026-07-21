@@ -141,8 +141,8 @@ export default function StudentAssignmentsPage() {
 
   const colors = getStudentColors(studentName);
   const initials = getStudentAvatar(studentName);
-  const myAvgScore = submissions.filter(s => s.id && s.assignmentType !== 'repetition' && Number(s.durationMs) > 0).length
-    ? Math.round(submissions.filter(s => s.id && s.assignmentType !== 'repetition' && Number(s.durationMs) > 0).reduce((s, x) => s + x.score, 0) / submissions.filter(s => s.id && s.assignmentType !== 'repetition' && Number(s.durationMs) > 0).length)
+  const myAvgScore = submissions.filter(s => s.id && Number(s.durationMs) > 0).length
+    ? Math.round(submissions.filter(s => s.id && Number(s.durationMs) > 0).reduce((s, x) => s + x.score, 0) / submissions.filter(s => s.id && Number(s.durationMs) > 0).length)
     : null;
 
   const getSubmission = (id: string) => submissions.find(s => s.id && s.assignmentId === id);
