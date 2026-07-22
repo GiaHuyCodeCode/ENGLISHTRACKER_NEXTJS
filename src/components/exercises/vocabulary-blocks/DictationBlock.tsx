@@ -247,6 +247,18 @@ export function DictationBlock({
     }
   }, [currentIdx, currentCard, isSubmitted, isFinished, handleSpeak, wrongTimerActive, speakMode]);
 
+  // Focus & cuộn mượt ô nhập liệu vào giữa màn hình (tránh lỗi Safari iOS tự cuộn lên top khi bàn phím mở)
+  useEffect(() => {
+    if (!currentCard || isSubmitted || isFinished || wrongTimerActive) return;
+    const timer = setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus({ preventScroll: true });
+        inputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [currentIdx, isSubmitted, isFinished, wrongTimerActive, currentCard]);
+
   // Hotkey Ctrl to play audio manually (only available in 'before' mode)
   useEffect(() => {
     if (!currentCard || isSubmitted || isFinished || speakMode !== 'before') return;
@@ -297,7 +309,12 @@ export function DictationBlock({
           if (currentCard) {
             onAnswerChange(currentCard.word, '');
           }
-          setTimeout(() => inputRef.current?.focus(), 50);
+          setTimeout(() => {
+            if (inputRef.current) {
+              inputRef.current.focus({ preventScroll: true });
+              inputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 50);
           return;
         }
         if (showEndScreen && wrongCountInRound > 0) {
@@ -371,7 +388,12 @@ export function DictationBlock({
             setShowWrongFeedback(false);
             setWrongTimerActive(false);
             onAnswerChange(word, '');
-            setTimeout(() => inputRef.current?.focus(), 50);
+            setTimeout(() => {
+              if (inputRef.current) {
+                inputRef.current.focus({ preventScroll: true });
+                inputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 50);
           }, 2500);
         } else {
           setFeedback(prev => ({
@@ -735,7 +757,6 @@ export function DictationBlock({
                   : currentFeedback?.isCorrect ? 'border-emerald-500 ring-2 ring-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/5' 
                   : (isWordWrongFirstTime[currentCard.word] && !currentFeedback?.isCorrect) ? 'border-red-400 dark:border-red-500 ring-2 ring-red-500/30 text-red-600 dark:text-red-400' 
                   : 'border-slate-200 dark:border-white/10 focus:border-[#0071e3]/60 dark:focus:border-[#0071e3]/50'}`}
-              autoFocus
             />
             
             {!isSubmitted && !isRequirementWorkflow && (

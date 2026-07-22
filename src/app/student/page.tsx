@@ -409,11 +409,16 @@ export default function StudentDashboard() {
   const avg = totalScores.length ? Math.round(totalScores.reduce((a, b) => a + b, 0) / totalScores.length) : null;
   const nowVal = new Date();
   const visibleAssignments = assignments.filter(a => {
-    if (a.type === 'repetition') return false; // Không tính bài ôn tập vào số bài tập chính thức
+    if (a.isHidden === true) return false;
+    if (a.type === 'repetition') {
+      if (!a.createdAt) return true;
+      return new Date(a.createdAt) <= nowVal;
+    }
     if (!a.createdAt) return true;
     return new Date(a.createdAt) <= nowVal;
   });
   const doneIds = new Set(submissions.map(s => s.assignmentId));
+  const doneAssignments = visibleAssignments.filter(a => doneIds.has(a.id));
   const todo = visibleAssignments.filter(a => !doneIds.has(a.id));
 
   const totalDurationMs = submissions.reduce((sum, s) => sum + (s.durationMs || 0), 0);
@@ -636,7 +641,7 @@ export default function StudentDashboard() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                   { label: 'Điểm Trung Bình', shortLabel: 'Điểm TB', value: avg !== null ? `${avg}đ` : '—', icon: FTrophy, color: 'text-amber-600 dark:text-amber-600 dark:text-amber-400' },
-                  { label: 'Đã Hoàn Thành', shortLabel: 'Hoàn Thành', value: `${submissions.length}/${visibleAssignments.length}`, icon: FCheck, color: 'text-emerald-600 dark:text-emerald-600 dark:text-emerald-400' },
+                  { label: 'Đã Hoàn Thành', shortLabel: 'Hoàn Thành', value: `${doneAssignments.length}/${visibleAssignments.length}`, icon: FCheck, color: 'text-emerald-600 dark:text-emerald-600 dark:text-emerald-400' },
                   { label: 'Cần Làm', shortLabel: 'Cần Làm', value: todo.length, icon: FBook, color: 'text-[#0071e3] dark:text-[#4da3f5]' },
                   { label: 'Thời Gian Học', shortLabel: 'Thời Gian', value: formatTotalTime(totalDurationMs), icon: FClock, color: 'text-violet-600 dark:text-violet-600 dark:text-violet-400' },
                 ].map(({ label, shortLabel, value, icon: Icon, color }) => (

@@ -12,6 +12,7 @@ import {
   BookOpen, ListChecks, ChevronRight, CheckCircle2,
   Clock, Trophy, User, LogOut, PenTool, Loader2, RefreshCw, Headphones, FileJson, FileText, Mic
 } from 'lucide-react';
+import { FilePdf } from '@/components/ui/FilePdf';
 
 function ScorePill({ score }: { score: number }) {
   const cls = score >= 80 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
@@ -158,10 +159,8 @@ export default function StudentAssignmentsPage() {
 
   const now = new Date();
   const visibleAssignments = assignments.filter(a => {
-    // Bài SR (repetition): phải chưa ẩn VÀ đã tới thời điểm lên lịch (createdAt <= now).
-    // Bài SR lên lịch tương lai (vd: ngày mai 5h sáng) KHÔNG hiện ở danh sách chờ hôm nay.
+    if (a.isHidden === true) return false;
     if (a.type === 'repetition') {
-      if (a.isHidden !== false) return false;
       if (!a.createdAt) return true;
       return new Date(a.createdAt) <= now;
     }
@@ -222,7 +221,7 @@ export default function StudentAssignmentsPage() {
               {isSyncing && <Loader2 className="h-5 w-5 text-primary animate-spin" />}
             </h1>
             <p className="text-muted-foreground text-sm mt-0.5">
-              {todo.length > 0 ? `${todo.length} bài tập đang chờ bạn` : 'Bạn đã hoàn thành tất cả! 🎉'}
+              {todo.length + pendingRepetitions.length > 0 ? `${todo.length + pendingRepetitions.length} bài tập đang chờ bạn` : 'Bạn đã hoàn thành tất cả! 🎉'}
             </p>
           </div>
         </div>
@@ -324,7 +323,7 @@ export default function StudentAssignmentsPage() {
                            a.type === 'dictation' ? <Headphones className="h-5 w-5 text-sky-600 dark:text-sky-400" /> :
                            a.type === 'vocabulary' ? <FileJson className="h-5 w-5 text-indigo-600 dark:text-indigo-400" /> :
                            a.type === 'shadowing' ? <Mic className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /> :
-                           a.type === 'grammar' ? <FileText className="h-5 w-5 text-fuchsia-600 dark:text-fuchsia-400" /> :
+                           a.type === 'grammar' ? <FilePdf className="h-5 w-5 text-fuchsia-600 dark:text-fuchsia-400" /> :
                            <PenTool className="h-5 w-5 text-amber-600 dark:text-amber-400" />}
                         </div>
                         <span className={`text-[11px] px-2 py-1 rounded-lg font-semibold ${
@@ -440,7 +439,7 @@ export default function StudentAssignmentsPage() {
                        a.type === 'dictation' ? <Headphones className="h-4 w-4 text-sky-600 dark:text-sky-400" /> :
                        a.type === 'vocabulary' ? <FileJson className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> :
                        a.type === 'shadowing' ? <Mic className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> :
-                       a.type === 'grammar' ? <FileText className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-400" /> :
+                       a.type === 'grammar' ? <FilePdf className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-400" /> :
                        <PenTool className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
                     </div>
                     <div className="flex-1 min-w-0">

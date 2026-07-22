@@ -181,7 +181,10 @@ export default function DictationExercisePage() {
       timer = setTimeout(() => {
         if (isMounted.current) speakCurrent();
       }, 400);
-      inputRef.current?.focus();
+      if (inputRef.current) {
+        inputRef.current.focus({ preventScroll: true });
+        inputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
     return () => clearTimeout(timer);
   }, [currentIdx, sentences.length, showDone, speakCurrent]);
@@ -255,7 +258,10 @@ export default function DictationExercisePage() {
     setWrongWords([]);
     speakCurrent();
     setTimeout(() => {
-      if (isMounted.current) inputRef.current?.focus();
+      if (isMounted.current && inputRef.current) {
+        inputRef.current.focus({ preventScroll: true });
+        inputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }, 100);
   };
 

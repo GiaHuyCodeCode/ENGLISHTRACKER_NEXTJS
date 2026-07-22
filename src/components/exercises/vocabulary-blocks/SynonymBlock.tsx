@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { VocabCard } from '@/lib/local-store';
 import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, Search } from 'lucide-react';
 
@@ -14,8 +14,21 @@ export function SynonymBlock({ vocabCards, answers, onAnswerChange, handleSpeak,
   const [currentIdx, setCurrentIdx] = useState(0);
   const [feedback, setFeedback] = useState<Record<string, { isCorrect: boolean; show: boolean }>>({});
   const [shake, setShake] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   
   const currentCard = vocabCards[currentIdx];
+
+  // Focus & cuộn mượt ô nhập liệu vào giữa màn hình (tránh lỗi Safari iOS tự cuộn lên top khi bàn phím mở)
+  useEffect(() => {
+    if (!currentCard || isSubmitted) return;
+    const timer = setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus({ preventScroll: true });
+        inputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [currentIdx, isSubmitted, currentCard]);
 
   const handleCheckSpelling = () => {
     if (!currentCard) return;
@@ -88,6 +101,7 @@ export function SynonymBlock({ vocabCards, answers, onAnswerChange, handleSpeak,
         <div className="w-full max-w-md pt-4 space-y-4">
           <div className="flex gap-3">
             <input
+              ref={inputRef}
               type="text"
               value={answers[currentCard.word] || ''}
               onChange={e => onAnswerChange(currentCard.word, e.target.value)}
@@ -95,7 +109,6 @@ export function SynonymBlock({ vocabCards, answers, onAnswerChange, handleSpeak,
               onKeyDown={e => e.key === 'Enter' && handleCheckSpelling()}
               placeholder="Nhập từ vựng gốc..."
               className={`input-field flex-1 text-center font-bold tracking-widest text-lg h-14 ${currentFeedback?.isCorrect ? 'border-emerald-500 ring-1 ring-emerald-500/50 text-emerald-600 dark:text-emerald-400' : ''}`}
-              autoFocus
             />
             {!isSubmitted && (
               <button 

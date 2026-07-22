@@ -20,6 +20,7 @@ import {
   Trophy, CheckCircle2, TrendingUp, ListChecks, PenTool, TrendingDown, Minus, PlusCircle, Trash2, Flame, Share2, Lightbulb, Settings, Loader2, RefreshCw, FileJson, Volume2, Headphones, Calendar, Mic, Lock, Unlock, Eye, EyeOff, Sparkles, AlertTriangle, Info
 } from 'lucide-react';
 import Link from 'next/link';
+import { FilePdf } from '@/components/ui/FilePdf';
 import { useSearchParams } from 'next/navigation';
 import {
   LineChart, Line, BarChart, Bar, Radar, RadarChart, PolarGrid,
@@ -120,37 +121,7 @@ export default function TeacherDashboard() {
     }
   };
 
-  /** Đồng bộ hóa các bài ôn tập quá khứ — tự động hoàn thành với 100đ */
-  const handleSyncSpacedRepetition = () => {
-    setConfirmDialog({
-      isOpen: true,
-      title: 'Đồng bộ ôn tập cũ',
-      message: 'Tự động hoàn thành tất cả bài ôn tập SR trong quá khứ cho tất cả học viên với 100 điểm? (Chỉ áp dụng cho các bài đã quá hạn, không ảnh hưởng bài hôm nay.)',
-      confirmText: 'Đồng ý',
-      confirmClass: 'bg-primary text-primary-foreground hover:opacity-90',
-      action: async () => {
-        setConfirmDialog(null);
-        setIsSyncing(true);
-        try {
-          const res = await syncPastReviewAssignments();
-          alert(`Hoàn thành! Đã tự động xử lý ${res.count} bài ôn tập quá hạn.`);
-          
-          // Cập nhật local state ngay lập tức
-          setAssignments(getAssignments(true));
-          setSubmissions(getSubmissions());
-          setTrackings(getDailyTrackings());
-          
-          // Chạy refresh ngầm
-          refreshData();
-        } catch (e: any) {
-          console.error('Lỗi khi đồng bộ ôn tập:', e);
-          alert('Đã có lỗi xảy ra khi đồng bộ ôn tập cũ.\n\nChi tiết: ' + (e?.message || String(e)));
-        } finally {
-          setIsSyncing(false);
-        }
-      }
-    });
-  };
+
 
   const handleAutoSyncPhase = async (assignment: Assignment) => {
     if (!confirm('Đồng bộ Phase cho TẤT CẢ học viên trong bài tập này dựa trên ngày tạo?')) return;
@@ -445,10 +416,10 @@ export default function TeacherDashboard() {
   const handleSyncPastAssignment = (a: Assignment) => {
     setConfirmDialog({
       isOpen: true,
-      title: 'Đồng bộ bài tập cũ',
-      message: 'Hệ thống sẽ tự động tạo bài nộp (100 điểm, 0 giây) cho tất cả các học viên chưa làm bài này. Bạn có chắc chắn không?',
-      confirmText: 'Đồng ý',
-      confirmClass: 'bg-primary text-primary-foreground hover:opacity-90',
+      title: 'Đồng bộ bài tập',
+      message: `Hệ thống sẽ tự động tạo bài nộp (100 điểm, 0 giây) cho bài tập "${a.title}" đối với tất cả học viên chưa làm. Bạn có chắc chắn muốn đồng bộ bài tập này không?`,
+      confirmText: 'Xác nhận đồng bộ',
+      confirmClass: 'bg-blue-600 text-white hover:bg-blue-700 font-semibold shadow-md shadow-blue-500/20',
       action: async () => {
         setConfirmDialog(null);
         try {
@@ -625,7 +596,7 @@ export default function TeacherDashboard() {
   };
 
   const handleToggleHidden = (a: any) => {
-    const currentlyHidden = a.isHidden !== false;
+    const currentlyHidden = a.isHidden === true;
     updateAssignment(a.id, { isHidden: !currentlyHidden });
     refreshData();
   };
@@ -670,7 +641,7 @@ export default function TeacherDashboard() {
   const endOfDay = new Date(_edy, _edm - 1, _edd, 23, 59, 59, 999).toISOString();
   const filteredSubmissions = submissions.filter(s => s.id && s.submittedAt <= endOfDay && Number(s.durationMs) > 0);
   const filteredTrackings = trackings.filter(t => t.submittedAt <= endOfDay);
-  const filteredAssignments = allAssignments.filter(a => (a.createdAt ? a.createdAt <= endOfDay : true) && a.isHidden !== true);
+  const filteredAssignments = allAssignments.filter(a => (a.createdAt ? a.createdAt <= endOfDay : true));
 
   const formatDuration = (ms?: number) => {
     if (!ms) return '0 giây';
@@ -941,7 +912,7 @@ export default function TeacherDashboard() {
               <div className="mx-4 mt-3 flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs">
                 <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <span>
-                  Bài vocab tạo <strong>hôm nay</strong> sẽ có bài ôn tập đầu tiên vào <strong>5:00 sáng ngày mai</strong> (không xuất hiện ngay hôm nay).
+                  Bài tập SR tự động gom cho <strong>ngày hôm nay (lên lịch 5:00 sáng)</strong>. Nhấn <strong>Xác Nhận</strong> bên dưới để tạo bài tập ra danh sách bên ngoài.
                 </span>
               </div>
             )}
@@ -983,7 +954,7 @@ export default function TeacherDashboard() {
                             </span>
                             {item.scheduledFor && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border text-sky-400 bg-sky-500/10 border-sky-500/20">
-                                Hôm nay 5h sáng
+                                Tương lai 1 ngày (5h sáng)
                               </span>
                             )}
                           </div>
@@ -1517,15 +1488,6 @@ export default function TeacherDashboard() {
                 Tạo bài Ôn tập SR
               </button>
               <button
-                onClick={handleSyncSpacedRepetition}
-                disabled={isSyncing}
-                title="Tự động hoàn thành các bài SR quá hạn trong quá khứ (100 điểm)"
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 disabled:opacity-50 transition-colors text-sm font-semibold border border-amber-500/20 shadow-lg shadow-amber-500/5"
-              >
-                <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                Đồng bộ Ôn tập cũ
-              </button>
-              <button
                 onClick={handleSyncAllPastAssignments}
                 disabled={isSyncing}
                 title="Tự động hoàn thành TẤT CẢ các bài tập quá hạn cho TẤT CẢ học viên chưa làm (100 điểm)"
@@ -1606,9 +1568,7 @@ export default function TeacherDashboard() {
                                    a.id?.startsWith('rep-');
 
               if (mgmtSkillFilter === 'all') {
-                // Không ẩn bài SR ở tab "Tất cả" nữa, hiển thị bình thường như các bài tập khác
-                // Ngoại trừ các bài SR bị ẩn (isHidden: true)
-                if (isRepetition && a.isHidden) return false;
+                // Hiển thị tất cả bài tập ở tab "Tất cả" (bao gồm bài tập bị ẩn)
               } else {
                 // Đang filter theo skill cụ thể — áp dụng bất kể có date filter hay không.
                 if (mgmtSkillFilter?.toLowerCase() === 'repetition') {
@@ -1671,7 +1631,8 @@ export default function TeacherDashboard() {
                             a.type === 'dictation' ? <Headphones className="h-5 w-5" /> :
                               (a.type === 'vocabulary' || isRepetition) ? <FileJson className="h-5 w-5" /> :
                                 a.type === 'shadowing' ? <Mic className="h-5 w-5" /> :
-                                  <PenTool className="h-5 w-5" />}
+                                  a.type === 'grammar' ? <FilePdf className="h-5 w-5" /> :
+                                    <PenTool className="h-5 w-5" />}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">{a.title}</p>
@@ -1716,7 +1677,7 @@ export default function TeacherDashboard() {
                   );
 
                   return (
-                    <div key={a.id} className="flex flex-col md:flex-row h-full items-stretch md:items-start justify-between gap-4 p-5 rounded-2xl glass hover:border-primary/30 transition-all group">
+                    <div key={a.id} className={`flex flex-col md:flex-row h-full items-stretch md:items-start justify-between gap-4 p-5 rounded-2xl glass hover:border-primary/30 transition-all group ${a.isHidden ? 'opacity-80 border-dashed border-red-500/30' : ''}`}>
                       {isRepetition ? (
                         <div className="flex-1 flex items-start gap-3.5 min-w-0 w-full select-none">
                           {renderCardContent()}
@@ -1744,13 +1705,13 @@ export default function TeacherDashboard() {
                           type="button"
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleHidden(a); }}
                           className={`p-2 rounded-xl transition-colors relative z-10 flex items-center justify-center ${
-                            a.isHidden === false 
-                              ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10' 
-                              : 'text-red-600 dark:text-red-400 hover:bg-red-500/10'
+                            a.isHidden === true 
+                              ? 'text-red-600 dark:text-red-400 hover:bg-red-500/10'
+                              : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10' 
                           }`}
-                          title={a.isHidden === false ? "Đang hiện (Học sinh thấy được)" : "Đang ẩn (Học sinh chưa thấy)"}
+                          title={a.isHidden === true ? "Đang ẩn (Học sinh chưa thấy)" : "Đang hiện (Học sinh thấy được)"}
                         >
-                          {a.isHidden !== false ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                          {a.isHidden === true ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
                         </button>
                         <button
                           type="button"

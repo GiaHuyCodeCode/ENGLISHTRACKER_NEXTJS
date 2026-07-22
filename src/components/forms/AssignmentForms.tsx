@@ -1335,44 +1335,48 @@ export function GrammarPdfForm({ onSave, isSaving, initialData }: {
       const reader = new FileReader();
       reader.onload = async () => {
         const base64WithHeader = reader.result as string;
-        const base64Data = base64WithHeader.split(',')[1]; // Lấy phần data bỏ qua header
 
-        // Gọi Next.js API upload proxy
-        const response = await fetch('/api/upload-pdf-to-drive', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            filename: file.name,
-            base64Data: base64Data,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Không thể upload file lên Google Drive.');
+        // 1. Cài ngay lập tức Data URL để xem thử & điền tiêu đề không phải chờ đợi
+        setPdfUrl(base64WithHeader);
+        if (!title) {
+          const cleanTitle = file.name.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
+          setTitle(cleanTitle);
         }
 
-        const data = await response.json();
-        if ((data.status === 'success' || data.url) && data.url) {
-          setPdfUrl(data.url || '');
-          // Tự động điền tiêu đề nếu chưa có
-          if (!title) {
-            const cleanTitle = file.name.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
-            setTitle(cleanTitle);
+        // 2. Chạy upload Google Drive ngầm để lấy link lưu trữ bền vững
+        try {
+          const base64Data = base64WithHeader.split(',')[1];
+          const response = await fetch('/api/upload-pdf-to-drive', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              filename: file.name,
+              base64Data: base64Data,
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if ((data.status === 'success' || data.url) && data.url) {
+              setPdfUrl(data.url);
+            }
           }
-        } else {
-          throw new Error(data.message || 'Lỗi không xác định khi upload.');
+        } catch (err: any) {
+          console.warn('Upload Drive ngầm bị chậm (vẫn dùng bản local base64 sẵn có):', err);
+        } finally {
+          setIsUploading(false);
         }
-        setIsUploading(false);
       };
       reader.onerror = () => {
-        throw new Error('Lỗi khi đọc file.');
+        setUploadError('Lỗi khi đọc file PDF.');
+        setIsUploading(false);
       };
       reader.readAsDataURL(file);
     } catch (err: any) {
       console.error(err);
-      setUploadError(err.message || 'Có lỗi xảy ra khi upload file lên Drive.');
+      setUploadError(err.message || 'Có lỗi xảy ra khi tải file PDF.');
       setIsUploading(false);
     }
   };

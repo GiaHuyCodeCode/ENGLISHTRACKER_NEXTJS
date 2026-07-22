@@ -12,6 +12,7 @@ import {
 type Tab = 'vocab_context' | 'multiple_choice' | 'rewrite_vocab' | 'dictation' | 'vocabulary' | 'shadowing' | 'grammar';
 
 import { VocabForm, QuizForm, RewriteVocabForm, DictationForm, VocabularyForm, ShadowingForm, GrammarPdfForm } from '@/components/forms/AssignmentForms';
+import { FilePdf } from '@/components/ui/FilePdf';
 
 export default function NewAssignmentPage() {
   const router = useRouter();
@@ -125,7 +126,7 @@ export default function NewAssignmentPage() {
             { key: 'dictation' as Tab,       icon: Headphones, label: 'Dictation',         desc: 'Nghe & gõ lại câu',              color: 'sky'     },
             { key: 'vocabulary' as Tab,      icon: FileJson,   label: 'Học Từ Vựng',       desc: 'Flashcard, Quiz, Chính tả',      color: 'indigo'  },
             { key: 'shadowing' as Tab,       icon: Mic,        label: 'Shadowing',          desc: 'Nghe & nhắc lại câu (Speaking)', color: 'emerald' },
-            { key: 'grammar' as Tab,     icon: FileText,   label: 'Tài Liệu PDF',      desc: 'Đọc PDF & bài trắc nghiệm liên kết', color: 'fuchsia' },
+            { key: 'grammar' as Tab,     icon: FilePdf,    label: 'Tài Liệu PDF',      desc: 'Đọc PDF & bài trắc nghiệm liên kết', color: 'fuchsia' },
           ]).map(({ key, icon: Icon, label, desc, color }) => (
             <button key={key} onClick={() => setTab(key)}
               className={`group glass hover-lift rounded-2xl p-5 text-left border-2 transition-all ${

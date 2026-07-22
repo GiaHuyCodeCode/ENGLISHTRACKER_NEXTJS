@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, CheckCircle2, FileText, ArrowLeft,
   Clock, Eye, AlertCircle, RefreshCw, ExternalLink, Keyboard,
 } from 'lucide-react';
+import { FilePdf } from '@/components/ui/FilePdf';
 
 interface Props {
   assignment: Assignment;
@@ -62,17 +63,9 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
     script.async = true;
     script.onload = () => {
       if (window.pdfjsLib) {
-        fetch('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js')
-          .then(res => res.blob())
-          .then(blob => {
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
-            setPdfLibLoaded(true);
-          })
-          .catch(() => {
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-              'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-            setPdfLibLoaded(true);
-          });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+        setPdfLibLoaded(true);
       }
     };
     script.onerror = () => {
@@ -87,6 +80,35 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
     if (!pdfLibLoaded || !pdfUrl) return;
     setLoading(true);
     setRenderError('');
+
+    // Nếu pdfUrl là dạng Data URL (base64 local), decode trực tiếp không qua proxy
+    if (pdfUrl.startsWith('data:')) {
+      try {
+        const base64Parts = pdfUrl.split(',');
+        const base64Str = base64Parts[1] || base64Parts[0];
+        const binaryStr = window.atob(base64Str);
+        const len = binaryStr.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+        if (!window.pdfjsLib) throw new Error('Thư viện PDF chưa sẵn sàng.');
+        window.pdfjsLib.getDocument({ data: bytes }).promise.then(
+          (pdfDoc: any) => { setPdf(pdfDoc); setNumPages(pdfDoc.numPages); setLoading(false); },
+          (err: any) => {
+            console.error('Error decoding Base64 PDF:', err);
+            setRenderError('Không thể giải mã file PDF.');
+            setLoading(false);
+          }
+        );
+      } catch (err: any) {
+        console.error('Error parsing Base64 PDF:', err);
+        setRenderError('Lỗi xử lý file PDF.');
+        setLoading(false);
+      }
+      return;
+    }
+
     const proxyUrl = `/api/proxy-pdf?url=${encodeURIComponent(pdfUrl)}`;
     fetch(proxyUrl)
       .then(res => { if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`); return res.arrayBuffer(); })
@@ -209,7 +231,7 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
         {/* Header bar */}
         <div className="glass rounded-2xl border border-white/5 px-4 py-3 flex items-center justify-between gap-3 shadow-lg">
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-fuchsia-400 shrink-0" />
+            <FilePdf className="h-4 w-4 text-fuchsia-400 shrink-0" />
             <span className="text-xs font-semibold text-muted-foreground truncate max-w-[160px] sm:max-w-xs">
               {assignment.title}
             </span>

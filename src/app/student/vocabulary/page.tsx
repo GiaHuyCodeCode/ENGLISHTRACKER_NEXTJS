@@ -19,6 +19,7 @@ import {
 } from '@/lib/local-store';
 import {
   BookOpen,
+  FileText,
   ArrowLeft,
   PlusCircle,
   HelpCircle,
@@ -41,6 +42,7 @@ import {
 import { VocabularyExercise } from '@/components/exercises/VocabularyExercise';
 import { ExerciseTimer } from '@/components/ui/ExerciseTimer';
 import { audioManager } from '@/lib/audio';
+import { FilePdf } from '@/components/ui/FilePdf';
 
 export default function StudentVocabularyPage() {
   const router = useRouter();
@@ -211,7 +213,7 @@ export default function StudentVocabularyPage() {
     setCards(loadedCards);
     const now = new Date();
     setLessons(getAssignments().filter(a => {
-      if (a.type !== 'vocabulary') return false;
+      if (a.type !== 'vocabulary' && a.type !== 'grammar' && !a.pdfUrl && !a.passage) return false;
       if (!a.createdAt) return true;
       return new Date(a.createdAt) <= now;
     }));
@@ -623,33 +625,51 @@ export default function StudentVocabularyPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {lessons.map(lesson => (
-                <div key={lesson.id} className="glass hover-lift p-5 rounded-3xl border border-white/5 flex flex-col justify-between space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <div className="p-3 bg-indigo-500/10 dark:bg-indigo-500/10 rounded-xl">
-                        <BookOpen className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-foreground leading-tight">{lesson.title}</h3>
-                        <p className="text-xs text-muted-foreground">{lesson.vocabCards?.length || 0} từ vựng</p>
+              {lessons.map(lesson => {
+                const isPdfGrammar = lesson.type === 'grammar' || !!lesson.pdfUrl || (!lesson.vocabCards?.length && !!lesson.passage);
+                const isVocab = (lesson.vocabCards?.length || 0) > 0;
+
+                return (
+                  <div key={lesson.id} className="glass hover-lift p-5 rounded-3xl border border-white/5 flex flex-col justify-between space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-3 rounded-2xl flex-shrink-0 ${isPdfGrammar ? 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400' : 'bg-[#0071e3]/10 text-[#0071e3]'}`}>
+                            {isPdfGrammar ? <FilePdf className="h-6 w-6" strokeWidth={1.5} /> : <BookOpen className="h-6 w-6" strokeWidth={1.5} />}
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-bold text-foreground leading-tight">{lesson.title}</h3>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {isPdfGrammar ? 'Lý thuyết PDF' : `${lesson.vocabCards?.length || 0} từ vựng`}
+                            </p>
+                          </div>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${isPdfGrammar ? 'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400 border border-fuchsia-500/20' : 'bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/20'}`}>
+                          {isPdfGrammar ? 'PDF Ngữ pháp' : 'Từ vựng'}
+                        </span>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Calendar className="h-3.5 w-3.5" /> {new Date(lesson.createdAt).toLocaleDateString('vi-VN')}
+                    
+                    <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Calendar className="h-3.5 w-3.5" /> {new Date(lesson.createdAt).toLocaleDateString('vi-VN')}
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (isPdfGrammar && !isVocab) {
+                            router.push(`/student/assignments/${lesson.id}`);
+                          } else {
+                            router.push(`/student/lessons/${lesson.id}`);
+                          }
+                        }}
+                        className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-semibold text-xs hover:bg-primary/90 transition-all shadow-md flex items-center gap-1.5"
+                      >
+                        {isPdfGrammar && !isVocab ? 'Xem Tài Liệu' : 'Vào Ôn Tập'} <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => router.push(`/student/lessons/${lesson.id}`)}
-                      className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-semibold text-xs hover:bg-primary/90 transition-all shadow-md flex items-center gap-1.5"
-                    >
-                      Vào Ôn Tập <ChevronRight className="h-3.5 w-3.5" />
-                    </button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

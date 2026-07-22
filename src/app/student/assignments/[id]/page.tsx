@@ -15,6 +15,7 @@ import { VocabularyExercise } from '@/components/exercises/VocabularyExercise';
 import { GrammarPdfExercise } from '@/components/exercises/GrammarPdfExercise';
 import { ExerciseTimer } from '@/components/ui/ExerciseTimer';
 import { ArrowLeft, BookOpen, ListChecks, User, ChevronRight, AlertCircle, PenTool, FileJson, Clock, Trophy, FileText } from 'lucide-react';
+import { FilePdf } from '@/components/ui/FilePdf';
 
 // ── Student picker modal ────────────────────────────────────────────────────
 
@@ -379,7 +380,7 @@ export default function ExercisePage() {
           }`}>
             {assignment.type === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={1.5} /> : 
              assignment.type === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-600 dark:text-teal-400" strokeWidth={1.5} /> :
-             assignment.type === 'grammar' ? <FileText className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-400" strokeWidth={1.5} /> :
+             assignment.type === 'grammar' ? <FilePdf className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-400" strokeWidth={1.5} /> :
              (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? <FileJson className="h-4 w-4 text-sky-600 dark:text-sky-400" strokeWidth={1.5} /> :
              <PenTool className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />}
           </div>
