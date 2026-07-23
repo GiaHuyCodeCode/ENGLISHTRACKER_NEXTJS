@@ -34,28 +34,51 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
     }
 
-    // Nếu url là dạng Google Drive view link, chuyển nó thành dạng direct download link với confirm=no_antivirus
+    let fileId: string | null = null;
+    // Nếu url là dạng Google Drive view link, chuyển thành dạng direct download link
     if (targetUrl.includes('drive.google.com/file/d/')) {
       const match = targetUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
       if (match && match[1]) {
-        targetUrl = `https://drive.google.com/uc?export=download&confirm=no_antivirus&id=${match[1]}`;
+        fileId = match[1];
+        targetUrl = `https://drive.google.com/uc?export=download&confirm=no_antivirus&id=${fileId}`;
       }
     } else if (targetUrl.includes('drive.google.com/open?id=')) {
       const match = targetUrl.match(/id=([a-zA-Z0-9_-]+)/);
       if (match && match[1]) {
-        targetUrl = `https://drive.google.com/uc?export=download&confirm=no_antivirus&id=${match[1]}`;
+        fileId = match[1];
+        targetUrl = `https://drive.google.com/uc?export=download&confirm=no_antivirus&id=${fileId}`;
       }
     } else if (targetUrl.includes('drive.google.com/uc?') && !targetUrl.includes('confirm=no_antivirus')) {
       targetUrl += '&confirm=no_antivirus';
     }
 
-    const res = await fetch(targetUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-      redirect: 'follow',
-    });
+    let res: Response;
+    try {
+      res = await fetch(targetUrl, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        redirect: 'follow',
+      });
+    } catch (primaryErr) {
+      if (fileId) {
+        // Thử URL Google Drive fallback 1
+        const fallbackUrl = `https://lh3.googleusercontent.com/u/0/d/${fileId}`;
+        res = await fetch(fallbackUrl, { method: 'GET', redirect: 'follow' });
+      } else {
+        throw primaryErr;
+      }
+    }
+
+    if (!res.ok && fileId) {
+      // Retry với fallback URL thứ 2 nếu status là non-200
+      const fallbackUrl2 = `https://drive.google.com/uc?id=${fileId}&export=download`;
+      const resFallback = await fetch(fallbackUrl2, { method: 'GET', redirect: 'follow' });
+      if (resFallback.ok) {
+        res = resFallback;
+      }
+    }
 
     if (!res.ok) {
       throw new Error(`Failed to fetch PDF from target URL. Status: ${res.status}`);
@@ -68,7 +91,7 @@ export async function GET(request: Request) {
     return new Response(buffer, {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800',
+        'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
@@ -79,3 +102,4 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message || 'Failed to proxy PDF' }, { status: 500 });
   }
 }
+

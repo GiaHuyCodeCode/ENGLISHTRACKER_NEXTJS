@@ -1658,6 +1658,16 @@ export function getStudentVocabProgress(studentName: string): VocabProgress[] {
 
 const REVIEW_INTERVALS = [1, 3, 7, 14, 30, 60]; // 2 months stages
 
+export function getSRRoundForDiff(diff: number): number | null {
+  if (diff < 1) return null; // Mới tạo hôm nay hoặc tương lai -> chưa đến ngày ôn
+  if (diff < 3) return 2;    // Ngày 1 - 2: Lần 2 ôn tập (Vòng 1, ví dụ tạo 21/07 -> 22/07 hoặc 23/07)
+  if (diff < 10) return 3;   // Ngày 3 - 9: Lần 3 ôn tập
+  if (diff < 24) return 4;   // Ngày 10 - 23: Lần 4 ôn tập
+  if (diff < 54) return 5;   // Ngày 24 - 53: Lần 5 ôn tập
+  if (diff < 114) return 6;  // Ngày 54 - 113: Lần 6 ôn tập
+  return 7;                  // Từ 114 ngày trở lên: Lần 7 ôn tập
+}
+
 export function getCalculatedStage(createdAt?: string): number {
   if (!createdAt) return 0;
   const createdDate = new Date(createdAt);
@@ -1923,8 +1933,6 @@ export function previewSRGeneration(clearDeletedTombstone = false): SRPreviewRes
   const scheduledTime = new Date(targetDate);
   scheduledTime.setHours(8, 0, 0, 0);
 
-  const intervals = [1, 3, 10, 24, 54, 114];
-
   // Khi user chủ động nhấn "Tạo bài Ôn tập SR", xóa tombstone để cho phép tạo lại.
   if (clearDeletedTombstone && typeof window !== 'undefined') {
     write('et_deleted_daily_reviews', []);
@@ -1934,27 +1942,26 @@ export function previewSRGeneration(clearDeletedTombstone = false): SRPreviewRes
   const items: SRPreviewItem[] = [];
   let newCount = 0, updateCount = 0, deleteCount = 0, unchangedCount = 0;
 
-  if (!deletedDailyReviews.includes(dailyReviewId)) {
-    const cardsToReview: VocabCard[] = [];
-    const sources: { id: string; title: string; round: number }[] = [];
+  const cardsToReview: VocabCard[] = [];
+  const sources: { id: string; title: string; round: number }[] = [];
 
-    vocabAssignments.forEach(a => {
-      const diff = getDaysDifference(a.createdAt || new Date(), targetDate);
-      const idx = intervals.indexOf(diff);
-      if (idx !== -1) {
-        const round = idx + 2;
-        (a.vocabCards || []).forEach(card => {
-          if (!cardsToReview.some(c => c.word.toLowerCase() === card.word.toLowerCase())) {
-            cardsToReview.push(card);
-          }
-        });
-        sources.push({ id: a.id, title: a.title, round });
-      }
-    });
+  vocabAssignments.forEach(a => {
+    const diff = getDaysDifference(a.createdAt || new Date(), targetDate);
+    const round = getSRRoundForDiff(diff);
+    if (round !== null) {
+      (a.vocabCards || []).forEach(card => {
+        if (!cardsToReview.some(c => c.word.toLowerCase() === card.word.toLowerCase())) {
+          cardsToReview.push(card);
+        }
+      });
+      sources.push({ id: a.id, title: a.title, round });
+    }
+  });
 
-    const existingAssign = assignments.find(a => a.id === dailyReviewId);
-    const passageStr = JSON.stringify({ sources });
+  const existingAssign = assignments.find(a => a.id === dailyReviewId);
+  const passageStr = JSON.stringify({ sources });
 
+  if (cardsToReview.length > 0 || !deletedDailyReviews.includes(dailyReviewId)) {
     if (existingAssign) {
       const isSameCards =
         existingAssign.vocabCards &&
@@ -2032,7 +2039,6 @@ export function generateDailyReviewAssignment(clearDeletedTombstone = false) {
   const scheduledTime = new Date(targetDate);
   scheduledTime.setHours(8, 0, 0, 0);
 
-  const intervals = [1, 3, 10, 24, 54, 114]; // Tương ứng Lần 2, 3, 4, 5, 6, 7 (đã giảm 1 ngày từ vòng 2 trở đi)
   let hasChanges = false;
   const newAssignments = [...assignments];
 
@@ -2040,17 +2046,13 @@ export function generateDailyReviewAssignment(clearDeletedTombstone = false) {
     write('et_deleted_daily_reviews', []);
   }
 
-  const deletedDailyReviews = typeof window !== 'undefined' ? read<string[]>('et_deleted_daily_reviews', []) : [];
-  if (deletedDailyReviews.includes(dailyReviewId)) return;
-
   const cardsToReview: VocabCard[] = [];
   const sources: { id: string; title: string; round: number }[] = [];
 
   vocabAssignments.forEach(a => {
     const diff = getDaysDifference(a.createdAt || new Date(), targetDate);
-    const idx = intervals.indexOf(diff);
-    if (idx !== -1) {
-      const round = idx + 2; // idx = 0 -> Lần 2
+    const round = getSRRoundForDiff(diff);
+    if (round !== null) {
       (a.vocabCards || []).forEach(card => {
         if (!cardsToReview.some(c => c.word.toLowerCase() === card.word.toLowerCase())) {
           cardsToReview.push(card);
@@ -2062,6 +2064,14 @@ export function generateDailyReviewAssignment(clearDeletedTombstone = false) {
 
   const passageStr = JSON.stringify({ sources });
   const existingIndex = newAssignments.findIndex(a => a.id === dailyReviewId);
+
+  // Nếu có từ vựng cần ôn tập từ các bài gốc, xóa tombstone để tự động tạo lại cho học viên
+  if (cardsToReview.length > 0 && typeof window !== 'undefined') {
+    const deletedDailyReviews = read<string[]>('et_deleted_daily_reviews', []);
+    if (deletedDailyReviews.includes(dailyReviewId)) {
+      write('et_deleted_daily_reviews', deletedDailyReviews.filter(id => id !== dailyReviewId));
+    }
+  }
 
   if (existingIndex !== -1) {
     const existing = newAssignments[existingIndex];
