@@ -92,6 +92,7 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
   useEffect(() => {
     if (window.pdfjsLib) { setPdfLibLoaded(true); return; }
     const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/async/pdf.js/3.4.120/pdf.min.js';
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js';
     script.async = true;
     script.onload = () => {
@@ -175,7 +176,7 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
       });
   }, [pdfLibLoaded, pdfUrl]);
 
-  // ── Render page with High-DPI / Retina Scaling & Zoom Controls ───────────
+  // ── Render page with High-DPI / Retina Scaling & Full-Width Container Scale ───────────
   const renderPage = useCallback((num: number) => {
     if (!pdf) return;
     
@@ -191,16 +192,21 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
         const context = canvas.getContext('2d', { alpha: false });
         if (!context) return;
 
-        // Tính toán Retina / Device Pixel Ratio scaling (đặc biệt cho iPhone 12 Pro Max DPR = 3)
+        // Tính toán Retina / Device Pixel Ratio scaling (iPhone 12 Pro Max DPR = 3)
         const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
-        const outputScale = Math.max(dpr, 2); // Tối thiểu 2x để chữ và hình ảnh luôn nét căng
+        const outputScale = Math.max(dpr, 2); // Tối thiểu 2x để chữ và hình ảnh nét căng
 
         const parentElem = containerRef.current || canvas.parentElement;
-        const containerWidth = (parentElem?.clientWidth || 800) - 24; // chừa lề 12px mỗi bên
+        const containerWidth = parentElem?.clientWidth || 380;
+        
+        // Trên màn hình di động (< 640px), không trừ bớt margin lề để tận dụng 100% chiều rộng khung hiển thị
+        const isMobileScreen = typeof window !== 'undefined' ? window.innerWidth < 640 : false;
+        const effectiveContainerWidth = isMobileScreen ? containerWidth : Math.max(containerWidth - 24, 300);
+        
         const unscaledViewport = page.getViewport({ scale: 1 });
         
-        // Tỷ lệ vừa chiều rộng container
-        const fitScale = containerWidth / unscaledViewport.width;
+        // Tỷ lệ vừa 100% chiều rộng container hiển thị
+        const fitScale = effectiveContainerWidth / unscaledViewport.width;
         const baseScale = fitScale > 0 ? fitScale : 1;
         const currentZoom = baseScale * (zoomLevel / 100);
 
@@ -317,7 +323,7 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
   const progress = numPages > 0 ? (pageNum / numPages) * 100 : 0;
 
   return (
-    <div className={`relative ${isFullscreen ? 'fixed inset-0 z-50 bg-slate-950 flex flex-col h-[100dvh] w-screen overflow-hidden' : 'grid grid-cols-1 lg:grid-cols-4 gap-6 items-start pb-28 lg:pb-0'}`}>
+    <div className={`relative box-border max-w-full ${isFullscreen ? 'fixed inset-0 top-0 bottom-0 left-0 right-0 z-50 bg-slate-950 flex flex-col h-[100dvh] w-full max-w-full overflow-hidden' : 'grid grid-cols-1 lg:grid-cols-4 gap-6 items-start pb-28 lg:pb-0'}`}>
 
       {/* ─── Keyboard Shortcut Hint (desktop toast) ───────────────────── */}
       {!isFullscreen && (
@@ -336,37 +342,51 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
       )}
 
       {/* ─── PDF View Panel ─────────────────────────────────────────────── */}
-      <div className={`${isFullscreen ? 'flex-1 flex flex-col h-full overflow-hidden' : 'lg:col-span-3 space-y-3'}`}>
+      <div className={`${isFullscreen ? 'flex-1 flex flex-col h-full w-full max-w-full overflow-hidden' : 'lg:col-span-3 space-y-3 w-full max-w-full'}`}>
         
-        {/* Header Bar with Zoom & View Controls */}
-        <div className={`glass border border-white/10 px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2 shadow-lg ${isFullscreen ? 'rounded-none border-x-0 border-t-0 bg-slate-900/90 shrink-0' : 'rounded-2xl'}`}>
-          <div className="flex items-center gap-2 min-w-0">
+        {/* Header Bar with Drive Link, Zoom & View Controls */}
+        <div className={`glass border border-white/10 px-2.5 sm:px-4 py-2 flex items-center justify-between gap-2 shadow-lg w-full box-border ${isFullscreen ? 'rounded-none border-x-0 border-t-0 bg-slate-900/90 shrink-0' : 'rounded-2xl'}`}>
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             <FilePdf className="h-4 w-4 text-fuchsia-400 shrink-0" />
-            <span className="text-xs font-semibold text-foreground truncate max-w-[140px] sm:max-w-xs" title={assignment.title}>
+            <span className="text-xs font-semibold text-foreground truncate max-w-[110px] sm:max-w-xs" title={assignment.title}>
               {assignment.title}
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Direct Google Drive Link for Students - ALWAYS VISIBLE */}
+            {pdfUrl && (
+              <a
+                href={pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Mở tài liệu PDF gốc trên Google Drive"
+                className="flex items-center gap-1 px-2 py-1 rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 active:scale-95 text-sky-300 transition-all text-[11px] font-bold shrink-0 shadow-sm"
+              >
+                <ExternalLink className="h-3 w-3 text-sky-400" />
+                <span>Drive</span>
+              </a>
+            )}
+
             {/* Page navigation indicator */}
             {!loading && !renderError && numPages > 0 && (
-              <div className="flex items-center gap-1 sm:gap-2 bg-slate-800/60 px-2 py-1 rounded-xl border border-white/5">
+              <div className="flex items-center gap-0.5 sm:gap-2 bg-slate-800/60 px-1.5 sm:px-2 py-1 rounded-xl border border-white/5">
                 <button
                   onClick={handlePrevPage} disabled={pageNum === 1}
                   title="Trang trước (←)"
-                  className="p-1 rounded-lg hover:bg-white/10 disabled:opacity-25 transition-all active:scale-95"
+                  className="p-0.5 sm:p-1 rounded-lg hover:bg-white/10 disabled:opacity-25 transition-all active:scale-95"
                 >
                   <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </button>
                 <span className="text-[11px] sm:text-xs font-semibold tabular-nums">
                   <span className="text-fuchsia-400 font-bold">{pageNum}</span>
-                  <span className="text-white/30 mx-0.5 sm:mx-1">/</span>
+                  <span className="text-white/30 mx-0.5">/</span>
                   {numPages}
                 </span>
                 <button
                   onClick={handleNextPage} disabled={pageNum === numPages}
                   title="Trang sau (→)"
-                  className="p-1 rounded-lg hover:bg-white/10 disabled:opacity-25 transition-all active:scale-95"
+                  className="p-0.5 sm:p-1 rounded-lg hover:bg-white/10 disabled:opacity-25 transition-all active:scale-95"
                 >
                   <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </button>
@@ -375,7 +395,7 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
 
             {/* Zoom Controls */}
             {!loading && !renderError && (
-              <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-800/60 p-0.5 rounded-xl border border-white/5">
+              <div className="hidden xs:flex items-center gap-0.5 sm:gap-1 bg-slate-800/60 p-0.5 rounded-xl border border-white/5">
                 <button
                   onClick={handleZoomOut} disabled={zoomLevel <= 75}
                   title="Thu nhỏ (-)"
@@ -387,7 +407,7 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
                 <button
                   onClick={handleZoomReset}
                   title="Vừa màn hình (0)"
-                  className="px-1.5 py-0.5 text-[10px] sm:text-[11px] font-bold text-fuchsia-300 hover:bg-white/10 rounded-md transition-colors tabular-nums"
+                  className="px-1 py-0.5 text-[10px] sm:text-[11px] font-bold text-fuchsia-300 hover:bg-white/10 rounded-md transition-colors tabular-nums"
                 >
                   {zoomLevel}%
                 </button>
@@ -420,16 +440,6 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
                 </>
               )}
             </button>
-
-            {pdfUrl && !isFullscreen && (
-              <a
-                href={pdfUrl} target="_blank" rel="noopener noreferrer"
-                title="Mở PDF gốc trong tab mới"
-                className="hidden sm:flex p-1.5 rounded-xl border border-white/10 bg-slate-800/40 hover:bg-slate-800 text-muted-foreground hover:text-foreground transition-all items-center gap-1 text-[10px] font-bold"
-              >
-                <ExternalLink className="h-3 w-3" /> Drive
-              </a>
-            )}
           </div>
         </div>
 
@@ -443,13 +453,13 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
           </div>
         )}
 
-        {/* Canvas Scroll Area */}
+        {/* Canvas Scroll Area - EXPANDED LARGE FRAME FOR MOBILE */}
         <div
           ref={containerRef}
-          className={`glass border border-white/5 bg-slate-950/60 relative overflow-auto flex justify-center items-start transition-all ${
+          className={`glass border border-white/5 bg-slate-950/60 relative overflow-auto flex justify-center items-start transition-all box-border w-full max-w-full ${
             isFullscreen
-              ? 'flex-1 w-full rounded-none border-none p-2 sm:p-6 min-h-0'
-              : 'rounded-3xl p-2 sm:p-4 min-h-[60vh] lg:min-h-[680px] max-h-[82vh]'
+              ? 'flex-1 w-full rounded-none border-none p-1 sm:p-4 min-h-0'
+              : 'rounded-2xl sm:rounded-3xl p-1 sm:p-4 min-h-[72vh] lg:min-h-[680px] max-h-[88vh]'
           }`}
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
@@ -484,7 +494,7 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
 
           <canvas
             ref={canvasRef}
-            className={`shadow-2xl rounded-xl transition-transform duration-150 origin-top ${loading || renderError ? 'hidden' : 'block'}`}
+            className={`shadow-2xl rounded-xl transition-transform duration-150 origin-top max-w-full box-border ${loading || renderError ? 'hidden' : 'block'}`}
           />
         </div>
 
@@ -599,8 +609,8 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
       )}
 
       {/* ─── Mobile: Fixed Bottom Navigation Bar ─────────────────────── */}
-      <div className={`${isFullscreen ? 'relative z-50 shrink-0' : 'lg:hidden fixed bottom-0 left-0 right-0 z-50'}`}>
-        <div className="bg-slate-900/95 backdrop-blur-xl border-t border-white/10 px-4 pt-3 pb-3" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+      <div className={`${isFullscreen ? 'relative z-50 shrink-0 w-full max-w-full' : 'lg:hidden fixed bottom-0 left-0 right-0 z-50 w-full max-w-full'}`}>
+        <div className="bg-slate-900/95 backdrop-blur-xl border-t border-white/10 px-3 sm:px-4 pt-3 pb-3 w-full box-border" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
 
           {/* Page progress on mobile */}
           {!loading && !renderError && numPages > 0 && !isFullscreen && (
@@ -620,7 +630,7 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
 
           {/* Action buttons */}
           {!isFinished ? (
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2 w-full">
               {/* Prev */}
               <button
                 onClick={handlePrevPage}
@@ -663,7 +673,7 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
             </div>
           ) : (
             // Finished state on mobile
-            <div className="space-y-2">
+            <div className="space-y-2 w-full">
               <div className="flex items-center justify-center gap-2 text-emerald-400 text-xs font-bold mb-1">
                 <CheckCircle2 className="h-4 w-4" />
                 Đã hoàn thành bài học!

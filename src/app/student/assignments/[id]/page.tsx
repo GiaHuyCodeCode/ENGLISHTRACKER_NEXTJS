@@ -370,36 +370,34 @@ export default function ExercisePage() {
         </div>
 
         {/* Exercise Header - Small Minimal Header Bar */}
-        <div className="glass rounded-2xl border border-white/5 p-4 flex items-center gap-2">
-          <div className={`p-2 rounded-lg ${
-            assignment.type === 'vocab_context' ? 'bg-violet-500/15' : 
-            assignment.type === 'multiple_choice' ? 'bg-teal-500/15' : 
-            assignment.type === 'grammar' ? 'bg-fuchsia-500/15' :
-            (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? 'bg-[#0071e3]/15' : 
-            'bg-amber-500/15'
-          }`}>
-            {assignment.type === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={1.5} /> : 
-             assignment.type === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-600 dark:text-teal-400" strokeWidth={1.5} /> :
-             assignment.type === 'grammar' ? <FilePdf className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-400" strokeWidth={1.5} /> :
-             (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? <FileJson className="h-4 w-4 text-sky-600 dark:text-sky-400" strokeWidth={1.5} /> :
-             <PenTool className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />}
+        {assignment.type !== 'grammar' && (
+          <div className="glass rounded-2xl border border-white/5 p-4 flex items-center gap-2">
+            <div className={`p-2 rounded-lg ${
+              assignment.type === 'vocab_context' ? 'bg-violet-500/15' : 
+              assignment.type === 'multiple_choice' ? 'bg-teal-500/15' : 
+              (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? 'bg-[#0071e3]/15' : 
+              'bg-amber-500/15'
+            }`}>
+              {assignment.type === 'vocab_context' ? <BookOpen className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={1.5} /> : 
+               assignment.type === 'multiple_choice' ? <ListChecks className="h-4 w-4 text-teal-600 dark:text-teal-400" strokeWidth={1.5} /> :
+               (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? <FileJson className="h-4 w-4 text-sky-600 dark:text-sky-400" strokeWidth={1.5} /> :
+               <PenTool className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />}
+            </div>
+            <div>
+              <p className="text-sm font-semibold">
+                {assignment.type === 'vocab_context' ? 'Điền Nghĩa Từ Vựng' : 
+                 assignment.type === 'multiple_choice' ? 'Chọn Đáp Án Đúng' :
+                 (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? 'Học & Kiểm Tra Từ Vựng' : 'Viết Chuyện Chêm'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {assignment.type === 'vocab_context' ? `${assignment.keywords?.length} từ khóa` : 
+                 assignment.type === 'multiple_choice' ? `${assignment.questions?.length} câu hỏi` :
+                 (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? `${assignment.vocabCards?.length || 0} từ vựng` :
+                 `${assignment.keywords?.length} từ khóa cần dùng`}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-semibold">
-              {assignment.type === 'vocab_context' ? 'Điền Nghĩa Từ Vựng' : 
-               assignment.type === 'multiple_choice' ? 'Chọn Đáp Án Đúng' :
-               assignment.type === 'grammar' ? 'Lý Thuyết Ngữ Pháp PDF' :
-               (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? 'Học & Kiểm Tra Từ Vựng' : 'Viết Chuyện Chêm'}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {assignment.type === 'vocab_context' ? `${assignment.keywords?.length} từ khóa` : 
-               assignment.type === 'multiple_choice' ? `${assignment.questions?.length} câu hỏi` :
-               assignment.type === 'grammar' ? (assignment.linkedAssignmentId ? 'Có bài tập trắc nghiệm liên kết' : 'Đọc tài liệu lý thuyết') :
-               (assignment.type === 'vocabulary' || assignment.type === 'repetition') ? `${assignment.vocabCards?.length || 0} từ vựng` :
-               `${assignment.keywords?.length} từ khóa cần dùng`}
-            </p>
-          </div>
-        </div>
+        )}
 
         {/* Exercise Content Area - Completely released from tight glass card bounds */}
         <div className="w-full">
