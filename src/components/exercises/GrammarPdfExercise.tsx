@@ -6,7 +6,7 @@ import { Assignment, Submission, getAssignment } from '@/lib/local-store';
 import {
   ChevronLeft, ChevronRight, CheckCircle2, ArrowLeft,
   Clock, AlertCircle, RefreshCw, ExternalLink, Keyboard,
-  ZoomIn, ZoomOut, Maximize2, Minimize2, Sparkles,
+  ZoomIn, ZoomOut, Sparkles,
 } from 'lucide-react';
 import { FilePdf } from '@/components/ui/FilePdf';
 
@@ -55,9 +55,8 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
   const [loadingMsg, setLoadingMsg] = useState('Đang khởi tạo tài liệu...');
   const [renderError, setRenderError] = useState('');
   
-  // Interactive View Controls
+  // Interactive View Controls (Zoom)
   const [zoomLevel, setZoomLevel] = useState<number>(100); // 75% to 250%
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   
   // Hints & Tips
   const [showKeyHint, setShowKeyHint] = useState(false);
@@ -92,7 +91,6 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
   useEffect(() => {
     if (window.pdfjsLib) { setPdfLibLoaded(true); return; }
     const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/async/pdf.js/3.4.120/pdf.min.js';
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js';
     script.async = true;
     script.onload = () => {
@@ -116,7 +114,6 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
     setLoadingMsg('Đang nạp dữ liệu PDF...');
     setRenderError('');
 
-    // Nếu pdfUrl là dạng Data URL (base64 local), decode trực tiếp
     if (pdfUrl.startsWith('data:')) {
       try {
         const base64Parts = pdfUrl.split(',');
@@ -150,7 +147,6 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
 
     const proxyUrl = `/api/proxy-pdf?url=${encodeURIComponent(pdfUrl)}`;
     
-    // Nạp siêu tốc qua Cache API
     fetchPdfWithCache(proxyUrl)
       .then(arrayBuffer => {
         if (!window.pdfjsLib) throw new Error('Thư viện PDF chưa sẵn sàng.');
@@ -176,11 +172,10 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
       });
   }, [pdfLibLoaded, pdfUrl]);
 
-  // ── Render page with High-DPI / Retina Scaling & Full-Width Container Scale ───────────
+  // ── Render page with High-DPI / Retina Scaling & Fit Container ─────────
   const renderPage = useCallback((num: number) => {
     if (!pdf) return;
     
-    // Hủy render task trước đó nếu chưa xong
     if (renderTaskRef.current) {
       try { renderTaskRef.current.cancel(); } catch {}
     }
@@ -192,29 +187,23 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
         const context = canvas.getContext('2d', { alpha: false });
         if (!context) return;
 
-        // Tính toán Retina / Device Pixel Ratio scaling (iPhone 12 Pro Max DPR = 3)
+        // Retina / Device Pixel Ratio scaling (DPR)
         const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
-        const outputScale = Math.max(dpr, 2); // Tối thiểu 2x để chữ và hình ảnh nét căng
+        const outputScale = Math.max(dpr, 2);
 
         const parentElem = containerRef.current || canvas.parentElement;
         const containerWidth = parentElem?.clientWidth || 380;
-        
-        // Trên màn hình di động (< 640px), không trừ bớt margin lề để tận dụng 100% chiều rộng khung hiển thị
-        const isMobileScreen = typeof window !== 'undefined' ? window.innerWidth < 640 : false;
-        const effectiveContainerWidth = isMobileScreen ? containerWidth : Math.max(containerWidth - 24, 300);
-        
         const unscaledViewport = page.getViewport({ scale: 1 });
         
-        // Tỷ lệ vừa 100% chiều rộng container hiển thị
-        const fitScale = effectiveContainerWidth / unscaledViewport.width;
+        // Tỷ lệ khớp 100% chiều rộng khung hiển thị
+        const fitScale = containerWidth / unscaledViewport.width;
         const baseScale = fitScale > 0 ? fitScale : 1;
         const currentZoom = baseScale * (zoomLevel / 100);
 
-        // Viewport chuẩn cho hiển thị CSS và Viewport cao cấp cho Canvas Buffer
         const displayViewport = page.getViewport({ scale: currentZoom });
         const renderViewport = page.getViewport({ scale: currentZoom * outputScale });
 
-        // Đặt kích thước thực của Canvas Buffer (sắc nét cao)
+        // Đặt kích thước thực của Canvas Buffer (sắc nét)
         canvas.width = Math.floor(renderViewport.width);
         canvas.height = Math.floor(renderViewport.height);
 
@@ -278,13 +267,11 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
       if (e.key === '+' || e.key === '=') { e.preventDefault(); handleZoomIn(); }
       if (e.key === '-') { e.preventDefault(); handleZoomOut(); }
       if (e.key === '0') { e.preventDefault(); handleZoomReset(); }
-      if (e.key === 'f' || e.key === 'F') { e.preventDefault(); setIsFullscreen(f => !f); }
       if ((e.key === 'Enter' || e.key === 'c') && isLastPage && !isFinished) { onSubmit(); }
-      if (e.key === 'Escape' && isFullscreen) { setIsFullscreen(false); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [handlePrevPage, handleNextPage, isLastPage, isFinished, onSubmit, isFullscreen]);
+  }, [handlePrevPage, handleNextPage, isLastPage, isFinished, onSubmit]);
 
   // Show keyboard hint briefly on mount (desktop only)
   useEffect(() => {
@@ -303,7 +290,6 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
     const dx = touchEndRef.clientX - touchStartX.current;
     const dy = touchEndRef.clientY - touchStartY.current;
 
-    // Detect Double Tap to toggle Zoom (100% <-> 150%)
     if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
       if (now - lastTapTimeRef.current < 300) {
         setZoomLevel(z => (z === 100 ? 150 : 100));
@@ -312,10 +298,9 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
       return;
     }
 
-    // Horizontal Swipe (Next / Prev Page)
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 45) {
-      if (dx < 0) handleNextPage(); // swipe left → next
-      else handlePrevPage();         // swipe right → prev
+      if (dx < 0) handleNextPage();
+      else handlePrevPage();
     }
   };
 
@@ -323,91 +308,86 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
   const progress = numPages > 0 ? (pageNum / numPages) * 100 : 0;
 
   return (
-    <div className={`relative box-border max-w-full ${isFullscreen ? 'fixed inset-0 top-0 bottom-0 left-0 right-0 z-50 bg-slate-950 flex flex-col h-[100dvh] w-full max-w-full overflow-hidden' : 'grid grid-cols-1 lg:grid-cols-4 gap-6 items-start pb-28 lg:pb-0'}`}>
+    <div className="relative box-border max-w-full grid grid-cols-1 lg:grid-cols-4 gap-6 items-start pb-28 lg:pb-0">
 
       {/* ─── Keyboard Shortcut Hint (desktop toast) ───────────────────── */}
-      {!isFullscreen && (
-        <div className={`hidden lg:flex fixed bottom-6 left-1/2 -translate-x-1/2 z-50 items-center gap-2 px-4 py-2.5 rounded-full glass-strong border border-white/10 shadow-xl text-xs font-medium text-muted-foreground transition-all duration-500 ${showKeyHint ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-          <Keyboard className="h-3.5 w-3.5 text-fuchsia-400" />
-          <span>Phím tắt:</span>
-          <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-bold">←/→</kbd>
-          <span>trang</span>
-          <span className="text-white/20">·</span>
-          <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-bold">+/-</kbd>
-          <span>zoom</span>
-          <span className="text-white/20">·</span>
-          <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-bold">F</kbd>
-          <span>toàn màn hình</span>
-        </div>
-      )}
+      <div className={`hidden lg:flex fixed bottom-6 left-1/2 -translate-x-1/2 z-50 items-center gap-2 px-4 py-2.5 rounded-full glass-strong border border-border shadow-xl text-xs font-medium text-foreground transition-all duration-500 ${showKeyHint ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+        <Keyboard className="h-3.5 w-3.5 text-fuchsia-500 dark:text-fuchsia-400" />
+        <span>Phím tắt:</span>
+        <kbd className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-white/10 text-[10px] font-bold">←/→</kbd>
+        <span>trang</span>
+        <span className="text-muted-foreground">·</span>
+        <kbd className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-white/10 text-[10px] font-bold">+/-</kbd>
+        <span>zoom</span>
+      </div>
 
       {/* ─── PDF View Panel ─────────────────────────────────────────────── */}
-      <div className={`${isFullscreen ? 'flex-1 flex flex-col h-full w-full max-w-full overflow-hidden' : 'lg:col-span-3 space-y-3 w-full max-w-full'}`}>
+      <div className="lg:col-span-3 space-y-3 w-full max-w-full">
         
-        {/* Header Bar with Drive Link, Zoom & View Controls */}
-        <div className={`glass border border-white/10 px-2.5 sm:px-4 py-2 flex items-center justify-between gap-2 shadow-lg w-full box-border ${isFullscreen ? 'rounded-none border-x-0 border-t-0 bg-slate-900/90 shrink-0' : 'rounded-2xl'}`}>
-          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-            <FilePdf className="h-4 w-4 text-fuchsia-400 shrink-0" />
-            <span className="text-xs font-semibold text-foreground truncate max-w-[110px] sm:max-w-xs" title={assignment.title}>
+        {/* Header Bar with High-Contrast Adaptive Light/Dark Controls & Drive Link */}
+        <div className="bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-white/10 px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2 shadow-sm rounded-2xl w-full box-border">
+          <div className="flex items-center gap-2 min-w-0">
+            <FilePdf className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-400 shrink-0" />
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate max-w-[130px] sm:max-w-xs" title={assignment.title}>
               {assignment.title}
             </span>
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {/* Direct Google Drive Link for Students - ALWAYS VISIBLE */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Direct Google Drive Link Button for Students */}
             {pdfUrl && (
               <a
                 href={pdfUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Mở tài liệu PDF gốc trên Google Drive"
-                className="flex items-center gap-1 px-2 py-1 rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 active:scale-95 text-sky-300 transition-all text-[11px] font-bold shrink-0 shadow-sm"
+                title="Mở file PDF gốc trên Google Drive"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-sky-300 dark:border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 active:scale-95 text-sky-700 dark:text-sky-300 transition-all text-xs font-bold shrink-0 shadow-xs"
               >
-                <ExternalLink className="h-3 w-3 text-sky-400" />
+                <ExternalLink className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
                 <span>Drive</span>
               </a>
             )}
 
             {/* Page navigation indicator */}
             {!loading && !renderError && numPages > 0 && (
-              <div className="flex items-center gap-0.5 sm:gap-2 bg-slate-800/60 px-1.5 sm:px-2 py-1 rounded-xl border border-white/5">
+              <div className="flex items-center gap-1 sm:gap-2 bg-slate-200 dark:bg-slate-800/80 px-2 py-1 rounded-xl border border-slate-300 dark:border-white/10">
                 <button
                   onClick={handlePrevPage} disabled={pageNum === 1}
                   title="Trang trước (←)"
-                  className="p-0.5 sm:p-1 rounded-lg hover:bg-white/10 disabled:opacity-25 transition-all active:scale-95"
+                  className="p-1 rounded-lg hover:bg-slate-300 dark:hover:bg-white/10 disabled:opacity-30 transition-all active:scale-95 text-slate-800 dark:text-slate-200"
                 >
-                  <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="text-[11px] sm:text-xs font-semibold tabular-nums">
-                  <span className="text-fuchsia-400 font-bold">{pageNum}</span>
-                  <span className="text-white/30 mx-0.5">/</span>
+                <span className="text-xs font-bold tabular-nums text-slate-800 dark:text-slate-200">
+                  <span className="text-fuchsia-600 dark:text-fuchsia-400 font-extrabold">{pageNum}</span>
+                  <span className="text-slate-400 dark:text-white/30 mx-0.5">/</span>
                   {numPages}
                 </span>
                 <button
                   onClick={handleNextPage} disabled={pageNum === numPages}
                   title="Trang sau (→)"
-                  className="p-0.5 sm:p-1 rounded-lg hover:bg-white/10 disabled:opacity-25 transition-all active:scale-95"
+                  className="p-1 rounded-lg hover:bg-slate-300 dark:hover:bg-white/10 disabled:opacity-30 transition-all active:scale-95 text-slate-800 dark:text-slate-200"
                 >
-                  <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
             )}
 
             {/* Zoom Controls */}
             {!loading && !renderError && (
-              <div className="hidden xs:flex items-center gap-0.5 sm:gap-1 bg-slate-800/60 p-0.5 rounded-xl border border-white/5">
+              <div className="hidden xs:flex items-center gap-1 bg-slate-200 dark:bg-slate-800/80 p-0.5 rounded-xl border border-slate-300 dark:border-white/10">
                 <button
                   onClick={handleZoomOut} disabled={zoomLevel <= 75}
                   title="Thu nhỏ (-)"
-                  className="p-1 rounded-lg hover:bg-white/10 disabled:opacity-25 transition-all active:scale-95"
+                  className="p-1 rounded-lg hover:bg-slate-300 dark:hover:bg-white/10 disabled:opacity-30 transition-all active:scale-95 text-slate-800 dark:text-slate-200"
                 >
-                  <ZoomOut className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                  <ZoomOut className="h-3.5 w-3.5" />
                 </button>
                 
                 <button
                   onClick={handleZoomReset}
                   title="Vừa màn hình (0)"
-                  className="px-1 py-0.5 text-[10px] sm:text-[11px] font-bold text-fuchsia-300 hover:bg-white/10 rounded-md transition-colors tabular-nums"
+                  className="px-1.5 py-0.5 text-xs font-extrabold text-fuchsia-600 dark:text-fuchsia-300 hover:bg-slate-300 dark:hover:bg-white/10 rounded-md transition-colors tabular-nums"
                 >
                   {zoomLevel}%
                 </button>
@@ -415,61 +395,36 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
                 <button
                   onClick={handleZoomIn} disabled={zoomLevel >= 250}
                   title="Phóng to (+)"
-                  className="p-1 rounded-lg hover:bg-white/10 disabled:opacity-25 transition-all active:scale-95"
+                  className="p-1 rounded-lg hover:bg-slate-300 dark:hover:bg-white/10 disabled:opacity-30 transition-all active:scale-95 text-slate-800 dark:text-slate-200"
                 >
-                  <ZoomIn className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                  <ZoomIn className="h-3.5 w-3.5" />
                 </button>
               </div>
             )}
-
-            {/* Fullscreen Toggle */}
-            <button
-              onClick={() => setIsFullscreen(f => !f)}
-              title={isFullscreen ? "Thu nhỏ giao diện (Esc)" : "Chế độ đọc toàn màn hình (F)"}
-              className={`p-1.5 rounded-xl border transition-all active:scale-95 flex items-center gap-1 text-[11px] font-semibold ${isFullscreen ? 'bg-fuchsia-600 border-fuchsia-500 text-white shadow-lg' : 'border-white/10 bg-slate-800/60 hover:bg-slate-800 text-muted-foreground hover:text-foreground'}`}
-            >
-              {isFullscreen ? (
-                <>
-                  <Minimize2 className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Thu nhỏ</span>
-                </>
-              ) : (
-                <>
-                  <Maximize2 className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Toàn màn hình</span>
-                </>
-              )}
-            </button>
           </div>
         </div>
 
         {/* Top Progress bar */}
-        {!isFullscreen && (
-          <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-            <div
-              className="bg-gradient-to-r from-fuchsia-600 via-violet-500 to-sky-400 h-full rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        )}
+        <div className="h-1.5 bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
+          <div
+            className="bg-gradient-to-r from-fuchsia-600 via-violet-500 to-sky-400 h-full rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
 
-        {/* Canvas Scroll Area - EXPANDED LARGE FRAME FOR MOBILE */}
+        {/* Canvas Scroll Area - Auto-fits PDF Page Height seamlessly (No bottom empty black gaps) */}
         <div
           ref={containerRef}
-          className={`glass border border-white/5 bg-slate-950/60 relative overflow-auto flex justify-center items-start transition-all box-border w-full max-w-full ${
-            isFullscreen
-              ? 'flex-1 w-full rounded-none border-none p-1 sm:p-4 min-h-0'
-              : 'rounded-2xl sm:rounded-3xl p-1 sm:p-4 min-h-[72vh] lg:min-h-[680px] max-h-[88vh]'
-          }`}
+          className="bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-white/5 relative overflow-auto flex justify-center items-center transition-all box-border w-full max-w-full rounded-2xl sm:rounded-3xl p-1 sm:p-3 min-h-[180px] max-h-[70vh] lg:min-h-[600px] lg:max-h-[85vh]"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
           {loading && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 rounded-3xl z-20 space-y-3 p-6 text-center">
-              <RefreshCw className="h-8 w-8 text-fuchsia-400 animate-spin" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100/90 dark:bg-slate-950/90 rounded-3xl z-20 space-y-3 p-6 text-center">
+              <RefreshCw className="h-8 w-8 text-fuchsia-600 dark:text-fuchsia-400 animate-spin" />
               <div className="space-y-1">
-                <p className="text-sm font-bold text-fuchsia-300">{loadingMsg}</p>
-                <p className="text-[11px] text-muted-foreground">Tài liệu đang được tối ưu nét chuẩn Retina...</p>
+                <p className="text-sm font-bold text-fuchsia-600 dark:text-fuchsia-300">{loadingMsg}</p>
+                <p className="text-[11px] text-muted-foreground">Tài liệu đang được nạp chuẩn sắc nét...</p>
               </div>
             </div>
           )}
@@ -494,20 +449,20 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
 
           <canvas
             ref={canvasRef}
-            className={`shadow-2xl rounded-xl transition-transform duration-150 origin-top max-w-full box-border ${loading || renderError ? 'hidden' : 'block'}`}
+            className={`shadow-xl dark:shadow-2xl rounded-xl transition-transform duration-150 origin-top max-w-full box-border ${loading || renderError ? 'hidden' : 'block'}`}
           />
         </div>
 
-        {/* Mobile Swipe / Double Tap Tip */}
-        {!loading && !renderError && numPages > 1 && showMobileSwipeTip && !isFullscreen && (
+        {/* Mobile Swipe Tip */}
+        {!loading && !renderError && numPages > 1 && showMobileSwipeTip && (
           <div className="lg:hidden flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/20">
-            <div className="flex items-center gap-2 text-[11px] text-fuchsia-300 font-medium">
-              <Sparkles className="h-3.5 w-3.5 shrink-0 text-fuchsia-400" />
-              <span>Vuốt <strong>trái/phải</strong> chuyển trang · Chạm <strong>đúp 2 lần</strong> để phóng to</span>
+            <div className="flex items-center gap-2 text-[11px] text-fuchsia-700 dark:text-fuchsia-300 font-medium">
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-fuchsia-600 dark:text-fuchsia-400" />
+              <span>Vuốt <strong>trái/phải</strong> để chuyển trang · Chạm <strong>đúp 2 lần</strong> để phóng to</span>
             </div>
             <button
               onClick={() => setShowMobileSwipeTip(false)}
-              className="text-white/30 hover:text-white/60 text-xs px-1.5 py-0.5 rounded shrink-0 transition-colors touch-manipulation"
+              className="text-slate-400 hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60 text-xs px-1.5 py-0.5 rounded shrink-0 transition-colors touch-manipulation"
               aria-label="Đóng gợi ý"
             >
               ✕
@@ -517,111 +472,109 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
       </div>
 
       {/* ─── Desktop Side Action Panel (1/4) ─────────────────────────── */}
-      {!isFullscreen && (
-        <div className="hidden lg:block lg:col-span-1 lg:sticky lg:top-4 z-30 space-y-4 self-start">
-          {/* Status Box */}
-          <div className="glass-strong rounded-3xl border border-white/10 p-5 shadow-xl space-y-4">
-            <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground text-center">
-              Trạng thái bài tập
+      <div className="hidden lg:block lg:col-span-1 lg:sticky lg:top-4 z-30 space-y-4 self-start">
+        {/* Status Box */}
+        <div className="glass-strong rounded-3xl border border-slate-200 dark:border-white/10 p-5 shadow-xl space-y-4">
+          <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground text-center">
+            Trạng thái bài tập
+          </div>
+          {isFinished ? (
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 mx-auto rounded-full bg-emerald-500/10 flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 text-emerald-500 dark:text-emerald-400" />
+              </div>
+              <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Đã Hoàn Thành</p>
+              <p className="text-[11px] text-muted-foreground">Điểm số lý thuyết: 100/100</p>
             </div>
-            {isFinished ? (
-              <div className="text-center space-y-2">
-                <div className="w-12 h-12 mx-auto rounded-full bg-emerald-500/10 flex items-center justify-center">
-                  <CheckCircle2 className="h-6 w-6 text-emerald-400" />
-                </div>
-                <p className="text-sm font-bold text-emerald-400">Đã Hoàn Thành</p>
-                <p className="text-[11px] text-muted-foreground">Điểm số lý thuyết: 100/100</p>
+          ) : (
+            <div className="text-center space-y-2">
+              <div className="w-10 h-10 mx-auto rounded-full bg-fuchsia-500/10 flex items-center justify-center">
+                <Clock className="h-5 w-5 text-fuchsia-500 dark:text-fuchsia-400 animate-pulse" />
               </div>
-            ) : (
-              <div className="text-center space-y-2">
-                <div className="w-10 h-10 mx-auto rounded-full bg-fuchsia-500/10 flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-fuchsia-400 animate-pulse" />
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed px-2">
-                  Hãy đọc qua tất cả các trang rồi nhấn <strong>Hoàn Thành</strong>.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Action Box */}
-          <div className="glass-strong rounded-3xl border border-white/10 p-5 shadow-xl space-y-4">
-            {!isFinished ? (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tiến trình đọc</h4>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-muted-foreground">Trang hiện tại:</span>
-                    <span className="font-bold">{pageNum} / {numPages || 1}</span>
-                  </div>
-                  <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                    <div className="bg-fuchsia-500 h-full transition-all duration-300" style={{ width: `${progress}%` }} />
-                  </div>
-                </div>
-
-                {isLastPage ? (
-                  <button
-                    onClick={onSubmit} disabled={isSubmitting}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-500 active:scale-95 transition-all shadow-lg shadow-emerald-900/30"
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    {isSubmitting ? 'Đang gửi...' : 'Hoàn Thành Bài Học'}
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleNextPage} disabled={numPages === 0}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-fuchsia-600 text-white font-semibold text-sm hover:bg-fuchsia-500 disabled:opacity-40 transition-all shadow-lg shadow-fuchsia-900/30"
-                  >
-                    Trang Tiếp Theo <ChevronRight className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-center text-muted-foreground leading-relaxed">
-                  Bạn đã hoàn thành việc xem lý thuyết bài học này!
-                </div>
-                {linkedAssignment ? (
-                  <div className="space-y-3 pt-1 border-t border-white/5">
-                    <div className="text-center space-y-1">
-                      <p className="text-[10px] uppercase font-bold tracking-widest text-fuchsia-400">Bài tập thực hành</p>
-                      <p className="text-xs font-bold leading-snug line-clamp-2 px-1">{linkedAssignment.title}</p>
-                    </div>
-                    <button
-                      onClick={() => router.push(`/student/assignments/${linkedAssignment.id}`)}
-                      className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-fuchsia-600 text-white font-semibold text-xs hover:bg-fuchsia-500 active:scale-95 transition-all shadow-lg"
-                    >
-                      Bắt đầu làm bài trắc nghiệm <ChevronRight className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => router.push('/student/assignments')}
-                    className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-slate-800 hover:bg-secondary text-xs font-semibold transition-all"
-                  >
-                    <ArrowLeft className="h-3.5 w-3.5" /> Quay về danh sách
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+              <p className="text-xs text-muted-foreground leading-relaxed px-2">
+                Hãy đọc qua tất cả các trang rồi nhấn <strong>Hoàn Thành</strong>.
+              </p>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Action Box */}
+        <div className="glass-strong rounded-3xl border border-slate-200 dark:border-white/10 p-5 shadow-xl space-y-4">
+          {!isFinished ? (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tiến trình đọc</h4>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">Trang hiện tại:</span>
+                  <span className="font-bold">{pageNum} / {numPages || 1}</span>
+                </div>
+                <div className="h-1 bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
+                  <div className="bg-fuchsia-600 dark:bg-fuchsia-500 h-full transition-all duration-300" style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+
+              {isLastPage ? (
+                <button
+                  onClick={onSubmit} disabled={isSubmitting}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-500 active:scale-95 transition-all shadow-lg"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  {isSubmitting ? 'Đang gửi...' : 'Hoàn Thành Bài Học'}
+                </button>
+              ) : (
+                <button
+                  onClick={handleNextPage} disabled={numPages === 0}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-fuchsia-600 text-white font-bold text-sm hover:bg-fuchsia-500 disabled:opacity-40 transition-all shadow-lg"
+                >
+                  Trang Tiếp Theo <ChevronRight className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-center text-muted-foreground leading-relaxed">
+                Bạn đã hoàn thành việc xem lý thuyết bài học này!
+              </div>
+              {linkedAssignment ? (
+                <div className="space-y-3 pt-1 border-t border-slate-200 dark:border-white/5">
+                  <div className="text-center space-y-1">
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-fuchsia-600 dark:text-fuchsia-400">Bài tập thực hành</p>
+                    <p className="text-xs font-bold leading-snug line-clamp-2 px-1">{linkedAssignment.title}</p>
+                  </div>
+                  <button
+                    onClick={() => router.push(`/student/assignments/${linkedAssignment.id}`)}
+                    className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-fuchsia-600 text-white font-bold text-xs hover:bg-fuchsia-500 active:scale-95 transition-all shadow-lg"
+                  >
+                    Bắt đầu làm bài trắc nghiệm <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => router.push('/student/assignments')}
+                  className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-secondary text-xs font-bold transition-all text-slate-800 dark:text-slate-100"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> Quay về danh sách
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* ─── Mobile: Fixed Bottom Navigation Bar ─────────────────────── */}
-      <div className={`${isFullscreen ? 'relative z-50 shrink-0 w-full max-w-full' : 'lg:hidden fixed bottom-0 left-0 right-0 z-50 w-full max-w-full'}`}>
-        <div className="bg-slate-900/95 backdrop-blur-xl border-t border-white/10 px-3 sm:px-4 pt-3 pb-3 w-full box-border" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 w-full max-w-full">
+        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200 dark:border-white/10 px-3 sm:px-4 pt-3 pb-3 w-full box-border shadow-2xl" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
 
           {/* Page progress on mobile */}
-          {!loading && !renderError && numPages > 0 && !isFullscreen && (
+          {!loading && !renderError && numPages > 0 && (
             <div className="mb-2.5 space-y-1">
               <div className="flex justify-between items-center text-[11px]">
-                <span className="text-white/40 font-medium">Tiến trình đọc</span>
-                <span className="font-bold text-fuchsia-300">{pageNum} / {numPages} trang</span>
+                <span className="text-slate-500 dark:text-white/40 font-bold">Tiến trình đọc</span>
+                <span className="font-bold text-fuchsia-600 dark:text-fuchsia-300">{pageNum} / {numPages} trang</span>
               </div>
-              <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-fuchsia-500 to-violet-400 h-full rounded-full transition-all duration-300"
+                  className="bg-gradient-to-r from-fuchsia-600 to-violet-500 h-full rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -630,15 +583,15 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
 
           {/* Action buttons */}
           {!isFinished ? (
-            <div className="grid grid-cols-4 gap-1.5 sm:gap-2 w-full">
+            <div className="grid grid-cols-3 gap-2 w-full">
               {/* Prev */}
               <button
                 onClick={handlePrevPage}
                 disabled={pageNum <= 1 || numPages === 0}
-                className="flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-xl border border-white/10 bg-slate-800/80 active:bg-slate-700 disabled:opacity-25 transition-all touch-manipulation select-none"
+                className="flex flex-col items-center justify-center gap-0.5 py-3 rounded-xl border border-slate-300 dark:border-white/10 bg-slate-100 dark:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 disabled:opacity-30 transition-all touch-manipulation select-none text-slate-800 dark:text-slate-100"
               >
                 <ChevronLeft className="h-4 w-4" />
-                <span className="text-[10px] font-semibold">Trang trước</span>
+                <span className="text-[10px] font-bold">Trang trước</span>
               </button>
 
               {/* Primary action: Next or Complete */}
@@ -646,7 +599,7 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
                 <button
                   onClick={onSubmit}
                   disabled={isSubmitting}
-                  className="col-span-2 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold active:bg-emerald-500 disabled:opacity-50 transition-all touch-manipulation select-none shadow-lg shadow-emerald-900/40"
+                  className="col-span-2 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-emerald-600 text-white font-bold active:bg-emerald-500 disabled:opacity-50 transition-all touch-manipulation select-none shadow-lg shadow-emerald-900/30"
                 >
                   <CheckCircle2 className="h-4 w-4" />
                   <span className="text-xs font-bold">{isSubmitting ? 'Gửi...' : 'Hoàn Thành'}</span>
@@ -655,26 +608,17 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
                 <button
                   onClick={handleNextPage}
                   disabled={numPages === 0 || isLastPage}
-                  className="col-span-2 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-fuchsia-600 text-white font-bold active:bg-fuchsia-500 disabled:opacity-40 transition-all touch-manipulation select-none shadow-lg shadow-fuchsia-900/40"
+                  className="col-span-2 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-fuchsia-600 text-white font-bold active:bg-fuchsia-500 disabled:opacity-40 transition-all touch-manipulation select-none shadow-lg shadow-fuchsia-900/30"
                 >
                   <span className="text-xs font-bold">Trang tiếp theo</span>
                   <ChevronRight className="h-4 w-4" />
                 </button>
               )}
-
-              {/* Fullscreen or Exit */}
-              <button
-                onClick={() => setIsFullscreen(f => !f)}
-                className={`flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-xl border transition-all touch-manipulation select-none ${isFullscreen ? 'bg-fuchsia-600/30 border-fuchsia-500/50 text-fuchsia-300' : 'border-white/10 bg-slate-800/80 active:bg-slate-700'}`}
-              >
-                {isFullscreen ? <Minimize2 className="h-4 w-4 text-fuchsia-300" /> : <Maximize2 className="h-4 w-4 text-white/70" />}
-                <span className="text-[10px] font-semibold">{isFullscreen ? 'Thu nhỏ' : 'Toàn màn'}</span>
-              </button>
             </div>
           ) : (
             // Finished state on mobile
             <div className="space-y-2 w-full">
-              <div className="flex items-center justify-center gap-2 text-emerald-400 text-xs font-bold mb-1">
+              <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-bold mb-1">
                 <CheckCircle2 className="h-4 w-4" />
                 Đã hoàn thành bài học!
               </div>
@@ -688,7 +632,7 @@ export function GrammarPdfExercise({ assignment, onSubmit, isSubmitting, result,
               ) : (
                 <button
                   onClick={() => router.push('/student/assignments')}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-800 text-xs font-semibold active:bg-slate-700 transition-all touch-manipulation select-none"
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs font-bold active:bg-slate-300 dark:active:bg-slate-700 transition-all touch-manipulation select-none"
                 >
                   <ArrowLeft className="h-4 w-4" /> Quay về danh sách
                 </button>
